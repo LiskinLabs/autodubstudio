@@ -144,9 +144,31 @@ async def websocket_pipeline(websocket: WebSocket):
 # ── Model Download / Status ──
 import subprocess
 import threading
+import time
 
 _model_download_status: dict = {}
 _model_download_lock = threading.Lock()
+
+# Expected model sizes in bytes (for progress tracking)
+_MODEL_SIZES = {
+    "tiny": 75_000_000,
+    "base": 290_000_000,
+    "small": 483_000_000,
+    "medium": 1_500_000_000,
+    "large-v3": 3_100_000_000,
+    "large": 3_100_000_000,
+}
+
+def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, stop_event: threading.Event):
+    """Monitor file size during download and update progress."""
+    while not stop_event.is_set():
+        if os.path.exists(file_path):
+            size = os.path.getsize(file_path)
+            pct = min(99, int(size / expected_size * 100))
+            with _model_download_lock:
+                if _model_download_status.get(model_id, {}).get("progress", 0) < pct:
+                    _model_download_status[model_id]["progress"] = pct
+        time.sleep(2)
 
 @app.get("/api/models/status")
 async def get_model_status():
@@ -213,9 +235,25 @@ async def preload_model(model_id: str):
             if model_id.startswith("whisper"):
                 import whisper
                 size = model_id.replace("whisper-", "")
-                with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 10
-                whisper.load_model(size)
+                expected = _MODEL_SIZES.get(size, 3_100_000_000)
+                cache_path = os.path.expanduser(f"~/.cache/whisper/{size}.pt")
+
+                # Start file size monitor
+                stop_monitor = threading.Event()
+                monitor = threading.Thread(
+                    target=_monitor_file_progress,
+                    args=(model_id, cache_path, expected, stop_monitor),
+                    daemon=True
+                )
+                monitor.start()
+
+                try:
+                    with _model_download_lock:
+                        _model_download_status[model_id]["progress"] = 1
+                    whisper.load_model(size)
+                finally:
+                    stop_monitor.set()
+
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
@@ -223,7 +261,7 @@ async def preload_model(model_id: str):
                 from pyannote.audio import Pipeline
                 token = os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
                 with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 10
+                    _model_download_status[model_id]["progress"] = 5
                 Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=token or True)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
@@ -231,15 +269,14 @@ async def preload_model(model_id: str):
             elif model_id == "xttsv2":
                 from TTS.api import TTS
                 with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 10
+                    _model_download_status[model_id]["progress"] = 5
                 TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "qwen3-tts":
                 with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 10
-                # Qwen3-TTS auto-downloads on first use
+                    _model_download_status[model_id]["progress"] = 5
                 from qwen3_worker import Qwen3TTSWorker
                 worker = Qwen3TTSWorker()
                 worker.load_model()
@@ -248,8 +285,7 @@ async def preload_model(model_id: str):
 
             elif model_id == "f5-tts":
                 with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 10
-                # F5-TTS auto-downloads on first use
+                    _model_download_status[model_id]["progress"] = 5
                 from f5_worker import F5TTSWorker
                 worker = F5TTSWorker()
                 worker.load_model()
@@ -257,7 +293,6 @@ async def preload_model(model_id: str):
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "gemma4":
-                # Pull via Ollama CLI
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(["ollama", "pull", "gemma4:e4b"], capture_output=True, text=True, timeout=3600)

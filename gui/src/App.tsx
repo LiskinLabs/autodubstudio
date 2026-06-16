@@ -176,6 +176,7 @@ const App: React.FC = () => {
     <div className="app-root">
       {/* ── Titlebar (Tauri drag region) ── */}
       <div className="titlebar">
+        <img src="/logo-icon.png" alt="" className="titlebar-logo" style={{ width: 18, height: 18, marginRight: 8 }} />
         <span className="titlebar-title">AutoDub Studio</span>
       </div>
 

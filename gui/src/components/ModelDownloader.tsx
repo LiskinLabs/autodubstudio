@@ -80,7 +80,8 @@ export default function ModelDownloader() {
     const toDownload = MODELS.filter(m => selected.has(m.id) && !modelStatus[m.id]?.done);
 
     for (const model of toDownload) {
-      setModelStatus(prev => ({ ...prev, [model.id]: { done: false, progress: 5 } }));
+      // Show "downloading" state — backend will update real status via polling
+      setModelStatus(prev => ({ ...prev, [model.id]: { done: false, progress: -1 } }));
       try {
         await fetch(`${BACKEND}/api/models/preload/${model.id}`, { method: 'POST' });
       } catch { /* backend will handle */ }
@@ -123,7 +124,8 @@ export default function ModelDownloader() {
           {MODELS.map(model => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
-            const isDownloading = !isDone && st?.progress > 0;
+            const isDownloading = !isDone && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0));
+            const hasRealProgress = st?.progress >= 5;
             const isChecked = selected.has(model.id) || isDone;
 
             return (
@@ -135,11 +137,22 @@ export default function ModelDownloader() {
                     <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
                   </div>
                   <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{model.description}</div>
-                  {isDownloading && <div className="progress-bar" style={{ marginTop: 'var(--space-2)' }}><div className="progress-bar-fill" style={{ width: `${st.progress}%` }} /></div>}
+                  {isDownloading && hasRealProgress && (
+                    <div className="progress-bar" style={{ marginTop: 'var(--space-2)' }}>
+                      <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
+                    </div>
+                  )}
+                  {isDownloading && !hasRealProgress && (
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 4 }}>
+                      ⏳ Загрузка... (может занять 10-30 мин для больших моделей)
+                    </div>
+                  )}
                   {st?.error && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>{st.error}</div>}
                 </div>
                 {isDone && <span className="badge badge-success">✓</span>}
-                {isDownloading && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600 }}>{st.progress}%</span>}
+                {isDownloading && hasRealProgress && (
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600 }}>{st.progress}%</span>
+                )}
               </label>
             );
           })}

@@ -43,7 +43,8 @@
         "headerImage": "icons/StoreLogo.png",
         "languages": ["English", "Russian", "Turkish"],
         "displayLanguageSelector": true,
-        "startMenuFolder": "AutoDub Studio"
+        "startMenuFolder": "AutoDub Studio",
+        "createDesktopShortcut": true
       },
       "wix": {
         "language": ["en-US", "ru-RU", "tr-TR"],
