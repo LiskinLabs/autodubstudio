@@ -5,13 +5,14 @@ import torch
 import traceback
 
 def main():
-    if len(sys.argv) < 4:
-        print("Usage: python diarization_worker.py <input_audio.wav> <output.json> <hf_token>")
+    if len(sys.argv) < 3:
+        print("Usage: python diarization_worker.py <input_audio.wav> <output.json>")
+        print("  HF_TOKEN is read from environment variable (more secure than argv).")
         sys.exit(1)
 
     audio_path = sys.argv[1]
     output_json = sys.argv[2]
-    hf_token = sys.argv[3]
+    hf_token = os.environ.get("HF_TOKEN", "")
 
     if not os.path.exists(audio_path):
         print(f"File not found: {audio_path}")

@@ -30,6 +30,10 @@ class EventSignal:
 PIPELINE_BUSY = False
 PIPELINE_LOCK = threading.Lock()
 
+class InterruptedError(Exception):
+    """Raised when user cancels pipeline — triggers clean finally-block cleanup."""
+    pass
+
 class AutoDubWorker(threading.Thread):
     def __init__(self, video_path=None, out_dir=None, langs=None, model_size=None, device=None, translator_engine=None, gemini_key="", deepseek_key="", deepl_key="", dub_engine="", hf_key="", manual_mode=False):
         super().__init__()
@@ -131,6 +135,11 @@ class AutoDubWorker(threading.Thread):
                 return filepath
         raise RuntimeError(f"Failed to download: {url}")
 
+    def _check_cancelled(self):
+        """Raise InterruptedError if stop was requested — allows clean finally-block cleanup."""
+        if self._stop_event.is_set():
+            raise InterruptedError("Pipeline cancelled by user")
+
     def run(self):
         global PIPELINE_BUSY
         with PIPELINE_LOCK:
@@ -146,6 +155,7 @@ class AutoDubWorker(threading.Thread):
             if self.video_path.startswith("http://") or self.video_path.startswith("https://"):
                 self.video_path = self._download_youtube(self.video_path, self.out_dir)
 
+            self._check_cancelled()
             # Security: validate and normalize video path
             if not self.video_path or not os.path.isfile(self.video_path):
                 self.finished_signal.emit(False, "Invalid video file path")
@@ -169,7 +179,25 @@ class AutoDubWorker(threading.Thread):
 
             base_name = os.path.splitext(os.path.basename(self.video_path))[0]
 
+            # ── Checkpoint helper ──
+            def _save_checkpoint(name, data):
+                cp_path = os.path.join(self.out_dir, f".autodub_{base_name}_{name}.json")
+                import json as _json
+                with open(cp_path, "w", encoding="utf-8") as f:
+                    _json.dump(data, f, ensure_ascii=False)
+                all_created_files.append(cp_path)
+                return cp_path
+
+            def _load_checkpoint(name):
+                cp_path = os.path.join(self.out_dir, f".autodub_{base_name}_{name}.json")
+                if os.path.exists(cp_path):
+                    import json as _json
+                    with open(cp_path, "r", encoding="utf-8") as f:
+                        return _json.load(f)
+                return None
+
             # 1. Изоляция вокала (Demucs)
+            self._check_cancelled()
             self.log_signal.emit("🎵 Изоляция вокала (Demucs) - извлекаем чистый голос...")
             demucs_out_dir = os.path.join(self.out_dir, "demucs_out")
             os.makedirs(demucs_out_dir, exist_ok=True)
@@ -195,28 +223,61 @@ class AutoDubWorker(threading.Thread):
                 else:
                     torch.cuda.empty_cache()
 
-            # 2. Транскрибация (WhisperX)
-            # 2. Транскрибация (Whisper)
-            self.log_signal.emit(f"🔄 Загрузка Whisper ({self.model_size}) на {self.device}...")
-            import whisper
-            
-            try:
-                model = whisper.load_model(self.model_size, device=self.device)
-                result = model.transcribe(transcribe_path)
-                self.log_signal.emit(f"✅ Транскрибация завершена (язык: {result.get('language', 'unknown')}).")
-            except Exception as e:
-                self.log_signal.emit(f"⚠ Ошибка транскрибации: {e}")
-                raise
-            
-            del model
-            if self.device == "cuda": torch.cuda.empty_cache()
+            # 2. Транскрибация (Whisper) — или загрузка из чекпойнта
+            self._check_cancelled()
+            segments = _load_checkpoint("segments")
+            if segments:
+                self.log_signal.emit(f"✅ Сегменты загружены из кэша ({len(segments)} шт., пропуск Whisper)")
+            else:
+                self.log_signal.emit(f"🔄 Загрузка Whisper ({self.model_size}) на {self.device}...")
+                import whisper
 
-            # Форматируем сегменты
-            segments = []
-            for s in result["segments"]:
-                segments.append({"start": s["start"], "end": s["end"], "text": s["text"], "speaker": "SPEAKER_00"})
-            
-            self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
+                try:
+                    model = whisper.load_model(self.model_size, device=self.device)
+                    result = model.transcribe(transcribe_path)
+                    self.log_signal.emit(f"✅ Транскрибация завершена (язык: {result.get('language', 'unknown')}).")
+                except Exception as e:
+                    self.log_signal.emit(f"⚠ Ошибка транскрибации: {e}")
+                    raise
+
+                del model
+                if self.device == "cuda": torch.cuda.empty_cache()
+
+                # Форматируем сегменты
+                segments = []
+                for s in result["segments"]:
+                    segments.append({"start": s["start"], "end": s["end"], "text": s["text"], "speaker": "SPEAKER_00"})
+
+                self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
+                _save_checkpoint("segments", segments)
+
+            # 3. Диаризация (определение спикеров) — опционально, если есть HF токен
+            if self.hf_key:
+                self.log_signal.emit("👥 Диаризация (Pyannote) — определение спикеров...")
+                diar_json = os.path.join(self.out_dir, f"{base_name}_diarization.json")
+                try:
+                    diar_script = os.path.join(os.path.dirname(__file__), "diarization_worker.py")
+                    subprocess.run(
+                        [sys.executable, diar_script, transcribe_path, diar_json],
+                        check=True, timeout=600,
+                        env={**os.environ, "HF_TOKEN": self.hf_key},
+                    )
+                    if os.path.exists(diar_json):
+                        import json as _json
+                        with open(diar_json, "r", encoding="utf-8") as f:
+                            diar_data = _json.load(f)
+                        # Map diarization speakers to whisper segments by time overlap
+                        for seg in segments:
+                            seg_mid = (seg["start"] + seg["end"]) / 2
+                            for d in diar_data:
+                                if d["start"] <= seg_mid <= d["end"]:
+                                    seg["speaker"] = d["speaker"]
+                                    break
+                        unique = len(set(s["speaker"] for s in segments))
+                        self.log_signal.emit(f"✅ Диаризация: {unique} спикеров определено.")
+                        all_created_files.append(diar_json)
+                except Exception as e:
+                    self.log_signal.emit(f"⚠ Диаризация не удалась: {e}. Использую SPEAKER_00.")
 
             # 3.5 — Save original English subtitles
             orig_srt_path = os.path.join(self.out_dir, f"{base_name}_original.srt")
@@ -239,11 +300,19 @@ class AutoDubWorker(threading.Thread):
             file_idx = 2  # 0=video, 1=original audio+subs
 
             for i, (lang, _) in enumerate(self.langs.items()):
+                self._check_cancelled()
                 self.log_signal.emit(f"▶ Обработка языка: {lang}...")
                 srt_path = os.path.join(self.out_dir, f"{base_name}_{lang}.srt")
                 all_created_files.append(srt_path)
 
-                translated_segments = self.translator.smart_translate_segments([dict(s) for s in segments], lang, self.log_signal.emit)
+                # Check for cached translation
+                cached = _load_checkpoint(f"translated_{lang}")
+                if cached:
+                    translated_segments = cached
+                    self.log_signal.emit(f"  ✅ Перевод загружен из кэша ({len(translated_segments)} сегментов)")
+                else:
+                    translated_segments = self.translator.smart_translate_segments([dict(s) for s in segments], lang, self.log_signal.emit)
+                    _save_checkpoint(f"translated_{lang}", translated_segments)
 
                 if self.manual_mode:
                     manual_subs = []
@@ -362,20 +431,54 @@ class AutoDubWorker(threading.Thread):
                     if tts_segments:
                         self.log_signal.emit(f"🎙️ Edge-TTS: generating {len(tts_segments)} segments (sentence-aware grouping)...")
 
-                        # Group segments by sentence boundaries for natural TTS cuts
-                        SENTENCE_END = {'.', '!', '?', '...', '."', '!"', '?"', '.)', '.)"'}
+                        # ── Robust sentence-aware grouping ──
+                        # Detects sentence endings in ANY language (Latin + Cyrillic + Arabic + CJK + punctuation)
+                        SENTENCE_END = {
+                            '.', '!', '?', '…', '。', '？', '！',  # Basic + CJK
+                            '."', '!"', '?"', '.)', '.)"',          # Quoted
+                            '.»', '!»', '?»',                        # French/Russian quotes
+                            '.")', '!")', '?")',                     # Parenthetical quotes
+                        }
+                        # Also check last 2 chars for multi-char endings
+                        SENTENCE_END_2 = {'.»', '!"', '?"', '."', '.)', '.)"', '.")', '!")', '?")'}
+
                         def _ends_sentence(text):
                             t = text.strip()
-                            return any(t.endswith(c) for c in SENTENCE_END) or len(t) < 3
+                            if not t:
+                                return True  # Empty = break
+                            if len(t) < 3:
+                                return False  # Too short to determine, keep grouping
+                            # Check multi-char endings first
+                            if any(t.endswith(c) for c in SENTENCE_END_2):
+                                return True
+                            # Check single-char endings
+                            if t[-1] in SENTENCE_END:
+                                return True
+                            return False
 
                         groups = []  # [(group_segments, combined_text)]
                         cur_group = []
-                        MAX_GROUP = 8  # Max segments per TTS group
+                        cur_chars = 0
+                        MAX_SEGMENTS = 6     # Max segments per TTS group
+                        MAX_CHARS = 400       # Max total characters per group (~30 sec of speech)
+
                         for _, tseg, clip_path in tts_segments:
-                            cur_group.append((tseg, clip_path))
-                            if _ends_sentence(tseg["text"]) or len(cur_group) >= MAX_GROUP:
+                            seg_chars = len(tseg["text"].strip())
+                            # Force break if adding this segment would exceed limits
+                            if cur_group and (
+                                len(cur_group) >= MAX_SEGMENTS or
+                                cur_chars + seg_chars > MAX_CHARS
+                            ):
                                 groups.append(cur_group)
                                 cur_group = []
+                                cur_chars = 0
+                            cur_group.append((tseg, clip_path))
+                            cur_chars += seg_chars
+                            # Natural break at sentence end
+                            if _ends_sentence(tseg["text"]):
+                                groups.append(cur_group)
+                                cur_group = []
+                                cur_chars = 0
                         if cur_group:
                             if groups:
                                 groups[-1].extend(cur_group)
@@ -387,8 +490,8 @@ class AutoDubWorker(threading.Thread):
                                 parts = []
                                 for tseg, _ in group:
                                     t = tseg["text"].strip()
-                                    if t and not _ends_sentence(t):
-                                        t += ', '
+                                    if t and not _ends_sentence(t) and t[-1] not in {'.', '!', '?', '…', '。'}:
+                                        t += '. '  # Force sentence break for TTS naturalness
                                     parts.append(t)
                                 group_text = ' '.join(parts)
                                 group_path = os.path.join(self.out_dir, f"temp_{lang}_group{gi}.mp3")
@@ -419,9 +522,18 @@ class AutoDubWorker(threading.Thread):
                         allowed_dur = tseg["end"] - tseg["start"]
                         actual_dur = len(clip) / 1000.0
                         if actual_dur > allowed_dur + 0.1 and not tseg.get("skip_dub", False):
-                            speed_factor = min(2.0, actual_dur / allowed_dur) # cap at 2.0x
+                            speed_factor = min(4.0, actual_dur / allowed_dur)  # cap at 4.0x
                             stretched_cp = cp + "_fast.wav"
-                            subprocess.run(["ffmpeg", "-y", "-i", cp, "-filter:a", f"atempo={speed_factor}", stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            # Build chained atempo filter: atempo supports 0.5-2.0, chain if > 2.0
+                            remaining = speed_factor
+                            atempo_filters = []
+                            while remaining > 2.0:
+                                atempo_filters.append("atempo=2.0")
+                                remaining /= 2.0
+                            if remaining > 1.0 or not atempo_filters:
+                                atempo_filters.append(f"atempo={remaining:.4f}")
+                            filter_chain = ",".join(atempo_filters)
+                            subprocess.run(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                             clip = AudioSegment.from_file(stretched_cp)
                             all_created_files.append(stretched_cp)
                         
@@ -449,8 +561,11 @@ class AutoDubWorker(threading.Thread):
                 lang_display = lang_names.get(lang, lang.upper())
                 metadata.extend([
                     f"-metadata:s:a:{audio_track_idx}", f"title={lang_display} Dub",
+                    f"-metadata:s:a:{audio_track_idx}", f"language={lang}",
                     f"-metadata:s:a:{audio_track_idx+1}", f"title={lang_display} Clean",
+                    f"-metadata:s:a:{audio_track_idx+1}", f"language={lang}",
                     f"-metadata:s:s:{subtitle_track_idx}", f"title={lang_display} Subtitles",
+                    f"-metadata:s:s:{subtitle_track_idx}", f"language={lang}",
                 ])
                 audio_track_idx += 2; subtitle_track_idx += 1
                 file_idx += 3
@@ -486,6 +601,9 @@ class AutoDubWorker(threading.Thread):
                     self.log_signal.emit("⚠ Скрипт Lip-Sync не найден. Пропуск.")
 
             self.finished_signal.emit(True, f"Успешно: {final_mkv}")
+        except InterruptedError:
+            self.log_signal.emit("🛑 Пайплайн отменён пользователем.")
+            self.finished_signal.emit(False, "Cancelled by user")
         except Exception as e:
             self.finished_signal.emit(False, str(e))
         finally:

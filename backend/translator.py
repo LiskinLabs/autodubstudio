@@ -322,8 +322,11 @@ class Translator:
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
                                       ("deepseek" in self.engine_name.lower() and self.deepseek_key))
 
-        # ── Step 1: ALWAYS get a base translation (Google Translate) for fallback ──
-        if log_callback: log_callback("⚡ Google Translate — базовый перевод...")
+        # ── Step 1: ALWAYS get a base translation for fallback ──
+        engine_label = "Gemini API" if ("gemini" in self.engine_name.lower() and self.gemini_key) else \
+                       "DeepSeek API" if ("deepseek" in self.engine_name.lower() and self.deepseek_key) else \
+                       "Google Translate"
+        if log_callback: log_callback(f"⚡ {engine_label} — базовый перевод...")
         for seg in segments:
             orig_text = seg["text"].strip()
             if orig_text:
@@ -369,7 +372,9 @@ class Translator:
             except Exception:
                 if log_callback:
                     log_callback(f"  ⚠ Gemma4 не отвечает — использую Google Translate для этого прогона")
-                # Gemma4 is down; skip directly to Google Translate
+                # Gemma4 is down; fall back to Google Translate base translation
+                for seg in segments:
+                    seg["text"] = seg.get("translated_base", seg["text"])
                 self.release_models()
                 return segments
 
@@ -407,6 +412,9 @@ JSON:"""
                     if log_callback and gemma4_failures == 3:
                         log_callback("  ⚡ Gemma4 недоступен — использую Google Translate для оставшихся батчей")
                     gemma4_failures += 1  # Keep incrementing to avoid re-logging
+                    # Fall back to Google Translate base for this batch
+                    for seg in batch:
+                        seg["text"] = seg.get("translated_base", seg["text"])
                     continue
 
                 try:
@@ -445,9 +453,10 @@ JSON:"""
             self.release_models()
             return segments
 
-        # ── Gemini/DeepSeek: smart batch translation ──
+        # ── Gemini/DeepSeek: copy base translation to text ──
         if is_ai_refine and not is_ollama:
-
+            for seg in segments:
+                seg["text"] = seg.get("translated_base", seg["text"])
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()
             return segments

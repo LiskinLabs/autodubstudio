@@ -15,22 +15,31 @@ if sys.platform == "win32":
 
 from engine import AutoDubWorker
 
+
 def main():
-    video_path = r"C:\Users\silvestr.liskin\Desktop\AutoDubStudio\downloads\New Samsung Dex - One UI 8.5 !.mp4"
-    out_dir = r"C:\Users\silvestr.liskin\Desktop\AutoDubStudio\downloads"
+    # Project-relative paths
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    video_path = os.path.join(project_dir, "downloads", "New Samsung Dex - One UI 8.5 !.mp4")
+    out_dir = os.path.join(project_dir, "downloads")
 
     if not os.path.exists(video_path):
         print(f"[FATAL] Video not found: {video_path}")
         sys.exit(1)
 
+    # Gemini API — fast cloud translation (no local GPU needed for translation)
+    translator_engine = "Google Gemini API [internet, $]"
+    gemini_api_key = "AIzaSyBwNCjyAsa8abc3Qcs8UcnfiF0MPbJHNhc"
+    # Edge-TTS works for all 14 languages, fast and free
+    dub_engine = "Edge-TTS (Cloud, Free, Fast)"
+
     print("=" * 70)
     print("  AutoDubStudio CLI — Full Pipeline Test")
     print("=" * 70)
     print(f"  Video:       {os.path.basename(video_path)}")
-    print(f"  Target Lang: ru (Russian)")
-    print(f"  Translator:  Ollama Gemma4 (Local, Free)")
-    print(f"  TTS Engine:  Qwen3-TTS Local")
-    print(f"  Whisper:     small (WhisperX)")
+    print(f"  Target Langs: ru (Russian), tr (Turkish)")
+    print(f"  Translator:  {translator_engine}")
+    print(f"  TTS Engine:  {dub_engine}")
+    print(f"  Whisper:     small")
     print(f"  Device:      cuda")
     print(f"  Mode:        automatic (no manual review)")
     print("=" * 70)
@@ -38,21 +47,21 @@ def main():
 
     start_time = time.time()
 
-    # Create worker using the dict config
     config = {
         "video_path": video_path,
         "out_dir": out_dir,
-        "target_langs": ["ru"],
+        "target_langs": ["ru", "tr"],
         "whisper_model": "small",
         "device": "cuda",
-        "translation_engine": "Ollama (Local, Free)",
-        "dub_engine": "Qwen3-TTS Local",
+        "translation_engine": translator_engine,
+        "gemini_key": gemini_api_key,
+        "dub_engine": dub_engine,
         "manual_mode": False,
-        "lip_sync": True
+        "lip_sync": False,
+        "tag": "RU-TR",
     }
     worker = AutoDubWorker(config)
 
-    # Connect signals to console output
     def on_log(msg):
         elapsed = time.time() - start_time
         try:
@@ -83,7 +92,6 @@ def main():
     worker.progress_signal.connect(on_progress)
     worker.finished_signal.connect(on_finished)
 
-    # Run synchronously (not as a thread) so we see output in real-time
     print("  Starting pipeline...\n")
     worker.run()
 
