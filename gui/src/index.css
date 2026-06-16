@@ -168,7 +168,7 @@ html, body {
 .app-body {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  overflow-x: hidden; /* prevent sidebar transition overflow */
 }
 
 /* ─── Titlebar (Drag Region) ─── */
@@ -348,9 +348,8 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
   background: var(--bg-app);
-  min-height: 0; /* Allow flex child to shrink for scrolling */
 }
 
 .page {
@@ -358,7 +357,8 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-8);
-  min-height: 0; /* Required: allow flex child to scroll when content overflows */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
   animation: fadeIn var(--transition-base);
 }
 

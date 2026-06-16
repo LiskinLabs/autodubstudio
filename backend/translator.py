@@ -181,7 +181,7 @@ class Translator:
                 headers = {'Content-Type': 'application/json'}
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=60) as resp:
+                    with urllib.request.urlopen(req, timeout=300) as resp:
                         if resp.status == 200:
                             result = json.loads(resp.read().decode())
                             text = result.get("response", "")
@@ -342,7 +342,38 @@ class Translator:
             if log_callback:
                 log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
 
-            gemma4_failures = 0  # Circuit breaker
+            # ── VRAM cleanup: free GPU memory before loading Gemma4 ──
+            try:
+                import gc, torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                    free_mb = torch.cuda.mem_get_info()[0] / 1024**2
+                    if log_callback:
+                        log_callback(f"  🧹 VRAM очищена, свободно: {free_mb:.0f} MB")
+            except Exception:
+                pass
+
+            # ── Warmup: load Gemma4 into GPU once (60-120s), then stay via keep_alive ──
+            if log_callback:
+                log_callback("  ⏳ Прогрев Gemma4 (загрузка в GPU, до 5 мин)...")
+            warmup_ok = False
+            try:
+                warmup_prompt = f"Say 'ready' in {lang_name}. One word only."
+                warmup_response = self._call_llm(warmup_prompt, is_json=False)
+                if warmup_response and len(warmup_response.strip()) > 0:
+                    warmup_ok = True
+                    if log_callback:
+                        log_callback(f"  ✅ Gemma4 загружен и готов")
+            except Exception:
+                if log_callback:
+                    log_callback(f"  ⚠ Gemma4 не отвечает — использую Google Translate для этого прогона")
+                # Gemma4 is down; skip directly to Google Translate
+                self.release_models()
+                return segments
+
+            gemma4_failures = 0  # Circuit breaker (only for post-warmup batches)
             for batch_start in range(0, total, batch_size):
                 batch_end = min(batch_start + batch_size, total)
                 batch = segments[batch_start:batch_end]
