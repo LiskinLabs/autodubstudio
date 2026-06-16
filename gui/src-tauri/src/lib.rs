@@ -1,9 +1,6 @@
 use std::process::{Command as StdCommand, Stdio};
-use std::sync::Mutex;
 use tauri::Manager;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
-
-struct BackendProcess(Mutex<Option<std::process::Child>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,7 +19,6 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .manage(BackendProcess(Mutex::new(None)))
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
 
@@ -51,67 +47,57 @@ pub fn run() {
             let backend_script = backend_candidates.iter().find(|p| p.exists());
 
             if let Some(script_path) = backend_script {
-                let script_dir = script_path.parent().unwrap();
-                let project_dir = script_dir.parent().unwrap();
+                let project_dir = script_path.parent().unwrap().parent().unwrap();
 
-                // Try uv run first (fast, uses .venv), then system python, then python3
-                let python_cmds = vec![
+                // Try python/uv to start uvicorn backend
+                let starters = vec![
                     ("uv", vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
                     ("python", vec!["-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
                 ];
 
-                let state = app.state::<BackendProcess>();
-
-                for (cmd, args) in &python_cmds {
-                    let child = StdCommand::new(cmd)
+                let mut started = false;
+                for (cmd, args) in &starters {
+                    if let Ok(child) = StdCommand::new(cmd)
                         .args(args)
                         .current_dir(project_dir)
                         .stdout(Stdio::null())
                         .stderr(Stdio::null())
-                        .spawn();
-
-                    if let Ok(child) = child {
-                        println!("[AutoDub] Backend started with: {} (PID: {})", cmd, child.id());
-                        *state.0.lock().unwrap() = Some(child);
+                        .spawn()
+                    {
+                        println!("[AutoDub] Backend started: {} (PID: {})", cmd, child.id());
+                        started = true;
                         break;
                     }
                 }
 
-                if state.0.lock().unwrap().is_none() {
-                    // Last resort: try the .venv python
+                // Fallback: .venv python
+                if !started {
                     let venv_python = project_dir.join(".venv").join("Scripts").join("python.exe");
                     if venv_python.exists() {
-                        let child = StdCommand::new(venv_python)
+                        if let Ok(child) = StdCommand::new(&venv_python)
                             .arg(script_path)
                             .stdout(Stdio::null())
                             .stderr(Stdio::null())
-                            .spawn();
-                        if let Ok(child) = child {
-                            println!("[AutoDub] Backend started with .venv python (PID: {})", child.id());
-                            *state.0.lock().unwrap() = Some(child);
+                            .spawn()
+                        {
+                            println!("[AutoDub] Backend started: .venv (PID: {})", child.id());
+                            started = true;
                         }
                     }
                 }
 
-                if state.0.lock().unwrap().is_none() {
-                    eprintln!("[AutoDub] Could not start backend. Python/uv not found.");
+                if !started {
+                    eprintln!("[AutoDub] WARNING: Could not start Python backend. Is Python/uv installed?");
+                    eprintln!("[AutoDub] The app needs a running backend at http://127.0.0.1:8000");
                 }
             } else {
-                eprintln!("[AutoDub] Backend script not found at any expected location.");
+                eprintln!("[AutoDub] Backend script not found. Looked in:");
+                for c in &backend_candidates {
+                    eprintln!("  - {}", c.display());
+                }
             }
 
             Ok(())
-        })
-        .on_event(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                // Kill the backend process on app exit
-                if let Some(state) = app.try_state::<BackendProcess>() {
-                    if let Some(mut child) = state.0.lock().unwrap().take() {
-                        let _ = child.kill();
-                        println!("[AutoDub] Backend process stopped.");
-                    }
-                }
-            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
