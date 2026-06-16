@@ -1,6 +1,6 @@
 [package]
 name = "autodub-studio"
-version = "1.1.1"
+version = "0.0.1-beta"
 description = "AutoDub Studio — AI-Powered Video Dubbing Pipeline"
 authors = ["Silvestr Liskin <liskinlabs@github.com>"]
 edition = "2021"

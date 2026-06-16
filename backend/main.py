@@ -17,7 +17,7 @@ from engine import AutoDubWorker
 app = FastAPI(
     title="AutoDubStudio Backend",
     description="Local API for AutoDubStudio Desktop Application",
-    version="1.0.0",
+    version="0.0.1-beta",
 )
 
 app.add_middleware(

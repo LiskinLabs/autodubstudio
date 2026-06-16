@@ -66,7 +66,7 @@ export function clearLogs() {
 function buildReport(error: Error, componentStack?: string): ErrorReport {
   return {
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    version: '0.0.1-beta',
     platform: navigator.platform || 'unknown',
     language: navigator.language,
     theme: document.documentElement.getAttribute('data-theme') || 'dark',

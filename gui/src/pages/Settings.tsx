@@ -606,7 +606,7 @@ function Settings() {
           </div>
 
           <div className="flex gap-3 items-center" style={{ justifyContent: 'center' }}>
-            <span className="badge badge-info">v1.0.0-beta</span>
+            <span className="badge badge-info">v0.0.1-beta</span>
             <span className="badge badge-neutral">Build 2026.06.15</span>
             <span className="badge badge-neutral">Tauri v2 + React 19</span>
           </div>
