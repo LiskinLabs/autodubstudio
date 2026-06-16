@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv*
+.ruff_cache/
+
+# User data / outputs
+downloads/
+*.srt
+*.wav
+*.mkv
+*.mp3
+*.mp4
+tasks_*.json
+config.json
+*.log
+models/
+
+# Secrets
+.env*
+*.pem
+*.key
+
+# Node / GUI
+gui/node_modules/
+gui/dist/
+
+# Tauri
+gui/src-tauri/target/
+gui/src-tauri/gen/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

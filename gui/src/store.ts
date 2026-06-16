@@ -1,0 +1,825 @@
+import { useState, useEffect } from 'react';
+import { Store } from '@tauri-apps/plugin-store';
+
+export type Language = 'en' | 'ru' | 'tr';
+
+const translations = {
+  en: {
+    // Navigation
+    'nav.dubbing': 'Dubbing Studio',
+    'nav.live': 'Live Subtitles',
+    'nav.chat': 'AI Chat',
+    'nav.settings': 'Settings',
+    'nav.tools': 'Tools',
+    'nav.system': 'System',
+
+    // Settings
+    'settings.title': 'Settings',
+    'settings.subtitle': 'Configure your local environment, AI models, and cloud API integrations.',
+    'settings.general': 'General',
+    'settings.models': 'AI Models',
+    'settings.keys': 'API Keys',
+    'settings.about': 'About',
+    'settings.appearance': 'Appearance & Language',
+    'settings.language': 'Language',
+    'settings.theme': 'Theme',
+    'settings.performance': 'Performance',
+    'settings.theme.dark': 'Dark',
+    'settings.theme.light': 'Light',
+    'settings.theme.system': 'System',
+    'settings.lang.en_label': 'English',
+    'settings.lang.ru_label': 'Russian (Русский)',
+    'settings.lang.tr_label': 'Turkish (Türkçe)',
+
+    // Dubbing
+    'dubbing.title': 'Dubbing Studio',
+    'dubbing.subtitle': 'Professional AI-powered video dubbing pipeline. Upload, transcribe, translate, and synthesize — all in one place.',
+    'dubbing.dropzone': 'Drop video file or paste YouTube URL',
+    'dubbing.supported': 'Supports MP4, MKV, AVI, WebM',
+    'dubbing.config': 'Pipeline Configuration',
+    'dubbing.target_lang': 'Target Language',
+    'dubbing.voice_model': 'AI Voice Model',
+    'dubbing.translation_engine': 'Translation Engine',
+    'dubbing.translator_model': 'Translator Model',
+    'dubbing.mode': 'Pipeline Mode',
+    'dubbing.mode.auto': 'Automatic (End-to-End)',
+    'dubbing.mode.manual': 'Manual Review (Pause for edit)',
+    'dubbing.mode.auto_label': 'Automatic',
+    'dubbing.mode.auto_desc': 'AI handles everything — source to dubbed output with no pauses',
+    'dubbing.mode.manual_label': 'Manual Review',
+    'dubbing.mode.manual_desc': 'Pause after translation for human review and editing before TTS',
+    'dubbing.advanced': 'Advanced Options',
+    'dubbing.start': 'Start Pipeline',
+    // Pipeline steps
+    'dubbing.step.source': 'Source',
+    'dubbing.step.demucs': 'Demucs',
+    'dubbing.step.whisper': 'Whisper',
+    'dubbing.step.translate': 'Translate',
+    'dubbing.step.tts': 'TTS',
+    'dubbing.step.mux': 'Mux',
+    // File & UI
+    'dubbing.file.selected': 'Selected:',
+    'dubbing.logs.waiting': 'Waiting for logs...',
+    'dubbing.btn.paste': 'Paste',
+    'dubbing.btn.paste_title': 'Paste from clipboard',
+    'dubbing.no_models': 'No models found',
+    'dubbing.translator.deepl_api': 'DeepL Pro/Free API',
+    'dubbing.translator.default': 'Default API Model',
+    'dubbing.status.waiting_backend': 'Waiting for Python engine...',
+
+    // Live
+    'live.title': 'Live Subtitles',
+    'live.subtitle': 'Real-time translated subtitles for meetings and live content.',
+    'live.callout': 'Real-time translated subtitles overlay for Zoom, Teams, and Google Meet. Captures system audio, translates speech on-the-fly, and displays subtitles as a transparent overlay on top of all windows.',
+    'live.config': 'Subtitle Configuration',
+    'live.source_lang': 'Source Language',
+    'live.target_lang': 'Target Language',
+    'live.position': 'Subtitle Position',
+    'live.fontsize': 'Font Size',
+    'live.start': 'Start Live Subtitles',
+    'live.stop': 'Stop Subtitles',
+    'live.auto': 'Auto-detect',
+    'live.engine_label': 'Translation Engine',
+    'live.engine.deepseek': 'DeepSeek API',
+    'live.engine.whisper_local': 'Local Whisper',
+    'live.preview': 'Live Preview',
+    'live.recording': 'Recording',
+    'live.waiting_audio': 'Waiting for audio input...',
+
+    // Chat
+    'chat.placeholder': 'Type a message...',
+    'chat.empty.title': 'Start a conversation',
+    'chat.empty.subtitle': 'Chat with your local AI models. These are the same models used for translation in the dubbing pipeline.',
+    'chat.ollama_error': 'Cannot connect to Ollama. Make sure it is running on localhost:11434',
+    'chat.new_chat': 'New Chat',
+    'chat.no_models': 'No models downloaded (use ollama pull)',
+    'chat.send_title': 'Send message',
+
+    // Status bar
+    'status.gpu': 'GPU Ready',
+    'status.cpu': 'CPU Mode',
+    'status.ollama': 'Ollama Connected',
+    'status.ollama_off': 'Ollama Offline',
+    'status.vram': 'VRAM: Auto Allocation',
+
+    // Additional settings
+    'settings.gpu_limit': 'GPU Memory Limit',
+    'settings.gpu.auto': 'Auto (Recommended)',
+    'settings.gpu_desc': 'Limits VRAM usage for local AI models. "Auto" detects available memory.',
+    'settings.auto_update': 'Auto-update Check',
+    'settings.auto_update_desc': 'Periodically check for new versions on startup',
+    'settings.speech_rec': 'Speech Recognition',
+    'settings.whisper_model': 'Whisper Model',
+    'settings.whisper.tiny': 'Fastest, lowest accuracy',
+    'settings.whisper.base': 'Fast, low accuracy',
+    'settings.whisper.small': 'Balanced',
+    'settings.whisper.medium': 'Good accuracy',
+    'settings.whisper.large': 'Best accuracy (recommended)',
+    'settings.ollama_config': 'Ollama Configuration',
+    'settings.ollama_url': 'Ollama Server URL',
+    'settings.keys.notice': 'API keys are stored securely in your local system keychain. They are never sent anywhere except the respective API provider.',
+    'settings.keys.translation_apis': 'Translation APIs',
+    'settings.keys.speech_apis': 'Speech & Cloud APIs',
+    'settings.keys.gemini_label': 'Google Gemini API Key',
+    'settings.keys.gemini_get': 'Get Gemini Key ↗',
+    'settings.keys.deepseek_label': 'DeepSeek API Key',
+    'settings.keys.deepseek_get': 'Get DeepSeek Key ↗',
+    'settings.keys.openai_label': 'OpenAI API Key',
+    'settings.keys.openai_get': 'Get OpenAI Key ↗',
+    'settings.keys.azure_label': 'Azure Speech Key',
+    'settings.keys.azure_get': 'Get Azure Key ↗',
+    'settings.keys.google_label': 'Google Cloud Speech API Key',
+    'settings.keys.google_get': 'Get GCP Key ↗',
+    'settings.keys.testing': 'Testing…',
+    'settings.keys.test_all': 'Test All Connections',
+    'settings.keys.no_keys': '⚠️ Please enter at least one API key to test.',
+    'settings.keys.all_ok': '✅ All provided keys are valid!',
+    'settings.keys.failed': '❌ Connection test failed',
+
+    // Live Status
+    'live.audio_status': 'Audio Status',
+    'live.standby': 'Standby',
+    'live.listening': 'Live Capture',
+    'live.status_audio': 'System Audio Capture',
+    'live.status_audio.idle': 'Ready — press Start to begin capturing',
+    'live.status_audio.active': 'Capturing audio from default output device',
+    'live.status_engine': 'Translation Engine',
+    'live.status_engine.idle': 'Idle — waiting for audio stream',
+    'live.status_engine.active': 'Active — API connected',
+    'live.status_overlay': 'Subtitle Overlay',
+    'live.status_overlay.idle': 'Overlay hidden — will appear when started',
+    'live.status_overlay.active': 'Displaying subtitles',
+
+    // Dropdowns / Labels
+    'lang.en': 'English',
+    'lang.ru': 'Russian',
+    'lang.tr': 'Turkish',
+    'lang.ar': 'Arabic',
+    'lang.es': 'Spanish',
+    'lang.fr': 'French',
+    'lang.de': 'German',
+    'lang.zh': 'Chinese',
+    'lang.ja': 'Japanese',
+    'lang.ko': 'Korean',
+    'lang.it': 'Italian',
+    'lang.pt': 'Portuguese',
+    'lang.pl': 'Polish',
+    'lang.hi': 'Hindi',
+    'pos.bottom': 'Bottom',
+    'pos.top': 'Top',
+    'pos.center': 'Center',
+    'size.small': 'Small',
+    'size.medium': 'Medium',
+    'size.large': 'Large',
+
+    // Voice models
+    'dubbing.voice.qwen': 'Qwen3-TTS [local]',
+    'dubbing.voice.xtts': 'XTTSv2 [local]',
+    'dubbing.voice.f5': 'F5-TTS [local]',
+    'dubbing.voice.azure': 'Azure API [internet, $]',
+    'dubbing.voice.edge': 'Edge-TTS [internet]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Local)',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 (Local)',
+    'dubbing.voice.f5tts_full': 'F5-TTS (Local)',
+    'dubbing.voice.azure_cloud': 'Azure Speech (Cloud)',
+    'dubbing.voice.edge_cloud': 'Edge TTS (Cloud)',
+
+    // Translation engines
+    'dubbing.engine.deepseek': 'DeepSeek API [internet, $]',
+    'dubbing.engine.gemini': 'Google Gemini API [internet, $]',
+    'dubbing.engine.deepl': 'DeepL API [internet, $]',
+    'dubbing.engine.ollama': 'Ollama [local]',
+    'dubbing.engine.google': 'Google Translate [internet]',
+
+    // Settings keys
+    'settings.hf_key': 'HuggingFace Token (Pyannote)',
+    'settings.hf_desc': 'Required for Speaker Diarization (identifying who is speaking)',
+    'settings.hf_terms': 'You must accept the terms for these models',
+    'settings.deepl_key': 'DeepL API Key',
+    'settings.deepl_desc': 'Used for high-quality machine translation',
+
+    // Dubbing advanced
+    'dubbing.adv.mux': 'Auto-Mux Video',
+    'dubbing.adv.mux_desc': 'Automatically merge the generated audio track back into the original video file using FFmpeg',
+    'dubbing.adv.clone': 'Auto Voice Cloning from source',
+    'dubbing.adv.clone_desc': 'Analyze the original speaker\'s voice and clone it for the dubbed audio instead of using a generic TTS voice',
+    'dubbing.adv.demucs': 'Audio Separation via Demucs',
+    'dubbing.adv.demucs_desc': 'Use Demucs AI to separate voice from background music/noise before transcribing, improving accuracy',
+    'dubbing.status.done': 'Pipeline complete',
+    'dubbing.status.processing': 'Processing step',
+    'dubbing.badge.running': 'Running',
+    'dubbing.badge.done': 'Complete',
+    'dubbing.log.title': 'Pipeline Log',
+    'dubbing.log.entries': 'entries',
+    'dubbing.btn.open': 'Open Output File',
+    'dubbing.btn.new': 'New Project',
+    'dubbing.review.title': 'Manual Review Mode',
+    'dubbing.review.desc': 'Pipeline paused after translation. Review and edit the translated subtitles below, then continue to voice generation.',
+    'dubbing.review.original': 'Original Subtitles',
+    'dubbing.review.readonly': 'Read-only',
+    'dubbing.review.translated': 'Translated Subtitles',
+    'dubbing.review.editable': 'Editable',
+    'dubbing.btn.continue': 'Continue to Voice Generation',
+    'dubbing.btn.cancel': 'Cancel',
+
+    // Settings TTS & models
+    'settings.tts_audio': 'TTS & Audio',
+    'settings.tts_cache': 'TTS Cache Directory',
+    'settings.browse': 'Browse',
+    'settings.model_status': 'Model Status',
+    'settings.model_status_desc': 'Installed models and their current download status.',
+    'settings.installed': '✓ Installed',
+
+    // About
+    'settings.about.tagline': 'AI-Powered Video Dubbing Pipeline',
+    'settings.about.author': 'Author',
+    'settings.about.role': 'Senior Automation Engineer / Industrial Robot Programmer',
+    'settings.about.partner': 'In partnership with',
+    'settings.about.links': 'Links & Resources',
+    'settings.about.github': 'GitHub Repository',
+    'settings.about.website': 'LiskinLabs Website',
+  },
+  ru: {
+    // Navigation
+    'nav.dubbing': 'Студия Дубляжа',
+    'nav.live': 'Лайв Субтитры',
+    'nav.chat': 'ИИ Чат',
+    'nav.settings': 'Настройки',
+    'nav.tools': 'Инструменты',
+    'nav.system': 'Система',
+
+    // Settings
+    'settings.title': 'Настройки',
+    'settings.subtitle': 'Настройте локальное окружение, ИИ-модели и облачные API.',
+    'settings.general': 'Основные',
+    'settings.models': 'ИИ Модели',
+    'settings.keys': 'Ключи API',
+    'settings.about': 'О программе',
+    'settings.appearance': 'Внешний вид и язык',
+    'settings.language': 'Язык',
+    'settings.theme': 'Тема',
+    'settings.performance': 'Производительность',
+    'settings.theme.dark': 'Тёмная',
+    'settings.theme.light': 'Светлая',
+    'settings.theme.system': 'Системная',
+    'settings.lang.en_label': 'Английский',
+    'settings.lang.ru_label': 'Русский (Russian)',
+    'settings.lang.tr_label': 'Турецкий (Türkçe)',
+
+    // Dubbing
+    'dubbing.title': 'Студия Дубляжа',
+    'dubbing.subtitle': 'Профессиональный пайплайн для ИИ-дубляжа видео. Загрузка, транскрибация, перевод и синтез речи в одном месте.',
+    'dubbing.dropzone': 'Перетащите видео или вставьте ссылку на YouTube',
+    'dubbing.supported': 'Поддерживается MP4, MKV, AVI, WebM',
+    'dubbing.config': 'Настройки пайплайна',
+    'dubbing.target_lang': 'Язык перевода',
+    'dubbing.voice_model': 'ИИ Модель голоса',
+    'dubbing.translation_engine': 'Движок перевода',
+    'dubbing.translator_model': 'Модель перевода',
+    'dubbing.mode': 'Режим работы',
+    'dubbing.mode.auto': 'Автоматический (от и до)',
+    'dubbing.mode.manual': 'С проверкой (пауза для редактуры)',
+    'dubbing.mode.auto_label': 'Автоматический',
+    'dubbing.mode.auto_desc': 'ИИ делает всё — от исходника до готового дубляжа без пауз',
+    'dubbing.mode.manual_label': 'Ручная проверка',
+    'dubbing.mode.manual_desc': 'Пауза после перевода для проверки и редактирования перед озвучкой',
+    'dubbing.advanced': 'Продвинутые опции',
+    'dubbing.start': 'Запустить пайплайн',
+    // Pipeline steps
+    'dubbing.step.source': 'Источник',
+    'dubbing.step.demucs': 'Demucs',
+    'dubbing.step.whisper': 'Whisper',
+    'dubbing.step.translate': 'Перевод',
+    'dubbing.step.tts': 'Озвучка',
+    'dubbing.step.mux': 'Сборка',
+    // File & UI
+    'dubbing.file.selected': 'Выбрано:',
+    'dubbing.logs.waiting': 'Ожидание логов...',
+    'dubbing.btn.paste': 'Вставить',
+    'dubbing.btn.paste_title': 'Вставить из буфера обмена',
+    'dubbing.no_models': 'Модели не найдены',
+    'dubbing.translator.deepl_api': 'DeepL Pro/Free API',
+    'dubbing.translator.default': 'Стандартная модель API',
+    'dubbing.status.waiting_backend': 'Ожидание Python бэкенда...',
+
+    // Live
+    'live.title': 'Лайв Субтитры',
+    'live.subtitle': 'Синхронный перевод и субтитры для встреч и стримов.',
+    'live.callout': 'Синхронный перевод в виде прозрачных субтитров поверх любых окон для Zoom, Teams и Google Meet. Захватывает системный звук и переводит на лету.',
+    'live.config': 'Настройки субтитров',
+    'live.source_lang': 'Исходный язык',
+    'live.target_lang': 'Язык перевода',
+    'live.position': 'Позиция на экране',
+    'live.fontsize': 'Размер шрифта',
+    'live.start': 'Запустить субтитры',
+    'live.stop': 'Остановить',
+    'live.auto': 'Авто-определение',
+    'live.engine_label': 'Движок перевода',
+    'live.engine.deepseek': 'DeepSeek API',
+    'live.engine.whisper_local': 'Локальный Whisper',
+    'live.preview': 'Прямой эфир',
+    'live.recording': 'Запись',
+    'live.waiting_audio': 'Ожидание аудио...',
+
+    // Chat
+    'chat.placeholder': 'Напишите сообщение...',
+    'chat.empty.title': 'Начните диалог',
+    'chat.empty.subtitle': 'Общайтесь с вашими локальными ИИ-моделями. Это те же модели, что используются для перевода.',
+    'chat.ollama_error': 'Не удалось подключиться к Ollama. Убедитесь, что она запущена на localhost:11434',
+    'chat.new_chat': 'Новый чат',
+    'chat.no_models': 'Нет загруженных моделей (используйте ollama pull)',
+    'chat.send_title': 'Отправить',
+
+    // Status bar
+    'status.gpu': 'GPU Готов',
+    'status.cpu': 'Режим CPU',
+    'status.ollama': 'Ollama Подключен',
+    'status.ollama_off': 'Ollama Отключен',
+    'status.vram': 'VRAM: Авто',
+
+    // Additional settings
+    'settings.gpu_limit': 'Лимит памяти GPU',
+    'settings.gpu.auto': 'Авто (Рекомендуется)',
+    'settings.gpu_desc': 'Ограничивает использование VRAM для ИИ моделей. "Авто" определяет доступную память.',
+    'settings.auto_update': 'Проверка обновлений',
+    'settings.auto_update_desc': 'Периодически проверять новые версии при запуске',
+    'settings.speech_rec': 'Распознавание речи',
+    'settings.whisper_model': 'Модель Whisper',
+    'settings.whisper.tiny': 'Самая быстрая, низкая точность',
+    'settings.whisper.base': 'Быстрая, низкая точность',
+    'settings.whisper.small': 'Сбалансированная',
+    'settings.whisper.medium': 'Хорошая точность',
+    'settings.whisper.large': 'Лучшая точность (рекомендуется)',
+    'settings.ollama_config': 'Настройки Ollama',
+    'settings.ollama_url': 'URL сервера Ollama',
+    'settings.keys.notice': 'API ключи хранятся безопасно в локальном keychain. Они не отправляются никуда, кроме как к соответствующему API-провайдеру.',
+    'settings.keys.translation_apis': 'API Перевода',
+    'settings.keys.speech_apis': 'Речевые и облачные API',
+    'settings.keys.gemini_label': 'Ключ Google Gemini API',
+    'settings.keys.gemini_get': 'Получить ключ Gemini ↗',
+    'settings.keys.deepseek_label': 'Ключ DeepSeek API',
+    'settings.keys.deepseek_get': 'Получить ключ DeepSeek ↗',
+    'settings.keys.openai_label': 'Ключ OpenAI API',
+    'settings.keys.openai_get': 'Получить ключ OpenAI ↗',
+    'settings.keys.azure_label': 'Ключ Azure Speech',
+    'settings.keys.azure_get': 'Получить ключ Azure ↗',
+    'settings.keys.google_label': 'Ключ Google Cloud Speech API',
+    'settings.keys.google_get': 'Получить ключ GCP ↗',
+    'settings.keys.testing': 'Проверка...',
+    'settings.keys.test_all': 'Проверить все подключения',
+    'settings.keys.no_keys': '⚠️ Введите хотя бы один API ключ для проверки.',
+    'settings.keys.all_ok': '✅ Все ключи валидны!',
+    'settings.keys.failed': '❌ Ошибка проверки подключений',
+
+    // Live Status
+    'live.audio_status': 'Аудио статус',
+    'live.standby': 'Ожидание',
+    'live.listening': 'Лайв-захват',
+    'live.status_audio': 'Захват системного звука',
+    'live.status_audio.idle': 'Готово — нажмите Запустить',
+    'live.status_audio.active': 'Захват звука с устройства по умолчанию',
+    'live.status_engine': 'Движок перевода',
+    'live.status_engine.idle': 'Ожидание аудиопотока',
+    'live.status_engine.active': 'Активно — подключено к API',
+    'live.status_overlay': 'Оверлей субтитров',
+    'live.status_overlay.idle': 'Оверлей скрыт — появится после запуска',
+    'live.status_overlay.active': 'Субтитры отображаются',
+
+    // Dropdowns / Labels
+    'lang.en': 'Английский',
+    'lang.ru': 'Русский',
+    'lang.tr': 'Турецкий',
+    'lang.ar': 'Арабский',
+    'lang.es': 'Испанский',
+    'lang.fr': 'Французский',
+    'lang.de': 'Немецкий',
+    'lang.zh': 'Китайский',
+    'lang.ja': 'Японский',
+    'lang.ko': 'Корейский',
+    'lang.it': 'Итальянский',
+    'lang.pt': 'Португальский',
+    'lang.pl': 'Польский',
+    'lang.hi': 'Хинди',
+    'pos.bottom': 'Внизу',
+    'pos.top': 'Наверху',
+    'pos.center': 'По центру',
+    'size.small': 'Мелкий',
+    'size.medium': 'Средний',
+    'size.large': 'Крупный',
+
+    // Voice models
+    'dubbing.voice.qwen': 'Qwen3-TTS [локально]',
+    'dubbing.voice.xtts': 'XTTSv2 [локально]',
+    'dubbing.voice.f5': 'F5-TTS [локально]',
+    'dubbing.voice.azure': 'Azure API [интернет, $]',
+    'dubbing.voice.edge': 'Edge-TTS [интернет]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Локально)',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 (Локально)',
+    'dubbing.voice.f5tts_full': 'F5-TTS (Локально)',
+    'dubbing.voice.azure_cloud': 'Azure Speech (Облако)',
+    'dubbing.voice.edge_cloud': 'Edge TTS (Облако)',
+
+    // Translation engines
+    'dubbing.engine.deepseek': 'DeepSeek API [интернет, $]',
+    'dubbing.engine.gemini': 'Google Gemini API [интернет, $]',
+    'dubbing.engine.deepl': 'DeepL API [интернет, $]',
+    'dubbing.engine.ollama': 'Ollama [локально]',
+    'dubbing.engine.google': 'Google Translate [интернет]',
+
+    // Settings keys
+    'settings.hf_key': 'HuggingFace Token (Pyannote)',
+    'settings.hf_desc': 'Необходим для диаризации (определения кто говорит)',
+    'settings.hf_terms': 'Также необходимо принять условия использования моделей',
+    'settings.deepl_key': 'API Ключ DeepL',
+    'settings.deepl_desc': 'Используется для высококачественного машинного перевода',
+
+    // Dubbing advanced
+    'dubbing.adv.mux': 'Авто-сведение видео',
+    'dubbing.adv.mux_desc': 'Автоматически объединить сгенерированную аудиодорожку с оригинальным видео через FFmpeg',
+    'dubbing.adv.clone': 'Клонирование голоса из оригинала',
+    'dubbing.adv.clone_desc': 'Анализировать голос оригинального диктора и клонировать его для дубляжа вместо стандартного TTS-голоса',
+    'dubbing.adv.demucs': 'Изоляция голоса через Demucs',
+    'dubbing.adv.demucs_desc': 'Использовать Demucs AI для отделения голоса от фоновой музыки/шума перед расшифровкой, улучшая точность',
+    'dubbing.status.done': 'Пайплайн завершен',
+    'dubbing.status.processing': 'Выполнение шага',
+    'dubbing.badge.running': 'В процессе',
+    'dubbing.badge.done': 'Завершено',
+    'dubbing.log.title': 'Журнал пайплайна',
+    'dubbing.log.entries': 'записей',
+    'dubbing.btn.open': 'Открыть результат',
+    'dubbing.btn.new': 'Новый проект',
+    'dubbing.review.title': 'Режим ручной проверки',
+    'dubbing.review.desc': 'Пайплайн приостановлен после перевода. Проверьте и отредактируйте субтитры ниже, затем продолжите синтез речи.',
+    'dubbing.review.original': 'Оригинальные субтитры',
+    'dubbing.review.readonly': 'Только чтение',
+    'dubbing.review.translated': 'Переведенные субтитры',
+    'dubbing.review.editable': 'Можно редактировать',
+    'dubbing.btn.continue': 'Продолжить генерацию голоса',
+    'dubbing.btn.cancel': 'Отмена',
+
+    // Settings TTS & models
+    'settings.tts_audio': 'Синтез речи (TTS) и Аудио',
+    'settings.tts_cache': 'Директория кэша TTS',
+    'settings.browse': 'Обзор',
+    'settings.model_status': 'Статус моделей',
+    'settings.model_status_desc': 'Установленные модели и их статус загрузки.',
+    'settings.installed': '✓ Установлено',
+
+    // About
+    'settings.about.tagline': 'ИИ-пайплайн для дубляжа видео',
+    'settings.about.author': 'Автор',
+    'settings.about.role': 'Ведущий инженер по автоматизации / Программист промышленных роботов',
+    'settings.about.partner': 'При поддержке',
+    'settings.about.links': 'Ссылки и ресурсы',
+    'settings.about.github': 'Репозиторий GitHub',
+    'settings.about.website': 'Сайт LiskinLabs',
+  },
+  tr: {
+    // Navigation
+    'nav.dubbing': 'Dublaj Stüdyosu',
+    'nav.live': 'Canlı Altyazı',
+    'nav.chat': 'Yapay Zeka Sohbet',
+    'nav.settings': 'Ayarlar',
+    'nav.tools': 'Araçlar',
+    'nav.system': 'Sistem',
+
+    // Settings
+    'settings.title': 'Ayarlar',
+    'settings.subtitle': 'Yerel ortamınızı, YZ modellerinizi ve bulut API entegrasyonlarını yapılandırın.',
+    'settings.general': 'Genel',
+    'settings.models': 'Yapay Zeka Modelleri',
+    'settings.keys': 'API Anahtarları',
+    'settings.about': 'Hakkında',
+    'settings.appearance': 'Görünüm ve Dil',
+    'settings.language': 'Dil',
+    'settings.theme': 'Tema',
+    'settings.performance': 'Performans',
+    'settings.theme.dark': 'Koyu',
+    'settings.theme.light': 'Açık',
+    'settings.theme.system': 'Sistem',
+    'settings.lang.en_label': 'İngilizce',
+    'settings.lang.ru_label': 'Rusça (Russian)',
+    'settings.lang.tr_label': 'Türkçe (Turkish)',
+
+    // Dubbing
+    'dubbing.title': 'Dublaj Stüdyosu',
+    'dubbing.subtitle': 'Profesyonel yapay zeka video dublaj hattı. Yükle, yazıya dök, çevir ve seslendir — hepsi tek bir yerde.',
+    'dubbing.dropzone': 'Video dosyasını sürükleyin veya YouTube URL\'sini yapıştırın',
+    'dubbing.supported': 'MP4, MKV, AVI, WebM destekler',
+    'dubbing.config': 'İşlem Ayarları',
+    'dubbing.target_lang': 'Hedef Dil',
+    'dubbing.voice_model': 'Yapay Zeka Ses Modeli',
+    'dubbing.translation_engine': 'Çeviri Motoru',
+    'dubbing.translator_model': 'Çeviri Modeli',
+    'dubbing.mode': 'Çalışma Modu',
+    'dubbing.mode.auto': 'Otomatik (Uçtan Uca)',
+    'dubbing.mode.manual': 'Manuel Kontrol (Düzenleme için duraklat)',
+    'dubbing.mode.auto_label': 'Otomatik',
+    'dubbing.mode.auto_desc': 'YZ her şeyi halleder — kaynaktan dublajlı çıktıya kadar duraklama olmadan',
+    'dubbing.mode.manual_label': 'Manuel Kontrol',
+    'dubbing.mode.manual_desc': 'Çeviriden sonra inceleme ve düzenleme için seslendirme öncesinde duraklat',
+    'dubbing.advanced': 'Gelişmiş Seçenekler',
+    'dubbing.start': 'İşlemi Başlat',
+    // Pipeline steps
+    'dubbing.step.source': 'Kaynak',
+    'dubbing.step.demucs': 'Demucs',
+    'dubbing.step.whisper': 'Whisper',
+    'dubbing.step.translate': 'Çeviri',
+    'dubbing.step.tts': 'Seslendirme',
+    'dubbing.step.mux': 'Birleştirme',
+    // File & UI
+    'dubbing.file.selected': 'Seçildi:',
+    'dubbing.logs.waiting': 'Günlükler bekleniyor...',
+    'dubbing.btn.paste': 'Yapıştır',
+    'dubbing.btn.paste_title': 'Panodan yapıştır',
+    'dubbing.no_models': 'Model bulunamadı',
+    'dubbing.translator.deepl_api': 'DeepL Pro/Free API',
+    'dubbing.translator.default': 'Varsayılan API Modeli',
+    'dubbing.status.waiting_backend': 'Python motoru bekleniyor...',
+
+    // Live
+    'live.title': 'Canlı Altyazı',
+    'live.subtitle': 'Toplantılar ve canlı yayınlar için eşzamanlı çeviri ve altyazı.',
+    'live.callout': 'Zoom, Teams ve Google Meet için şeffaf altyazı katmanı. Sistem sesini yakalar, anında çevirir ve tüm pencerelerin üzerinde gösterir.',
+    'live.config': 'Altyazı Ayarları',
+    'live.source_lang': 'Kaynak Dil',
+    'live.target_lang': 'Hedef Dil',
+    'live.position': 'Altyazı Konumu',
+    'live.fontsize': 'Yazı Tipi Boyutu',
+    'live.start': 'Altyazıyı Başlat',
+    'live.stop': 'Durdur',
+    'live.auto': 'Otomatik Algıla',
+    'live.engine_label': 'Çeviri Motoru',
+    'live.engine.deepseek': 'DeepSeek API',
+    'live.engine.whisper_local': 'Yerel Whisper',
+    'live.preview': 'Canlı Önizleme',
+    'live.recording': 'Kaydediyor',
+    'live.waiting_audio': 'Ses girişi bekleniyor...',
+
+    // Chat
+    'chat.placeholder': 'Bir mesaj yazın...',
+    'chat.empty.title': 'Sohbeti başlat',
+    'chat.empty.subtitle': 'Yerel yapay zeka modellerinizle sohbet edin. Bunlar çeviri için kullanılan aynı modellerdir.',
+    'chat.ollama_error': 'Ollama\'ya bağlanılamıyor. localhost:11434 üzerinde çalıştığından emin olun.',
+    'chat.new_chat': 'Yeni Sohbet',
+    'chat.no_models': 'İndirilmiş model yok (ollama pull kullanın)',
+    'chat.send_title': 'Mesaj gönder',
+
+    // Status bar
+    'status.gpu': 'GPU Hazır',
+    'status.cpu': 'CPU Modu',
+    'status.ollama': 'Ollama Bağlı',
+    'status.ollama_off': 'Ollama Çevrimdışı',
+    'status.vram': 'VRAM: Otomatik',
+
+    // Additional settings
+    'settings.gpu_limit': 'GPU Bellek Sınırı',
+    'settings.gpu.auto': 'Otomatik (Önerilen)',
+    'settings.gpu_desc': 'Yerel YZ modelleri için VRAM kullanımını sınırlar. "Otomatik" kullanılabilir belleği algılar.',
+    'settings.auto_update': 'Otomatik Güncelleme',
+    'settings.auto_update_desc': 'Başlangıçta yeni sürümleri periyodik olarak kontrol et',
+    'settings.speech_rec': 'Ses Tanıma',
+    'settings.whisper_model': 'Whisper Modeli',
+    'settings.whisper.tiny': 'En hızlı, en düşük doğruluk',
+    'settings.whisper.base': 'Hızlı, düşük doğruluk',
+    'settings.whisper.small': 'Dengeli',
+    'settings.whisper.medium': 'İyi doğruluk',
+    'settings.whisper.large': 'En iyi doğruluk (önerilen)',
+    'settings.ollama_config': 'Ollama Ayarları',
+    'settings.ollama_url': 'Ollama Sunucu URL\'si',
+    'settings.keys.notice': 'API anahtarları yerel sistem anahtarlığınızda güvenli bir şekilde saklanır. İlgili API sağlayıcısı dışında hiçbir yere gönderilmezler.',
+    'settings.keys.translation_apis': 'Çeviri API\'ları',
+    'settings.keys.speech_apis': 'Ses ve Bulut API\'ları',
+    'settings.keys.gemini_label': 'Google Gemini API Anahtarı',
+    'settings.keys.gemini_get': 'Gemini Anahtarı Al ↗',
+    'settings.keys.deepseek_label': 'DeepSeek API Anahtarı',
+    'settings.keys.deepseek_get': 'DeepSeek Anahtarı Al ↗',
+    'settings.keys.openai_label': 'OpenAI API Anahtarı',
+    'settings.keys.openai_get': 'OpenAI Anahtarı Al ↗',
+    'settings.keys.azure_label': 'Azure Speech Anahtarı',
+    'settings.keys.azure_get': 'Azure Anahtarı Al ↗',
+    'settings.keys.google_label': 'Google Cloud Speech API Anahtarı',
+    'settings.keys.google_get': 'GCP Anahtarı Al ↗',
+    'settings.keys.testing': 'Test ediliyor...',
+    'settings.keys.test_all': 'Tüm Bağlantıları Test Et',
+    'settings.keys.no_keys': '⚠️ Test etmek için en az bir API anahtarı girin.',
+    'settings.keys.all_ok': '✅ Tüm anahtarlar geçerli!',
+    'settings.keys.failed': '❌ Bağlantı testi başarısız',
+
+    // Live Status
+    'live.audio_status': 'Ses Durumu',
+    'live.standby': 'Beklemede',
+    'live.listening': 'Canlı Yakalama',
+    'live.status_audio': 'Sistem Sesi Yakalama',
+    'live.status_audio.idle': 'Hazır — başlatmak için Başlat\'a basın',
+    'live.status_audio.active': 'Varsayılan çıkış cihazından ses yakalanıyor',
+    'live.status_engine': 'Çeviri Motoru',
+    'live.status_engine.idle': 'Boşta — ses akışı bekleniyor',
+    'live.status_engine.active': 'Aktif — API bağlı',
+    'live.status_overlay': 'Altyazı Katmanı',
+    'live.status_overlay.idle': 'Katman gizli — başlatıldığında görünecek',
+    'live.status_overlay.active': 'Altyazılar gösteriliyor',
+
+    // Dropdowns / Labels
+    'lang.en': 'İngilizce',
+    'lang.ru': 'Rusça',
+    'lang.tr': 'Türkçe',
+    'lang.ar': 'Arapça',
+    'lang.es': 'İspanyolca',
+    'lang.fr': 'Fransızca',
+    'lang.de': 'Almanca',
+    'lang.zh': 'Çince',
+    'lang.ja': 'Japonca',
+    'lang.ko': 'Korece',
+    'lang.it': 'İtalyanca',
+    'lang.pt': 'Portekizce',
+    'lang.pl': 'Lehçe',
+    'lang.hi': 'Hintçe',
+    'pos.bottom': 'Alt',
+    'pos.top': 'Üst',
+    'pos.center': 'Orta',
+    'size.small': 'Küçük',
+    'size.medium': 'Orta',
+    'size.large': 'Büyük',
+
+    // Voice models
+    'dubbing.voice.qwen': 'Qwen3-TTS [yerel]',
+    'dubbing.voice.xtts': 'XTTSv2 [yerel]',
+    'dubbing.voice.f5': 'F5-TTS [yerel]',
+    'dubbing.voice.azure': 'Azure API [internet, $]',
+    'dubbing.voice.edge': 'Edge-TTS [internet]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Yerel)',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 (Yerel)',
+    'dubbing.voice.f5tts_full': 'F5-TTS (Yerel)',
+    'dubbing.voice.azure_cloud': 'Azure Speech (Bulut)',
+    'dubbing.voice.edge_cloud': 'Edge TTS (Bulut)',
+
+    // Translation engines
+    'dubbing.engine.deepseek': 'DeepSeek API [internet, $]',
+    'dubbing.engine.gemini': 'Google Gemini API [internet, $]',
+    'dubbing.engine.deepl': 'DeepL API [internet, $]',
+    'dubbing.engine.ollama': 'Ollama [yerel]',
+    'dubbing.engine.google': 'Google Translate [internet]',
+
+    // Settings keys
+    'settings.hf_key': 'HuggingFace Token (Pyannote)',
+    'settings.hf_desc': 'Konuşmacı ayrımı için gereklidir (kimin konuştuğunu belirler)',
+    'settings.hf_terms': 'Ayrıca bu modellerin kullanım koşullarını kabul etmelisiniz',
+    'settings.deepl_key': 'DeepL API Anahtarı',
+    'settings.deepl_desc': 'Yüksek kaliteli makine çevirisi için kullanılır',
+
+    // Dubbing advanced
+    'dubbing.adv.mux': 'Videoyu Otomatik Birleştir',
+    'dubbing.adv.mux_desc': 'Oluşturulan ses parçasını FFmpeg kullanarak orijinal video dosyasıyla otomatik olarak birleştir',
+    'dubbing.adv.clone': 'Orijinalden Sesi Klonla',
+    'dubbing.adv.clone_desc': 'Orijinal konuşmacının sesini analiz et ve dublajlı ses için genel bir TTS sesi yerine klonla',
+    'dubbing.adv.demucs': 'Demucs ile Sesi Ayrıştır',
+    'dubbing.adv.demucs_desc': 'Yazıya dökmeden önce sesi arka plan müzik/gürültüden ayırmak için Demucs AI kullan, doğruluğu artır',
+    'dubbing.status.done': 'İşlem tamamlandı',
+    'dubbing.status.processing': 'Adım işleniyor',
+    'dubbing.badge.running': 'Çalışıyor',
+    'dubbing.badge.done': 'Tamamlandı',
+    'dubbing.log.title': 'İşlem Günlüğü',
+    'dubbing.log.entries': 'kayıt',
+    'dubbing.btn.open': 'Çıktı Dosyasını Aç',
+    'dubbing.btn.new': 'Yeni Proje',
+    'dubbing.review.title': 'Manuel Kontrol Modu',
+    'dubbing.review.desc': 'İşlem çeviriden sonra duraklatıldı. Çevrilen altyazıları aşağıda inceleyip düzenleyin, ardından ses oluşturmaya devam edin.',
+    'dubbing.review.original': 'Orijinal Altyazılar',
+    'dubbing.review.readonly': 'Salt Okunur',
+    'dubbing.review.translated': 'Çevrilmiş Altyazılar',
+    'dubbing.review.editable': 'Düzenlenebilir',
+    'dubbing.btn.continue': 'Ses Üretimine Devam Et',
+    'dubbing.btn.cancel': 'İptal',
+
+    // Settings TTS & models
+    'settings.tts_audio': 'Ses Sentezi (TTS) ve Ses',
+    'settings.tts_cache': 'TTS Önbellek Dizini',
+    'settings.browse': 'Göz At',
+    'settings.model_status': 'Model Durumu',
+    'settings.model_status_desc': 'Yüklü modeller ve indirme durumları.',
+    'settings.installed': '✓ Yüklendi',
+
+    // About
+    'settings.about.tagline': 'YZ Destekli Video Dublaj Hattı',
+    'settings.about.author': 'Yazar',
+    'settings.about.role': 'Kıdemli Otomasyon Mühendisi / Endüstriyel Robot Programcısı',
+    'settings.about.partner': 'İş birliğiyle',
+    'settings.about.links': 'Bağlantılar ve Kaynaklar',
+    'settings.about.github': 'GitHub Deposu',
+    'settings.about.website': 'LiskinLabs Web Sitesi',
+  }
+};
+
+class SettingsStore {
+  language: Language = 'en';
+  theme: string = 'dark';
+  apiKeys: Record<string, string> = {};
+  listeners: Set<() => void> = new Set();
+  private _store: Store | null = null;
+  private _storeReady: Promise<void>;
+
+  constructor() {
+    // Initialize Tauri Store for secure API key storage
+    this._storeReady = this._initStore();
+  }
+
+  private async _initStore() {
+    try {
+      this._store = await Store.load('autodub-settings.json');
+      const stored = await this._store.get<Record<string, string>>('apiKeys');
+
+      if (stored && typeof stored === 'object') {
+        this.apiKeys = stored;
+      } else {
+        // Migration: read from old localStorage and move to Tauri Store
+        const legacy = localStorage.getItem('autodub_api_keys');
+        if (legacy) {
+          try {
+            this.apiKeys = JSON.parse(legacy);
+            await this._store.set('apiKeys', this.apiKeys);
+            await this._store.save();
+            localStorage.removeItem('autodub_api_keys'); // Clean up legacy
+            console.log('[SECURITY] Migrated API keys from localStorage to Tauri Store');
+          } catch (e) {
+            console.error('Migration failed:', e);
+          }
+        }
+      }
+      // Notify subscribers that keys have been loaded
+      this.notify();
+    } catch (_err) {
+      // Fallback: Tauri Store not available (e.g., running in browser dev mode)
+      const saved = localStorage.getItem('autodub_api_keys');
+      if (saved) {
+        try { this.apiKeys = JSON.parse(saved); } catch (e) { console.error(e); }
+        this.notify();
+      }
+    }
+  }
+
+  async _persistKeys() {
+    if (this._store) {
+      await this._store.set('apiKeys', this.apiKeys);
+      await this._store.save();
+    } else {
+      // Fallback for non-Tauri environments
+      localStorage.setItem('autodub_api_keys', JSON.stringify(this.apiKeys));
+    }
+  }
+
+  setLanguage(lang: Language) {
+    this.language = lang;
+    this.notify();
+  }
+
+  setTheme(theme: string) {
+    this.theme = theme;
+    this.notify();
+  }
+
+  async setApiKeys(keys: Record<string, string>) {
+    this.apiKeys = keys;
+    await this._persistKeys();
+    this.notify();
+  }
+
+  notify() {
+    this.listeners.forEach(l => l());
+  }
+
+  subscribe(listener: () => void) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  t(key: keyof typeof translations.en) {
+    return translations[this.language][key] || translations.en[key];
+  }
+}
+
+export const settingsStore = new SettingsStore();
+
+export function useSettings() {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const unsub = settingsStore.subscribe(() => setTick(t => t + 1));
+    return () => { unsub(); };
+  }, []);
+
+  return {
+    lang: settingsStore.language,
+    theme: settingsStore.theme,
+    setLanguage: (l: Language) => settingsStore.setLanguage(l),
+    setTheme: (t: string) => settingsStore.setTheme(t),
+    setApiKeys: (keys: Record<string, string>) => settingsStore.setApiKeys(keys),
+    settings: {
+      geminiKey: settingsStore.apiKeys.gemini || '',
+      deepseekKey: settingsStore.apiKeys.deepseek || '',
+      deeplKey: settingsStore.apiKeys.deepl || '',
+    },
+    apiKeys: settingsStore.apiKeys,
+    t: (key: keyof typeof translations.en) => settingsStore.t(key)
+  };
+}
