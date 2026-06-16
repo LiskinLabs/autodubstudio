@@ -70,18 +70,46 @@ pub fn run() {
                     }
                 }
 
-                // Fallback: .venv python
+                // Fallback: .venv python (check multiple locations)
                 if !started {
-                    let venv_python = project_dir.join(".venv").join("Scripts").join("python.exe");
-                    if venv_python.exists() {
-                        if let Ok(child) = StdCommand::new(&venv_python)
-                            .arg(script_path)
-                            .stdout(Stdio::null())
-                            .stderr(Stdio::null())
-                            .spawn()
-                        {
-                            println!("[AutoDub] Backend started: .venv (PID: {})", child.id());
-                            started = true;
+                    // Look for .venv in project_dir, Desktop project, and relative to exe
+                    let mut venv_dirs = vec![
+                        project_dir.join(".venv"),
+                    ];
+                    // Also check well-known project locations
+                    if let Ok(exe) = std::env::current_exe() {
+                        if let Some(exe_dir) = exe.parent() {
+                            // Walk up from exe to find .venv
+                            let mut current = exe_dir.to_path_buf();
+                            for _ in 0..4 {
+                                let candidate = current.join(".venv");
+                                if !venv_dirs.contains(&candidate) {
+                                    venv_dirs.push(candidate);
+                                }
+                                if let Some(parent) = current.parent() {
+                                    current = parent.to_path_buf();
+                                } else { break; }
+                            }
+                        }
+                    }
+                    // Desktop project
+                    if let Ok(home) = std::env::var("USERPROFILE") {
+                        venv_dirs.push(std::path::PathBuf::from(home).join("Desktop").join("AutoDubStudio").join(".venv"));
+                    }
+
+                    for venv_dir in &venv_dirs {
+                        let venv_python = venv_dir.join("Scripts").join("python.exe");
+                        if venv_python.exists() {
+                            if let Ok(child) = StdCommand::new(&venv_python)
+                                .arg(script_path)
+                                .stdout(Stdio::null())
+                                .stderr(Stdio::null())
+                                .spawn()
+                            {
+                                println!("[AutoDub] Backend started: {} (PID: {})", venv_python.display(), child.id());
+                                started = true;
+                                break;
+                            }
                         }
                     }
                 }
