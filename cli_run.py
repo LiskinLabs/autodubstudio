@@ -26,9 +26,13 @@ def main():
         print(f"[FATAL] Video not found: {video_path}")
         sys.exit(1)
 
-    # Gemini API — fast cloud translation (no local GPU needed for translation)
+    # Gemini API — fast cloud translation (no local GPU needed)
+    # Set GEMINI_API_KEY in your environment or .env file
     translator_engine = "Google Gemini API [internet, $]"
-    gemini_api_key = "AIzaSyBwNCjyAsa8abc3Qcs8UcnfiF0MPbJHNhc"
+    gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_api_key:
+        print("[WARN] GEMINI_API_KEY not set — falling back to Google Translate")
+        translator_engine = "Google Translate (Free)"
     # Edge-TTS works for all 14 languages, fast and free
     dub_engine = "Edge-TTS (Cloud, Free, Fast)"
 

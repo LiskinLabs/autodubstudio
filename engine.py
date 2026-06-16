@@ -178,6 +178,7 @@ class AutoDubWorker(threading.Thread):
                     return
 
             base_name = os.path.splitext(os.path.basename(self.video_path))[0]
+            base_name = re.sub(r'[^\w\-]', '_', base_name)  # sanitize: no path traversal
 
             # ── Checkpoint helper ──
             def _save_checkpoint(name, data):
