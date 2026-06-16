@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npx vite build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -52,18 +52,24 @@
       }
     },
     "resources": [
-      "../../backend/**/*.py",
-      "../../backend/**/*.json",
+      "../../backend/main.py",
+      "../../backend/translator.py",
+      "../../backend/vram_manager.py",
+      "../../backend/workers.py",
       "../../pyproject.toml",
       "../../uv.lock",
       "../../engine.py",
       "../../live_engine.py",
-      "../../*_worker.py",
+      "../../f5_worker.py",
+      "../../qwen3_worker.py",
+      "../../xtts_worker.py",
+      "../../lip_sync_worker.py",
       "../../diarization_worker.py",
       "../../cli_run.py",
       "../../download_models.bat",
       "../../start_ollama.bat",
       "../../logo.png",
+      "../../logo.ico",
       "../../ornament.png",
       "../../teknorob.png"
     ]
