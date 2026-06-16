@@ -78,35 +78,9 @@ class Translator:
                     return text
 
             elif "ollama" in self.engine_name.lower():
-                import urllib.request
-                import urllib.error
-                import json
-                url = "http://localhost:11434/api/generate"
-                
-                models_to_try = ["gemma4:e4b"]
-                for model_name in models_to_try:
-                    payload = json.dumps({
-                        "model": model_name, 
-                        "prompt": prompt, 
-                        "stream": False
-                    }).encode('utf-8')
-                    headers = {'Content-Type': 'application/json'}
-                    req = urllib.request.Request(url, data=payload, headers=headers)
-                    try:
-                        with urllib.request.urlopen(req, timeout=120) as response:
-                            if response.status == 200:
-                                result = json.loads(response.read().decode())
-                                return result.get("response", "").strip()
-                    except Exception as e:
-                        print(f"Ollama {model_name} failed: {e}. Trying next...")
-                        continue
-                
-                print("All Ollama models failed. Falling back to Google Translate...")
-                try:
-                    # Final fallback
-                    return GoogleTranslator(source='auto', target=target_lang).translate(text)
-                except Exception as e:
-                    raise RuntimeError(f"CRITICAL: Both Ollama and Google Translate failed: {e}")
+                # Base translation: always use Google Translate (fast, reliable).
+                # Gemma4 refinement happens in smart_translate_segments batches.
+                return GoogleTranslator(source='auto', target=target_lang).translate(text)
 
             elif "llamacpp" in self.engine_name.lower() and self.gguf_model_path:
                 from llama_cpp import Llama
@@ -207,7 +181,7 @@ class Translator:
                 headers = {'Content-Type': 'application/json'}
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=600) as resp:
+                    with urllib.request.urlopen(req, timeout=60) as resp:
                         if resp.status == 200:
                             result = json.loads(resp.read().decode())
                             text = result.get("response", "")
@@ -311,7 +285,7 @@ class Translator:
                 headers = {'Content-Type': 'application/json'}
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=600) as response:
+                    with urllib.request.urlopen(req, timeout=60) as response:
                         if response.status == 200:
                             result = json.loads(response.read().decode())
                             return result.get("response", "")
@@ -368,6 +342,7 @@ class Translator:
             if log_callback:
                 log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
 
+            gemma4_failures = 0  # Circuit breaker
             for batch_start in range(0, total, batch_size):
                 batch_end = min(batch_start + batch_size, total)
                 batch = segments[batch_start:batch_end]
@@ -396,19 +371,24 @@ Dialogue:
 
 JSON:"""
 
+                # Circuit breaker: skip Gemma4 if it failed 3 times in a row
+                if gemma4_failures >= 3:
+                    if log_callback and gemma4_failures == 3:
+                        log_callback("  ⚡ Gemma4 недоступен — использую Google Translate для оставшихся батчей")
+                    gemma4_failures += 1  # Keep incrementing to avoid re-logging
+                    continue
+
                 try:
                     response = self._call_llm(prompt, is_json=True)
                     data = json.loads(response)
                     parsed = data.get("segments", [])
+                    gemma4_failures = 0  # Reset on success
 
                     if parsed and len(parsed) == len(batch):
                         for i, p_seg in enumerate(parsed):
                             new_text = p_seg.get("text", "").strip()
                             if new_text:
                                 batch[i]["text"] = new_text
-                                # Check if same as original → skip dubbing
-                                if batch[i]["text"].strip().lower() == batch[i]["text"].strip().lower():
-                                    pass  # keep as is
                     elif parsed:
                         if log_callback:
                             log_callback(f"  ⚠ Gemma4 mismatch ({len(parsed)}/{len(batch)}), partial merge")
@@ -416,12 +396,11 @@ JSON:"""
                             new_text = parsed[i].get("text", "").strip()
                             if new_text:
                                 batch[i]["text"] = new_text
-                    # If Gemma4 returned nothing useful → Google Translate stays
 
                 except Exception as e:
+                    gemma4_failures += 1
                     if log_callback:
-                        log_callback(f"  ⚠ Gemma4 batch failed: {e}. Using Google Translate for this batch.")
-                    # Google Translate is already in translated_base → keep it
+                        log_callback(f"  ⚠ Gemma4 batch failed ({gemma4_failures}/3): {str(e)[:80]}. Using Google Translate.")
 
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()

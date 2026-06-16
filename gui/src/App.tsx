@@ -186,9 +186,10 @@ const App: React.FC = () => {
           {/* Brand */}
           <div className="sidebar-brand">
             <img
-              src="/logo.png"
+              src="/logo.svg"
               alt="AutoDub Studio"
               className="sidebar-brand-icon"
+              style={{ objectFit: 'contain' }}
             />
             <span className="sidebar-brand-text">AutoDub Studio</span>
           </div>
