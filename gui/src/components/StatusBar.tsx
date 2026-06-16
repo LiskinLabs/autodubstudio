@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSettings } from "../store";
 import { useOllama } from "../hooks/useOllama";
+import UpdateChecker from "./UpdateChecker";
 import pkg from "../../package.json";
 
 type GpuStatus = "gpu" | "cpu";
@@ -59,6 +60,11 @@ const StatusBar: React.FC = () => {
             : t('status.ollama_off')}
         </span>
       </div>
+
+      <div className="status-separator" />
+
+      {/* Update Checker — shows progress/status when active */}
+      <UpdateChecker />
 
       {/* Version — pushed to right */}
       <div className="status-item" style={{ marginLeft: "auto" }}>

@@ -353,9 +353,9 @@ class Translator:
                 orig_text = seg["text"].strip()
                 seg["translated_base"] = self.translate_text(orig_text, target_lang)
 
-        # Ollama (Gemma4): context-aware per-segment AI translation
+        # Ollama (Gemma4): batch translation with context
         if is_ollama:
-            if log_callback: log_callback("🧠 Gemma4 контекстный перевод (посегментно, с соседними сегментами)...")
+            batch_size = 6
             total = len(segments)
             lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic",
                           "es": "Spanish", "fr": "French", "de": "German", "zh": "Chinese",
@@ -363,57 +363,83 @@ class Translator:
                           "pl": "Polish", "hi": "Hindi"}
             lang_name = lang_names.get(target_lang, target_lang)
 
-            for i, seg in enumerate(segments):
-                orig_text = seg["text"].strip()
-                if log_callback: log_callback(f"  -> Сегмент {i+1}/{total}...")
+            for batch_start in range(0, total, batch_size):
+                batch_end = min(batch_start + batch_size, total)
+                batch = segments[batch_start:batch_end]
+                if log_callback:
+                    log_callback(f"  -> Gemma4 батч {batch_start+1}-{batch_end}/{total} (контекстный)...")
 
-                # Build context from adjacent segments
-                context_parts = []
-                if i > 0:
-                    prev_text = segments[i-1]["text"].strip()
-                    prev_trans = segments[i-1].get("text", "").strip()
-                    if prev_trans and prev_trans != prev_text:
-                        context_parts.append(f"Previous (translated): {prev_trans}")
-                    else:
-                        context_parts.append(f"Previous: {prev_text}")
-                context_parts.append(f"NOW: {orig_text}")
-                if i < total - 1:
-                    context_parts.append(f"Next: {segments[i+1]['text'].strip()}")
+                # Build dialogue with context
+                dialogue = []
+                for i, seg in enumerate(batch):
+                    idx = batch_start + i
+                    spk = seg.get("speaker", "SPEAKER_00")
+                    txt = seg["text"].strip()
+                    base = seg.get("translated_base", "")
+                    ctx = f"[{i}] {spk}: {txt}"
+                    if base and base != txt:
+                        ctx += f"\n    Draft: {base}"
+                    dialogue.append(ctx)
 
-                context = "\n".join(context_parts)
-                base_trans = seg.get("translated_base", "")
+                full_text = "\n".join(dialogue)
 
-                prompt = f"""You are an expert translator for video subtitles. Translate ONLY the line marked NOW to {lang_name}. Use the context to ensure natural flow with adjacent lines.
+                prompt = f"""You are a professional subtitle translator for video dubbing. Translate the following dialogue to {lang_name}.
 
-Rules:
-- Output ONLY the translation of the NOW line, nothing else
-- Match the tone and style of the context
-- If the NOW line is already in {lang_name}, output it unchanged
-- Preserve names, brands, and technical terms exactly
-- Keep it natural and conversational
+CRITICAL RULES:
+1. Translate EACH segment naturally for spoken {lang_name}
+2. Preserve names, brands, and technical terms exactly as-is
+3. If a segment is already in {lang_name}, keep it unchanged
+4. Match the conversational tone of the original
+5. Keep translations concise — they'll be spoken as voice-over
 
-{context}
+Output a JSON object with a "segments" array. Each entry MUST have:
+- "text": the translation
+- "skip_dub": true ONLY if the original is already in {lang_name}
 
-Translation:"""
+Dialogue:
+{full_text}
+
+JSON:"""
 
                 try:
-                    ai_trans = self._call_llm(prompt, is_json=False)
-                    ai_trans = ai_trans.strip().strip('"').strip("'").strip()
-                    # Remove any prefix like "NOW: " the model might add
-                    for prefix in ["NOW: ", "Translation: ", "перевод: "]:
-                        if ai_trans.lower().startswith(prefix.lower()):
-                            ai_trans = ai_trans[len(prefix):].strip()
+                    response = self._call_llm(prompt, is_json=True)
+                    data = json.loads(response)
+                    parsed = data.get("segments", [])
 
-                    if ai_trans and len(ai_trans) > 1:
-                        seg["text"] = ai_trans
-                        if orig_text.lower().strip() == ai_trans.lower().strip():
-                            seg["skip_dub"] = True
-                    elif base_trans:
-                        seg["text"] = base_trans
+                    if parsed and len(parsed) == len(batch):
+                        for i, p_seg in enumerate(parsed):
+                            orig = batch[i]["text"].strip()
+                            trans = p_seg.get("text", orig)
+                            if orig.lower() == trans.lower():
+                                batch[i]["skip_dub"] = True
+                            batch[i]["text"] = trans
+                    elif parsed:
+                        # Partial match — use what we have
+                        if log_callback:
+                            log_callback(f"  ⚠ JSON mismatch ({len(parsed)}/{len(batch)}), partial merge")
+                        for i in range(min(len(parsed), len(batch))):
+                            batch[i]["text"] = parsed[i].get("text", batch[i]["text"])
+                    else:
+                        raise ValueError("Empty JSON response")
+
                 except Exception as e:
-                    if log_callback: log_callback(f"  ⚠ Сегмент {i+1}: {e}, базовый перевод")
-                    if seg.get("translated_base"):
-                        seg["text"] = seg["translated_base"]
+                    if log_callback:
+                        log_callback(f"  ⚠ Gemma4 batch failed: {e}. Per-segment fallback...")
+                    for seg in batch:
+                        orig_text = seg["text"].strip()
+                        base = seg.get("translated_base", "")
+                        try:
+                            p = f"Translate to {lang_name}. Output only the translation.\n{orig_text}"
+                            ai = self._call_llm(p, is_json=False)
+                            ai = ai.strip().strip('"').strip("'")
+                            if ai and len(ai) > 1:
+                                seg["text"] = ai
+                            elif base:
+                                seg["text"] = base
+                        except Exception:
+                            if base:
+                                seg["text"] = base
+
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()
             return segments
