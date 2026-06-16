@@ -68,8 +68,6 @@
       "../../cli_run.py",
       "../../download_models.bat",
       "../../start_ollama.bat",
-      "../../logo.png",
-      "../../logo.ico",
       "../../ornament.png",
       "../../teknorob.png"
     ]

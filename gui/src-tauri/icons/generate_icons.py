@@ -1,6 +1,6 @@
 """Generate all app icon sizes from user's source icon."""
 from PIL import Image
-import os, struct, shutil
+import os, struct
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 SOURCE = r"C:\Users\silvestr.liskin\Downloads\edited-photo (2).png"
@@ -16,39 +16,24 @@ SQUARE_SIZES = [
 STANDARD = [32, 44, 71, 89, 107, 128, 142, 150, 284, 310]
 
 
-def save_ico(png256, ico_path):
-    img = Image.open(png256).convert('RGBA')
+def save_ico_pillow(png_src, ico_path):
+    """Use Pillow's built-in ICO save (produces valid DIB)."""
+    img = Image.open(png_src).convert('RGBA')
     sizes = [(256,256), (128,128), (64,64), (48,48), (32,32), (16,16)]
     images = [img.resize(s, Image.LANCZOS) for s in sizes]
-    with open(ico_path, 'wb') as f:
-        f.write(struct.pack('<HHH', 0, 1, len(images)))
-        offset = 6 + 16 * len(images)
-        for (w, h), im in zip(sizes, images):
-            b = w if w < 256 else 0
-            f.write(struct.pack('<BBBBHHII', b, b, 0, 0, 1, 32, w*h*4, offset))
-            offset += w * h * 4
-        for (w, h), im in zip(sizes, images):
-            rgba = im.resize((w, h), Image.LANCZOS).convert('RGBA')
-            raw = bytearray()
-            for y in range(h):
-                for x in range(w):
-                    r, g, b, a = rgba.getpixel((x, y))
-                    raw.extend([b, g, r, a])
-            f.write(bytes(raw))
+    # Save first image as ICO with all sizes embedded
+    images[0].save(ico_path, format='ICO', sizes=[s for s in sizes], append_images=images[1:])
 
 
 if __name__ == '__main__':
     print(f"Loading source: {SOURCE}")
     base = Image.open(SOURCE).convert('RGBA')
-    print(f"  Original size: {base.size}")
-
-    # Crop to square (center crop)
     w, h = base.size
     side = min(w, h)
     left = (w - side) // 2
     top = (h - side) // 2
     base = base.crop((left, top, left + side, top + side))
-    print(f"  Cropped to square: {base.size}")
+    print(f"  Size: {base.size} -> cropped to square: ({side}, {side})")
 
     # Standard PNG icons
     for s in STANDARD:
@@ -71,18 +56,19 @@ if __name__ == '__main__':
     icon_png = os.path.join(OUT, 'icon.png')
     base.resize((512, 512), Image.LANCZOS).save(icon_png, 'PNG')
 
-    # icon.ico
+    # icon.ico (using Pillow's built-in ICO writer — valid DIB)
     icon_ico = os.path.join(OUT, 'icon.ico')
-    save_ico(icon_png, icon_ico)
+    save_ico_pillow(icon_png, icon_ico)
     print(f'  {icon_ico}')
 
     # icon.icns (copy PNG)
+    import shutil
     shutil.copy(icon_png, os.path.join(OUT, 'icon.icns'))
     print('  icon.icns')
 
-    # Also copy as logo for web UI
+    # Copy for web UI
     logo_png = os.path.normpath(os.path.join(OUT, '..', '..', 'public', 'logo-icon.png'))
     base.resize((128, 128), Image.LANCZOS).save(logo_png, 'PNG')
     print(f'  {logo_png}')
 
-    print("\nDone! All icons generated from user's source image.")
+    print("\nDone!")
