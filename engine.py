@@ -359,22 +359,20 @@ class AutoDubWorker(threading.Thread):
 
                         groups = []  # [(group_segments, combined_text)]
                         cur_group = []
+                        MAX_GROUP = 8  # Max segments per TTS group
                         for _, tseg, clip_path in tts_segments:
                             cur_group.append((tseg, clip_path))
-                            if _ends_sentence(tseg["text"]):
+                            if _ends_sentence(tseg["text"]) or len(cur_group) >= MAX_GROUP:
                                 groups.append(cur_group)
                                 cur_group = []
                         if cur_group:
-                            # Append last incomplete group to previous group
                             if groups:
                                 groups[-1].extend(cur_group)
                             else:
                                 groups.append(cur_group)
 
                         async def gen_group(group_text, voice, out_path):
-                            # Add SSML breaks between segments for natural pauses
-                            ssml = f'<speak version="1.0" xml:lang="{lang}">{group_text}</speak>'
-                            await edge_tts.Communicate(ssml, voice).save(out_path)
+                            await edge_tts.Communicate(group_text, voice).save(out_path)
 
                         group_idx = 0
                         for group in groups:
@@ -390,8 +388,7 @@ class AutoDubWorker(threading.Thread):
                             group_path = os.path.join(self.out_dir, f"temp_{lang}_group{group_idx}.mp3")
                             all_created_files.append(group_path)
 
-                            if log_callback:
-                                log_callback(f"  -> TTS group {group_idx+1}/{len(groups)}: {len(group)} segs, {len(group_text)} chars")
+                            self.log_signal.emit(f"  -> TTS group {group_idx+1}/{len(groups)}: {len(group)} segs, {len(group_text)} chars")
                             asyncio.run(gen_group(group_text, voice, group_path))
 
                             # Split group audio back to segments using text-length ratios
