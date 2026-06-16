@@ -371,40 +371,33 @@ class AutoDubWorker(threading.Thread):
                             else:
                                 groups.append(cur_group)
 
-                        async def gen_group(group_text, voice, out_path):
-                            await edge_tts.Communicate(group_text, voice).save(out_path)
+                        async def gen_all_groups():
+                            for gi, group in enumerate(groups):
+                                parts = []
+                                for tseg, _ in group:
+                                    t = tseg["text"].strip()
+                                    if t and not _ends_sentence(t):
+                                        t += ', '
+                                    parts.append(t)
+                                group_text = ' '.join(parts)
+                                group_path = os.path.join(self.out_dir, f"temp_{lang}_group{gi}.mp3")
+                                all_created_files.append(group_path)
+                                self.log_signal.emit(f"  -> TTS group {gi+1}/{len(groups)}: {len(group)} segs, {len(group_text)} chars")
+                                await edge_tts.Communicate(group_text, voice).save(group_path)
+                                # Split back to segments
+                                group_audio = AudioSegment.from_file(group_path)
+                                total_chars = max(1, sum(len(s[0]["text"].strip()) for s in group))
+                                pos_ms = 0
+                                for tseg, clip_path in group:
+                                    ratio = len(tseg["text"].strip()) / total_chars
+                                    seg_dur = max(300, int(len(group_audio) * ratio))
+                                    end_ms = min(pos_ms + seg_dur, len(group_audio))
+                                    seg_audio = group_audio[pos_ms:end_ms]
+                                    seg_audio.export(clip_path, format="mp3")
+                                    pos_ms = end_ms
+                                    audio_clips.append((tseg["start"], clip_path, False, tseg))
 
-                        group_idx = 0
-                        for group in groups:
-                            # Build group text with sentence-end markers preserved
-                            parts = []
-                            for tseg, _ in group:
-                                t = tseg["text"].strip()
-                                if t and not _ends_sentence(t):
-                                    t += ', '  # soft pause for incomplete sentences
-                                parts.append(t)
-                            group_text = ' '.join(parts)
-
-                            group_path = os.path.join(self.out_dir, f"temp_{lang}_group{group_idx}.mp3")
-                            all_created_files.append(group_path)
-
-                            self.log_signal.emit(f"  -> TTS group {group_idx+1}/{len(groups)}: {len(group)} segs, {len(group_text)} chars")
-                            asyncio.run(gen_group(group_text, voice, group_path))
-
-                            # Split group audio back to segments using text-length ratios
-                            group_audio = AudioSegment.from_file(group_path)
-                            total_chars = max(1, sum(len(s[1]["text"].strip()) for s in group))
-                            pos_ms = 0
-                            for tseg, clip_path in group:
-                                ratio = len(tseg["text"].strip()) / total_chars
-                                seg_dur = max(300, int(len(group_audio) * ratio))
-                                # Don't overshoot
-                                end_ms = min(pos_ms + seg_dur, len(group_audio))
-                                seg_audio = group_audio[pos_ms:end_ms]
-                                seg_audio.export(clip_path, format="mp3")
-                                pos_ms = end_ms
-                                audio_clips.append((tseg["start"], clip_path, False, tseg))
-                            group_idx += 1
+                        asyncio.run(gen_all_groups())
 
                 # --- Assembly ---
                 final_audio = AudioSegment.silent(duration=len(vocals_full))

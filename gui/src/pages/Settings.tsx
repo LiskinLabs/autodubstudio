@@ -574,7 +574,7 @@ function Settings() {
     <div className="flex-col gap-4" style={{ display: 'flex' }}>
       <div className="card">
         <div className="about-hero">
-          <img src="/logo.png" alt="AutoDubStudio" className="about-logo" />
+          <img src="/logo-icon.png" alt="AutoDub Studio" className="about-logo" />
           <div className="about-name">AutoDubStudio</div>
           <div className="about-role">
             {t('settings.about.tagline')}
