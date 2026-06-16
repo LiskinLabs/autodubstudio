@@ -1,6 +1,6 @@
 @echo off
 echo ====================================================
-echo [AutoDubStudio] Downloading the best Local AI Models
+echo [AutoDubStudio] Downloading Gemma4 AI Model
 echo ====================================================
 
 :: Ensure Ollama saves to the project folder
@@ -12,22 +12,10 @@ if not exist "%OLLAMA_MODELS%" (
 
 echo.
 echo ====================================================
-echo 1/2 Downloading Qwen 2.5 14B (Best for translation, ~9GB RAM)
-echo ====================================================
-ollama pull qwen2.5:14b
-
-echo.
-echo ====================================================
-echo 2/3 Downloading Llama 3.1 8B (Fastest & highly capable, ~4.7GB RAM)
-echo ====================================================
-ollama pull llama3.1:8b
-
-echo.
-echo ====================================================
-echo 3/3 Downloading Gemma 4 E4B (Latest Google release!)
+echo Downloading Gemma 4 E4B (Google, 9B, best quality)
 echo ====================================================
 ollama pull gemma4:e4b
 
 echo.
-echo All models downloaded successfully into your project folder!
+echo Done! Gemma4 is ready for translation.
 pause

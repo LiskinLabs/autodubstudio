@@ -274,7 +274,7 @@ class Translator:
             import json
             url = "http://localhost:11434/api/generate"
             # No "format": "json" — it breaks Cyrillic (use _extract_json instead)
-            for model_name in ["qwen2.5:14b", "qwen2.5:7b", "gemma2:2b"]:
+            for model_name in ["gemma4:e4b"]:
                 payload = json.dumps({
                     "model": model_name,
                     "prompt": prompt,

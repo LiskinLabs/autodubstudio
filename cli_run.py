@@ -28,7 +28,7 @@ def main():
     print("=" * 70)
     print(f"  Video:       {os.path.basename(video_path)}")
     print(f"  Target Lang: ru (Russian)")
-    print(f"  Translator:  Ollama qwen2.5:14b")
+    print(f"  Translator:  Ollama Gemma4 (Local, Free)")
     print(f"  TTS Engine:  Qwen3-TTS Local")
     print(f"  Whisper:     small (WhisperX)")
     print(f"  Device:      cuda")
