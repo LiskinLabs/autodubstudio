@@ -581,12 +581,27 @@ export default function DubbingStudio() {
           </div>
 
           {/* Status Badge */}
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             {pipelineState === 'running' && (
-              <span className="badge badge-info">
-                <SpinnerIcon />
-                {t('dubbing.badge.running')}
-              </span>
+              <>
+                <span className="badge badge-info">
+                  <SpinnerIcon />
+                  {t('dubbing.badge.running')}
+                </span>
+                <button
+                  className="btn btn-danger btn-lg"
+                  onClick={() => {
+                    stopPipeline();
+                    notifyToast.info('Pipeline stopping...', { description: 'Cancelling current operation' });
+                  }}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: 6 }}>
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                  {t('dubbing.btn.cancel')}
+                </button>
+              </>
             )}
             {pipelineState === 'done' && (
               <span className="badge badge-success">
