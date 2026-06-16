@@ -1,151 +1,131 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSettings } from '../store';
 
 interface ModelInfo {
   id: string;
   name: string;
   size: string;
   url: string;
-  required: boolean;
   description: string;
 }
 
-// Models hosted on GitHub Releases — downloaded on-demand
 const MODELS: ModelInfo[] = [
   {
     id: 'whisper-large-v3',
     name: 'Whisper large-v3',
-    size: '~3.1 GB',
+    size: '3.1 GB',
     url: 'https://huggingface.co/openai/whisper-large-v3/resolve/main/model.bin',
-    required: false,
-    description: 'Best accuracy speech recognition (recommended)',
+    description: 'Распознавание речи — лучшая точность (рекомендуется)',
   },
   {
     id: 'whisper-base',
     name: 'Whisper base',
-    size: '~290 MB',
+    size: '290 MB',
     url: 'https://huggingface.co/openai/whisper-base/resolve/main/model.bin',
-    required: false,
-    description: 'Fast, lower accuracy — good for testing',
+    description: 'Распознавание речи — быстро, ниже точность',
   },
   {
     id: 'pyannote-segmentation',
     name: 'Pyannote Segmentation 3.0',
-    size: '~180 MB',
+    size: '180 MB',
     url: 'https://huggingface.co/pyannote/segmentation-3.0/resolve/main/pytorch_model.bin',
-    required: false,
-    description: 'Speaker diarization — identifies who is speaking',
+    description: 'Диаризация — определяет кто говорит',
   },
   {
     id: 'xttsv2',
     name: 'XTTSv2',
-    size: '~1.9 GB',
+    size: '1.9 GB',
     url: 'https://huggingface.co/coqui/XTTS-v2/resolve/main/model.pth',
-    required: false,
-    description: 'High-quality Turkish/Russian voice synthesis',
+    description: 'Синтез речи — турецкий, русский, английский',
   },
 ];
 
-type DownloadState = 'idle' | 'downloading' | 'done' | 'error';
-
-interface ModelDownloadState {
-  [key: string]: {
-    state: DownloadState;
-    progress: number;
-    error?: string;
-  };
-}
+type DlState = 'idle' | 'downloading' | 'done' | 'error';
 
 export default function ModelDownloader() {
-  const { t } = useSettings();
-  const [downloads, setDownloads] = useState<ModelDownloadState>({});
   const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [downloads, setDownloads] = useState<Record<string, { state: DlState; progress: number; error?: string }>>({});
   const abortRef = useRef<Record<string, AbortController>>({});
 
-  const getStored = useCallback((modelId: string): DownloadState => {
-    try {
-      return localStorage.getItem(`model_${modelId}`) === 'done' ? 'done' : 'idle';
-    } catch {
-      return 'idle';
-    }
-  }, []);
-
+  // Check if first launch
   useEffect(() => {
-    // Check which models are already installed
-    const state: ModelDownloadState = {};
+    const hasRun = localStorage.getItem('autodub_first_launch');
+    if (!hasRun) {
+      // First launch — auto-open model downloader
+      setIsOpen(true);
+      // Pre-select recommended models
+      setSelected(new Set(['whisper-large-v3', 'pyannote-segmentation']));
+    }
+
+    // Initialize download states
+    const state: Record<string, { state: DlState; progress: number }> = {};
     for (const m of MODELS) {
-      state[m.id] = { state: getStored(m.id), progress: 0 };
+      const done = localStorage.getItem(`model_${m.id}`) === 'done';
+      state[m.id] = { state: done ? 'done' : 'idle', progress: done ? 100 : 0 };
     }
     setDownloads(state);
+  }, []);
 
-    // Auto-open if any required models are missing
-    const missing = MODELS.some(m => m.required && getStored(m.id) !== 'done');
-    if (missing) {
-      setIsOpen(true);
-    }
-  }, [getStored]);
+  const toggleModel = useCallback((id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
-  const downloadModel = useCallback(async (model: ModelInfo) => {
-    setDownloads(prev => ({
-      ...prev,
-      [model.id]: { state: 'downloading', progress: 0 },
-    }));
+  const downloadSelected = useCallback(async () => {
+    localStorage.setItem('autodub_first_launch', 'done');
+    const toDownload = MODELS.filter(m => selected.has(m.id) && downloads[m.id]?.state !== 'done');
 
-    const controller = new AbortController();
-    abortRef.current[model.id] = controller;
+    for (const model of toDownload) {
+      setDownloads(prev => ({ ...prev, [model.id]: { state: 'downloading', progress: 0 } }));
+      const controller = new AbortController();
+      abortRef.current[model.id] = controller;
 
-    try {
-      const resp = await fetch(model.url, { signal: controller.signal });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      if (!resp.body) throw new Error('No response body');
+      try {
+        const resp = await fetch(model.url, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.body) throw new Error('No body');
 
-      const contentLength = Number(resp.headers.get('content-length')) || 0;
-      const reader = resp.body.getReader();
-      let received = 0;
-      const chunks: Uint8Array[] = [];
+        const total = Number(resp.headers.get('content-length')) || 0;
+        const reader = resp.body.getReader();
+        let received = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (contentLength > 0) {
-          setDownloads(prev => ({
-            ...prev,
-            [model.id]: {
-              state: 'downloading',
-              progress: Math.round((received / contentLength) * 100),
-            },
-          }));
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          received += value.length;
+          if (total > 0) {
+            setDownloads(prev => ({
+              ...prev,
+              [model.id]: { state: 'downloading', progress: Math.round((received / total) * 100) },
+            }));
+          }
         }
+
+        localStorage.setItem(`model_${model.id}`, 'done');
+        setDownloads(prev => ({ ...prev, [model.id]: { state: 'done', progress: 100 } }));
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        setDownloads(prev => ({ ...prev, [model.id]: { state: 'error', progress: 0, error: err.message } }));
       }
-
-      // Save model to disk (placeholder — uses Tauri file system in production)
-      localStorage.setItem(`model_${model.id}`, 'done');
-      setDownloads(prev => ({
-        ...prev,
-        [model.id]: { state: 'done', progress: 100 },
-      }));
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      setDownloads(prev => ({
-        ...prev,
-        [model.id]: { state: 'error', progress: 0, error: err.message },
-      }));
     }
+  }, [selected, downloads]);
+
+  const skipAll = useCallback(() => {
+    localStorage.setItem('autodub_first_launch', 'done');
+    setIsOpen(false);
   }, []);
 
-  const cancelDownload = useCallback((modelId: string) => {
-    abortRef.current[modelId]?.abort();
-  }, []);
-
+  // Compact status bar indicator when not open
   if (!isOpen) {
-    // Show compact status bar indicator
     const downloading = Object.values(downloads).filter(d => d.state === 'downloading').length;
     if (downloading > 0) {
       return (
         <div className="status-item" style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setIsOpen(true)}>
-          <span>⬇️ Models: {downloading} downloading</span>
+          <span>⬇️ {downloading} model(s)</span>
         </div>
       );
     }
@@ -155,63 +135,66 @@ export default function ModelDownloader() {
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9998,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.6)',
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.7)',
       }}
     >
       <div
         style={{
-          width: 560,
-          maxHeight: '80vh',
-          overflow: 'auto',
+          width: 600, maxHeight: '85vh', overflow: 'auto',
           background: 'var(--bg-elevated)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-lg)',
-          padding: 'var(--space-6)',
+          padding: 'var(--space-8)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
-          <div>
-            <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 }}>Download AI Models</h2>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-              Models are downloaded on-demand from HuggingFace. Only download what you need.
-            </p>
-          </div>
-          <button className="btn btn-ghost" onClick={() => setIsOpen(false)} style={{ fontSize: 'var(--text-lg)' }}>
-            ✕
-          </button>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+          <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>🤖</div>
+          <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Добро пожаловать в AutoDub Studio!
+          </h2>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-2)', lineHeight: 1.6 }}>
+            Чтобы начать работу, установите AI модели. Они скачиваются один раз и кэшируются локально.
+            Вы можете пропустить этот шаг и установить модели позже в Настройках.
+          </p>
         </div>
 
-        <div className="flex-col gap-3" style={{ display: 'flex' }}>
+        {/* Model list */}
+        <div className="flex-col gap-3" style={{ display: 'flex', marginBottom: 'var(--space-6)' }}>
           {MODELS.map(model => {
             const dl = downloads[model.id];
-            const isDownloading = dl?.state === 'downloading';
             const isDone = dl?.state === 'done';
-            const isError = dl?.state === 'error';
+            const isDownloading = dl?.state === 'downloading';
+            const isChecked = selected.has(model.id) || isDone;
 
             return (
-              <div
+              <label
                 key={model.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-4)',
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
                   padding: 'var(--space-4)',
-                  background: 'var(--bg-secondary)',
+                  background: isDone ? 'var(--success-muted)' : 'var(--bg-secondary)',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
+                  border: `1px solid ${isChecked ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                  cursor: isDone ? 'default' : 'pointer',
+                  opacity: isDownloading ? 0.7 : 1,
+                  transition: 'all 120ms ease',
                 }}
               >
-                <div style={{ flex: 1 }}>
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isDone || isDownloading}
+                  onChange={() => !isDone && toggleModel(model.id)}
+                  style={{ accentColor: 'var(--accent)', width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
                     {model.name}
-                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 'var(--space-2)' }}>
+                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>
                       {model.size}
                     </span>
                   </div>
@@ -224,35 +207,35 @@ export default function ModelDownloader() {
                       <div className="progress-bar-fill" style={{ width: `${dl.progress}%` }} />
                     </div>
                   )}
-                  {isError && (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>
-                      {dl.error}
-                    </div>
+                  {dl?.state === 'error' && (
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>{dl.error}</div>
                   )}
                 </div>
 
-                {isDone ? (
-                  <span className="badge badge-success">✓ Installed</span>
-                ) : isDownloading ? (
-                  <button className="btn btn-ghost btn-icon" onClick={() => cancelDownload(model.id)} title="Cancel">
-                    ✕
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-primary"
-                    style={{ fontSize: 'var(--text-xs)', padding: '4px 12px' }}
-                    onClick={() => downloadModel(model)}
-                  >
-                    {isError ? 'Retry' : 'Download'}
-                  </button>
-                )}
-              </div>
+                {isDone && <span className="badge badge-success">✓</span>}
+                {isDownloading && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600 }}>{dl.progress}%</span>}
+              </label>
             );
           })}
         </div>
 
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <button
+            className="btn btn-primary btn-lg"
+            style={{ flex: 1 }}
+            onClick={downloadSelected}
+            disabled={selected.size === 0 || Object.values(downloads).some(d => d.state === 'downloading')}
+          >
+            ⬇️ Установить выбранные ({selected.size})
+          </button>
+          <button className="btn btn-secondary btn-lg" onClick={skipAll}>
+            Пропустить
+          </button>
+        </div>
+
         <div style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
-          All models are cached locally after first download. You can delete them from Settings → TTS Cache.
+          Модели можно установить позже: Настройки → Model Status → Download
         </div>
       </div>
     </div>

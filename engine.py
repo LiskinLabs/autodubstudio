@@ -349,39 +349,65 @@ class AutoDubWorker(threading.Thread):
                     voice = EDGE_VOICES.get(lang, "en-US-ChristopherNeural")
 
                     if tts_segments:
-                        # ── COMBINED TTS MODE ──
-                        # Generate ALL segments as one continuous audio for natural intonation,
-                        # then split back using text-length ratios.
-                        self.log_signal.emit(f"🎙️ Combined TTS: generating {len(tts_segments)} segments as one stream...")
+                        self.log_signal.emit(f"🎙️ Edge-TTS: generating {len(tts_segments)} segments (sentence-aware grouping)...")
 
-                        # Join texts with punctuation for natural pauses
-                        text_parts = []
-                        for _, tseg, _ in tts_segments:
-                            t = tseg["text"].strip()
-                            if t and not t.endswith(('.', '!', '?', '...')):
-                                t += '.'
-                            text_parts.append(t)
-                        combined_text = ' '.join(text_parts)
+                        # Group segments by sentence boundaries for natural TTS cuts
+                        SENTENCE_END = {'.', '!', '?', '...', '."', '!"', '?"', '.)', '.)"'}
+                        def _ends_sentence(text):
+                            t = text.strip()
+                            return any(t.endswith(c) for c in SENTENCE_END) or len(t) < 3
 
-                        combined_path = os.path.join(self.out_dir, f"temp_{lang}_combined.mp3")
+                        groups = []  # [(group_segments, combined_text)]
+                        cur_group = []
+                        for _, tseg, clip_path in tts_segments:
+                            cur_group.append((tseg, clip_path))
+                            if _ends_sentence(tseg["text"]):
+                                groups.append(cur_group)
+                                cur_group = []
+                        if cur_group:
+                            # Append last incomplete group to previous group
+                            if groups:
+                                groups[-1].extend(cur_group)
+                            else:
+                                groups.append(cur_group)
 
-                        async def gen_combined():
-                            await edge_tts.Communicate(combined_text, voice).save(combined_path)
-                        asyncio.run(gen_combined())
+                        async def gen_group(group_text, voice, out_path):
+                            # Add SSML breaks between segments for natural pauses
+                            ssml = f'<speak version="1.0" xml:lang="{lang}">{group_text}</speak>'
+                            await edge_tts.Communicate(ssml, voice).save(out_path)
 
-                        # Split combined audio using text-length ratios
-                        combined_audio = AudioSegment.from_file(combined_path)
-                        total_chars = max(1, sum(len(s[1]["text"].strip()) for s in tts_segments))
-                        all_created_files.append(combined_path)
+                        group_idx = 0
+                        for group in groups:
+                            # Build group text with sentence-end markers preserved
+                            parts = []
+                            for tseg, _ in group:
+                                t = tseg["text"].strip()
+                                if t and not _ends_sentence(t):
+                                    t += ', '  # soft pause for incomplete sentences
+                                parts.append(t)
+                            group_text = ' '.join(parts)
 
-                        current_pos_ms = 0
-                        for idx, tseg, clip_path in tts_segments:
-                            char_ratio = len(tseg["text"].strip()) / total_chars
-                            seg_dur_ms = max(200, int(len(combined_audio) * char_ratio))
-                            seg_audio = combined_audio[current_pos_ms:current_pos_ms + seg_dur_ms]
-                            seg_audio.export(clip_path, format="mp3")
-                            current_pos_ms += seg_dur_ms
-                            audio_clips.append((tseg["start"], clip_path, False, tseg))
+                            group_path = os.path.join(self.out_dir, f"temp_{lang}_group{group_idx}.mp3")
+                            all_created_files.append(group_path)
+
+                            if log_callback:
+                                log_callback(f"  -> TTS group {group_idx+1}/{len(groups)}: {len(group)} segs, {len(group_text)} chars")
+                            asyncio.run(gen_group(group_text, voice, group_path))
+
+                            # Split group audio back to segments using text-length ratios
+                            group_audio = AudioSegment.from_file(group_path)
+                            total_chars = max(1, sum(len(s[1]["text"].strip()) for s in group))
+                            pos_ms = 0
+                            for tseg, clip_path in group:
+                                ratio = len(tseg["text"].strip()) / total_chars
+                                seg_dur = max(300, int(len(group_audio) * ratio))
+                                # Don't overshoot
+                                end_ms = min(pos_ms + seg_dur, len(group_audio))
+                                seg_audio = group_audio[pos_ms:end_ms]
+                                seg_audio.export(clip_path, format="mp3")
+                                pos_ms = end_ms
+                                audio_clips.append((tseg["start"], clip_path, False, tseg))
+                            group_idx += 1
 
                 # --- Assembly ---
                 final_audio = AudioSegment.silent(duration=len(vocals_full))
