@@ -17,6 +17,21 @@ const ERROR_LOG_KEY = 'autodub_error_log';
 const MAX_LOG_ENTRIES = 200;
 const BACKEND_URL = 'http://127.0.0.1:8000';
 
+// Token cache — fetched once from backend /api/token
+let _authToken: string | null = null;
+async function getAuthToken(): Promise<string | null> {
+  if (_authToken) return _authToken;
+  try {
+    const resp = await fetch(`${BACKEND_URL}/api/token`);
+    if (resp.ok) {
+      const data = await resp.json();
+      _authToken = data.token;
+      return _authToken;
+    }
+  } catch { /* backend offline */ }
+  return null;
+}
+
 // ─── Runtime log buffer ───
 const logBuffer: string[] = [];
 
@@ -68,9 +83,13 @@ export async function sendErrorReport(error: Error, componentStack?: string): Pr
   const report = buildReport(error, componentStack);
 
   try {
+    const token = await getAuthToken();
     const resp = await fetch(`${BACKEND_URL}/api/report-error`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(report),
     });
 

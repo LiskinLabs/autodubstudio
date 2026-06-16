@@ -147,6 +147,17 @@ if not GITHUB_TOKEN:
     print("[WARNING] GITHUB_TOKEN not set — error reporting disabled")
 GITHUB_REPO = "LiskinLabs/autodubstudio"
 
+# Rate limiter: max 5 reports per backend session
+_error_report_count = 0
+_MAX_ERROR_REPORTS = 5
+
+def verify_error_report_token(authorization: str = Header("")) -> bool:
+    """Reuse WS auth token — frontend already has it from /api/token."""
+    if not authorization.startswith("Bearer "):
+        return False
+    token = authorization[7:]
+    return token == WS_AUTH_TOKEN
+
 class ErrorReport(BaseModel):
     timestamp: str = ""
     version: str = "1.0.0"
@@ -160,8 +171,19 @@ class ErrorReport(BaseModel):
     route: str = ""
 
 @app.post("/api/report-error")
-async def report_error(report: ErrorReport):
-    """Send error report to GitHub Issues automatically. No auth required from user."""
+async def report_error(report: ErrorReport, authorization: str = Header("")):
+    """Send error report to GitHub Issues. Requires same auth token as WebSocket."""
+    global _error_report_count
+
+    # Auth check — must present valid Bearer token
+    if not verify_error_report_token(authorization):
+        raise HTTPException(status_code=401, detail="Invalid or missing auth token")
+
+    # Rate limit: prevent abuse
+    if _error_report_count >= _MAX_ERROR_REPORTS:
+        return {"status": "error", "message": "Too many reports this session. Restart backend to reset."}
+    _error_report_count += 1
+
     if not GITHUB_TOKEN:
         return {"status": "error", "message": "GitHub token not configured on backend"}
 
