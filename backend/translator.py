@@ -322,15 +322,15 @@ class Translator:
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
                                       ("deepseek" in self.engine_name.lower() and self.deepseek_key))
 
-        # ── Step 1: ALWAYS get a base translation for fallback ──
-        engine_label = "Gemini API" if ("gemini" in self.engine_name.lower() and self.gemini_key) else \
-                       "DeepSeek API" if ("deepseek" in self.engine_name.lower() and self.deepseek_key) else \
-                       "Google Translate"
-        if log_callback: log_callback(f"⚡ {engine_label} — базовый перевод...")
+        # ── Step 1: ALWAYS get a fast base translation ──
+        # Google Translate is free, fast, and supports all 14 languages.
+        # AI refinement (Gemma4/Gemini/DeepSeek) happens in Step 2 below.
+        if log_callback: log_callback("⚡ Google Translate — быстрый базовый перевод...")
         for seg in segments:
             orig_text = seg["text"].strip()
             if orig_text:
-                seg["translated_base"] = self.translate_text(orig_text, target_lang)
+                # Always use Google Translate for base — fast and free
+                seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
             else:
                 seg["translated_base"] = ""
 
@@ -453,89 +453,74 @@ JSON:"""
             self.release_models()
             return segments
 
-        # ── Gemini/DeepSeek: copy base translation to text ──
+        # ── Gemini/DeepSeek: batch refinement of Google Translate base ──
         if is_ai_refine and not is_ollama:
-            for seg in segments:
-                seg["text"] = seg.get("translated_base", seg["text"])
+            lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic",
+                          "es": "Spanish", "fr": "French", "de": "German", "zh": "Chinese",
+                          "ja": "Japanese", "ko": "Korean", "it": "Italian", "pt": "Portuguese",
+                          "pl": "Polish", "hi": "Hindi"}
+            lang_name = lang_names.get(target_lang, target_lang)
+
+            batch_size = 5
+            total_segments = len(segments)
+            if log_callback: log_callback(f"🧠 {self.engine_name} улучшает перевод (батчи по {batch_size}, {total_segments} сегментов)...")
+
+            for batch_start in range(0, total_segments, batch_size):
+                batch_end = min(batch_start + batch_size, total_segments)
+                batch = segments[batch_start:batch_end]
+
+                if log_callback: log_callback(f"  -> Батч {batch_start + 1}-{batch_end} из {total_segments}...")
+
+                # Build dialogue with original + draft translation
+                dialogue = []
+                for i, seg in enumerate(batch):
+                    spk = seg.get("speaker", "SPEAKER_00")
+                    orig = seg["text"].strip()
+                    draft = seg.get("translated_base", orig)
+                    dialogue.append(f"[{i}] {spk}\n    Original: {orig}\n    Draft: {draft}")
+
+                full_text = "\n\n".join(dialogue)
+
+                prompt = f"""You are an expert {lang_name} translator and localization editor.
+Improve these subtitle draft translations to sound completely natural in {lang_name}.
+Fix grammar, word choice, and conversational flow. Keep names/brands/tech terms unchanged.
+
+CRITICAL RULES:
+- Output a JSON object with a "segments" array
+- Each segment: {{"text": "improved translation", "skip_dub": false}}
+- If original is already in {lang_name}, copy it unchanged and set "skip_dub": true
+- If the Draft is already perfect, copy it as-is
+
+Dialogue:
+{full_text}
+
+JSON:"""
+
+                try:
+                    response_text = self._call_llm(prompt, is_json=True)
+                    response_text = re.sub(r'```[a-z]*\n|```', '', response_text).strip()
+                    data = json.loads(response_text)
+                    parsed = data.get("segments", [])
+
+                    if parsed and len(parsed) == len(batch):
+                        for i, p_seg in enumerate(parsed):
+                            new_text = p_seg.get("text", "").strip()
+                            if new_text:
+                                batch[i]["text"] = new_text
+                            batch[i]["skip_dub"] = p_seg.get("skip_dub", False)
+                    elif parsed:
+                        if log_callback:
+                            log_callback(f"  ⚠ Размер не совпал ({len(parsed)}/{len(batch)}), частичное слияние")
+                        for i in range(min(len(parsed), len(batch))):
+                            new_text = parsed[i].get("text", "").strip()
+                            if new_text:
+                                batch[i]["text"] = new_text
+
+                except Exception as e:
+                    if log_callback: log_callback(f"  ⚠ Батч не удался: {str(e)[:100]}. Оставляю базовый перевод.")
+                    for seg in batch:
+                        seg["text"] = seg.get("translated_base", seg["text"])
+
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()
             return segments
-
-        # Gemini/DeepSeek/Qwen: batch JSON translation (reliable for these engines)
-        if log_callback: log_callback("🧠 Умный ИИ-перевод / Корректировка (батчами по 5)...")
-
-        batch_size = 5
-        total_segments = len(segments)
-
-        for batch_start in range(0, total_segments, batch_size):
-            batch_end = min(batch_start + batch_size, total_segments)
-            batch = segments[batch_start:batch_end]
-
-            if log_callback: log_callback(f"  -> Перевод фрагментов {batch_start + 1}-{batch_end} из {total_segments}...")
-
-            dialogue = []
-            for i, seg in enumerate(batch):
-                spk = seg.get("speaker", "SPEAKER_00")
-                txt = seg["text"].strip()
-                base_trans = seg.get("translated_base", "")
-                if base_trans:
-                    dialogue.append(f"[{i}] {spk} (Original): {txt}\n    (Draft Translation): {base_trans}")
-                else:
-                    dialogue.append(f"[{i}] {spk}: {txt}")
-
-            full_text = "\n".join(dialogue)
-            prompt_1 = f"""You are an expert localization editor. Translate to {target_lang} or correct the Draft Translation.
-CRITICAL RULES:
-1. Fix typos and hallucinations. If a Draft Translation is provided, improve it to sound natural in {target_lang}.
-2. If a segment's original text is ALREADY in {target_lang} (or mostly in {target_lang}), do NOT translate it. Keep the translated text EXACTLY identical to the original text, and set a boolean field 'skip_dub': true for that segment.
-3. Otherwise, set 'skip_dub': false.
-
-Input:
-{full_text}
-
-Return ONLY a JSON object with a 'segments' array containing dicts with keys 'speaker', 'text' (the final translation), and 'skip_dub'."""
-
-            try:
-                response_text_1 = self._call_llm(prompt_1, is_json=True)
-                response_text_1 = re.sub(r'```[a-z]*\n|```', '', response_text_1).strip()
-
-                data = json.loads(response_text_1)
-                parsed = data.get("segments", [])
-
-                if parsed and len(parsed) == len(batch):
-                    # Perfect match
-                    for i, p_seg in enumerate(parsed):
-                        trans = p_seg.get("text", batch[i]["text"])
-                        original_text = batch[i]["text"]
-                        if original_text.lower().strip() == trans.lower().strip():
-                            batch[i]["skip_dub"] = True
-                        batch[i]["text"] = trans
-                        batch[i]["speaker"] = p_seg.get("speaker", batch[i]["speaker"])
-                elif parsed:
-                    # Tolerance: use what we have, fallback for rest
-                    if log_callback: log_callback(f"  ⚠ JSON mismatch: got {len(parsed)} segments, expected {len(batch)}. Partial merge...")
-                    for i in range(min(len(parsed), len(batch))):
-                        trans = parsed[i].get("text", batch[i]["text"])
-                        if batch[i]["text"].lower().strip() == trans.lower().strip():
-                            batch[i]["skip_dub"] = True
-                        batch[i]["text"] = trans
-                    # Per-line fallback for remaining
-                    for i in range(len(parsed), len(batch)):
-                        orig = batch[i]["text"].strip()
-                        batch[i]["text"] = batch[i].get("translated_base", orig)
-                else:
-                    raise ValueError("Empty JSON response")
-            except Exception as e:
-                if log_callback: log_callback(f"⚠ Ошибка ИИ-перевода батча {batch_start + 1}-{batch_end}: {e}. Построчный откат...")
-                for seg in batch:
-                    orig_text = seg["text"].strip()
-                    if "translated_base" in seg:
-                        seg["text"] = seg["translated_base"]
-                    else:
-                        seg["text"] = self.translate_text(orig_text, target_lang)
-                    if orig_text.lower() == seg["text"].lower():
-                        seg["skip_dub"] = True
-
-        if log_callback: log_callback("✅ Перевод завершен!")
-        self.release_models()
-        return segments

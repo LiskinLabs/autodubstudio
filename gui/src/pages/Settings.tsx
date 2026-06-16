@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettings, Language } from '../store';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fetch } from '@tauri-apps/plugin-http';
@@ -59,9 +59,11 @@ function Settings() {
   });
 
   const { setApiKeys, apiKeys: storedKeys } = useSettings();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   type KeyStatus = 'idle' | 'testing' | 'success' | 'error';
   const [keyStatus, setKeyStatus] = useState<Record<string, KeyStatus>>({});
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
 
   // Sync keys from Tauri Store when it finishes loading
   useEffect(() => {
@@ -71,10 +73,27 @@ function Settings() {
     }
   }, [storedKeys]); // Re-sync whenever the store updates
 
-  // Save to secure store when changed
+  // Debounced save: persist to store 500ms after last keystroke
+  const debouncedSave = useCallback((newKeys: ApiKeys) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      setApiKeys(newKeys);
+    }, 500);
+  }, [setApiKeys]);
+
+  // Cleanup timer on unmount
   useEffect(() => {
-    setApiKeys(keys);
-  }, [keys, setApiKeys]);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, []);
+
+  // Replace immediate save with debounced
+  const updateKey = (id: keyof ApiKeys, value: string) => {
+    setKeys(prev => {
+      const next = { ...prev, [id]: value };
+      debouncedSave(next);
+      return next;
+    });
+  };
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'general', label: t('settings.general') },
@@ -108,12 +127,18 @@ function Settings() {
           setKeyStatus(prev => ({ ...prev, [id]: 'success' }));
         } else {
           failCount++;
-          errors.push(`${name} (HTTP ${res.status})`);
+          let detail = `HTTP ${res.status}`;
+          try {
+            const body = await res.text();
+            const snippet = body.slice(0, 120);
+            if (snippet) detail += ` — ${snippet}`;
+          } catch {}
+          errors.push(`${name}: ${detail}`);
           setKeyStatus(prev => ({ ...prev, [id]: 'error' }));
         }
       } catch (err: any) {
         failCount++;
-        errors.push(`${name} (Network Error)`);
+        errors.push(`${name}: ${err?.message || err?.toString?.() || 'Network Error'}`);
         setKeyStatus(prev => ({ ...prev, [id]: 'error' }));
       }
     };
@@ -397,7 +422,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.gemini}
-            onChange={(e) => setKeys({ ...keys, gemini: e.target.value })}
+            onChange={(e) => updateKey('gemini', e.target.value)}
             placeholder="AIzaSy..."
           />
         </div>
@@ -419,7 +444,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.deepl}
-            onChange={(e) => setKeys({ ...keys, deepl: e.target.value })}
+            onChange={(e) => updateKey('deepl', e.target.value)}
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
           />
         </div>
@@ -438,7 +463,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.deepseek}
-            onChange={(e) => setKeys({ ...keys, deepseek: e.target.value })}
+            onChange={(e) => updateKey('deepseek', e.target.value)}
             placeholder="sk-..."
           />
         </div>
@@ -457,7 +482,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.openai}
-            onChange={(e) => setKeys({ ...keys, openai: e.target.value })}
+            onChange={(e) => updateKey('openai', e.target.value)}
             placeholder="sk-proj-..."
           />
         </div>
@@ -482,7 +507,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.azure}
-            onChange={(e) => setKeys({ ...keys, azure: e.target.value })}
+            onChange={(e) => updateKey('azure', e.target.value)}
             placeholder="Azure Subscription Key"
           />
         </div>
@@ -501,7 +526,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.google}
-            onChange={(e) => setKeys({ ...keys, google: e.target.value })}
+            onChange={(e) => updateKey('google', e.target.value)}
             placeholder="AIzaSy..."
           />
         </div>
@@ -529,7 +554,7 @@ function Settings() {
             className="form-input"
             type="password"
             value={keys.huggingface}
-            onChange={(e) => setKeys({ ...keys, huggingface: e.target.value })}
+            onChange={(e) => updateKey('huggingface', e.target.value)}
             placeholder="hf_..."
           />
         </div>

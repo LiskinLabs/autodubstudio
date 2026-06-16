@@ -1,6 +1,6 @@
 [package]
 name = "autodub-studio"
-version = "1.0.0"
+version = "1.1.1"
 description = "AutoDub Studio — AI-Powered Video Dubbing Pipeline"
 authors = ["Silvestr Liskin <liskinlabs@github.com>"]
 edition = "2021"
@@ -25,3 +25,4 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-shell = "2"
