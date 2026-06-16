@@ -3,7 +3,7 @@ from PIL import Image
 import os, struct, shutil
 
 OUT = os.path.dirname(os.path.abspath(__file__))
-SOURCE = r"C:\Users\silvestr.liskin\Downloads\edited-photo (1).png"
+SOURCE = r"C:\Users\silvestr.liskin\Downloads\edited-photo (2).png"
 
 SQUARE_SIZES = [
     ('Square30x30Logo.png', 30), ('Square44x44Logo.png', 44),
