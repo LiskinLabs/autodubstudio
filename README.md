@@ -1,12 +1,12 @@
-# 🎬 AutoDubStudio
+# 🎬 AutoDub Studio
 
-**AI-Powered Video Dubbing Pipeline** — профессиональный дубляж видео с использованием локального ИИ.
+**AI-Powered Video Dubbing Pipeline** — десктопное приложение для профессионального дубляжа видео с использованием локального ИИ.
 
-> Транскрибация → Перевод (Gemma4 + Google) → Озвучка (14 языков) → Сборка в MKV с субтитрами.
-> Всё локально, всё бесплатно.
+> Транскрибация → Перевод → Озвучка (14 языков) → Сборка в MKV с субтитрами.  
+> Всё локально. Всё бесплатно. 3 языка интерфейса.
 
 <p align="center">
-  <img src="logo.png" alt="AutoDubStudio" width="200"/>
+  <img src="gui/public/logo-icon.png" alt="AutoDub Studio" width="128"/>
 </p>
 
 ---
@@ -17,140 +17,184 @@
 
 | Шаг | Технология | Описание |
 |-----|-----------|----------|
-| 🎵 **Изоляция вокала** | Demucs (htdemucs) | Отделение голоса от фона для чистого дубляжа |
-| 📝 **Транскрибация** | OpenAI Whisper (small/large-v3) | Распознавание речи с точностью до сегмента |
-| 🧠 **ИИ-перевод** | Gemma4 9B (локально) + Google Translate | Двухэтапный: быстрая база → ИИ-рефайн |
-| 🎙️ **Озвучка** | 4 движка на выбор | Локальные + облачные голоса |
+| 🎵 **Изоляция вокала** | Demucs (htdemucs) | Отделение голоса от фона |
+| 📝 **Транскрибация** | OpenAI Whisper (tiny→large-v3) | Распознавание речи |
+| 🧠 **ИИ-перевод** | Gemma 4 + Google + DeepSeek + Gemini + DeepL | 5 движков на выбор |
+| 🎙️ **Озвучка** | 7 движков (4 локальных, 3 облачных) | Qwen3-TTS, XTTSv2, F5-TTS, Edge-TTS, Azure |
 | 🎬 **Сборка** | FFmpeg MKV | Мультитрековый файл: оригинал + дубляж + субтитры |
 
-### 🌍 Поддерживаемые языки
+### 🌍 Языки перевода + озвучки: 14
 
-| Язык | Перевод | Озвучка | Субтитры |
-|------|---------|---------|----------|
-| 🇷🇺 Русский | ✅ | ✅ DmitryNeural / Qwen3-TTS / XTTSv2 / F5-TTS | ✅ |
-| 🇹🇷 Турецкий | ✅ | ✅ AhmetNeural / XTTSv2 / F5-TTS | ✅ |
-| 🇬🇧 Английский | ✅ | ✅ ChristopherNeural / Qwen3-TTS / XTTSv2 | ✅ |
-| 🇸🇦 Арабский | ✅ | ✅ HamedNeural / XTTSv2 | ✅ |
-| 🇪🇸 Испанский | ✅ | ✅ AlvaroNeural / XTTSv2 | ✅ |
-| 🇫🇷 Французский | ✅ | ✅ HenriNeural | ✅ |
-| 🇩🇪 Немецкий | ✅ | ✅ ConradNeural | ✅ |
-| 🇨🇳 Китайский | ✅ | ✅ YunxiNeural | ✅ |
-| 🇯🇵 Японский | ✅ | ✅ KeitaNeural | ✅ |
-| 🇰🇷 Корейский | ✅ | ✅ InJoonNeural | ✅ |
-| 🇮🇹 Итальянский | ✅ | ✅ DiegoNeural | ✅ |
-| 🇵🇹 Португальский | ✅ | ✅ DuarteNeural | ✅ |
-| 🇵🇱 Польский | ✅ | ✅ MarekNeural | ✅ |
-| 🇮🇳 Хинди | ✅ | ✅ MadhurNeural | ✅ |
+Русский 🇷🇺 · Турецкий 🇹🇷 · Английский 🇬🇧 · Арабский 🇸🇦 · Испанский 🇪🇸 · Французский 🇫🇷 · Немецкий 🇩🇪 · Китайский 🇨🇳 · Японский 🇯🇵 · Корейский 🇰🇷 · Итальянский 🇮🇹 · Португальский 🇵🇹 · Польский 🇵🇱 · Хинди 🇮🇳
 
 ### 🎙️ Движки озвучки (TTS)
 
-| Движок | Тип | Языки | Голосов | Voice Cloning |
-|--------|-----|-------|---------|---------------|
-| **Edge-TTS** | Облачный, бесплатный | 14 | 14 нейро-голосов | ❌ |
-| **Qwen3-TTS** | Локальный | RU, EN | CustomVoice (Vivian) | ✅ |
-| **XTTSv2** | Локальный | Все | Voice cloning из видео | ✅ |
-| **F5-TTS** | Локальный | RU, EN, TR, AR | Zero-shot cloning | ✅ |
+| Движок | Тип | Voice Cloning |
+|--------|-----|---------------|
+| **Qwen3-TTS** | Локальный | ✅ |
+| **XTTSv2** | Локальный | ✅ |
+| **F5-TTS** | Локальный | ✅ Zero-shot |
+| **Edge-TTS** | Облачный, бесплатный | ❌ |
+| **Azure Speech** | Облачный, $ | ❌ |
 
-### 🧠 ИИ-перевод
+### 🧠 Движки перевода
 
-| Движок | Тип | Качество | Скорость |
-|--------|-----|----------|----------|
-| **Gemma4 9B** | Локальный (Ollama) | ⭐⭐⭐⭐⭐ | ~30s/сегмент (первый), ~10s (последующие) |
-| **Google Gemini** | API | ⭐⭐⭐⭐⭐ | ~2s/батч |
-| **DeepSeek** | API | ⭐⭐⭐⭐ | ~2s/батч |
-| **Google Translate** | Бесплатный | ⭐⭐⭐ | ~0.5s/сегмент |
-| **DeepL** | API | ⭐⭐⭐⭐⭐ | ~1s/сегмент |
-
-**Фишки перевода:**
-- 🔄 Двухэтапный: быстрая база (Google) → ИИ-рефайн (Gemma4)
-- 📋 Контекстный перевод — соседние сегменты как контекст
-- 🛡️ Circuit breaker: если Gemma4 недоступен → Google Translate
-- 🧹 Авто-очистка VRAM перед загрузкой модели
-- ⚡ `keep_alive` — модель остаётся в GPU между запросами
-
-### 🎬 Выходной формат
-
-**MKV с 7+ дорожками:**
-- 🎥 Оригинальное видео (copy, без перекодирования)
-- 🔊 Original Audio (English)
-- 🔊 RU Dub (дубляж + фон)
-- 🔊 RU Clean (чистый дубляж)
-- 📝 English Subtitles (Original)
-- 📝 Russian Subtitles
-- 🔊 TR Dub / TR Clean / TR Subtitles (опционально)
-
-Все дорожки имеют правильные названия и языковые метки.
+| Движок | Тип | Качество |
+|--------|-----|----------|
+| **Gemma 4** | Локальный (Ollama) | ⭐⭐⭐⭐⭐ |
+| **Google Gemini** | API, $ | ⭐⭐⭐⭐⭐ |
+| **DeepSeek** | API, $ | ⭐⭐⭐⭐ |
+| **Google Translate** | Бесплатный | ⭐⭐⭐ |
+| **DeepL** | API, $ | ⭐⭐⭐⭐⭐ |
 
 ### 🖥️ Интерфейс
 
-- **Tauri v2 + React 19** — нативный десктоп (Windows)
-- **PyQt6** — альтернативный интерфейс
-- **Тёмная/светлая тема**
-- **3 языка интерфейса:** English, Русский, Türkçe
-- **Live Subtitles** — субтитры поверх любых окон (Zoom, Teams, Meet)
-- **AI Chat** — чат с локальными моделями
-- **YouTube URL** — вставь ссылку → автоматическая загрузка и дубляж
+| Фича | Описание |
+|------|----------|
+| **Tauri v2 + React 19** | Нативный десктоп (Windows), 8 MB инсталлятор |
+| **3 языка UI** | English, Русский, Türkçe — ПОЛНЫЙ перевод |
+| **Тёмная/светлая тема** | CSS variables, мгновенное переключение |
+| **Адаптивный дизайн** | @media для 900px и 600px |
+| **Command Palette** | Ctrl+K — поиск по командам, навигация |
+| **Клавиатурные сокращения** | Ctrl+1/2/3/, — вкладки, подсказки в сайдбаре |
+| **Toast-уведомления** | Sonner: пайплайн, обновления, ошибки |
+| **Микро-анимации** | Motion: переходы страниц, отклик кнопок, анимация шагов |
+| **Виртуальный лог-вьювер** | 60fps при любом количестве записей |
+| **ARIA accessibility** | Клавиатурная навигация, screen reader support |
+| **YouTube URL** | Вставь ссылку → авто-загрузка и дубляж |
+
+### 🎤 Live Subtitles
+
+- Синхронный перевод поверх любых окон (Zoom, Teams, Google Meet)
+- Захват системного звука
+- Настройка позиции и размера субтитров
+- WebSocket-подключение к бэкенду
+
+### 💬 AI Chat
+
+- Чат с локальными LLM через Ollama
+- Стриминг ответов (real-time)
+- Выбор модели из выпадающего списка
+- Поддержка fallback-моделей
+
+### 🔄 Авто-апдейтер
+
+- Проверка обновлений при каждом запуске
+- Фоновая загрузка с индикатором прогресса
+- Уведомление о готовности установки
+- Перезапуск в один клик
+
+### 🐛 Авто-репорты ошибок
+
+- Глобальный перехват ошибок (ErrorBoundary + window.onerror)
+- Авто-отправка в бэкенд → GitHub Issues
+- Стек-трейс + логи + версия + платформа
+- **Ноль действий от пользователя**
+
+### 📥 Model Downloader
+
+При первом запуске — диалог установки AI-моделей:
+- Whisper large-v3 (~3.1 GB)
+- Whisper base (~290 MB)
+- Pyannote Segmentation (~500 MB)
+- XTTSv2 (~1.9 GB)
+- Qwen3-TTS (~1.5 GB)
+- F5-TTS (~1.2 GB)
+- Gemma 4 e4b (~4.6 GB)
+
+Установка через Python-бэкенд / Ollama CLI. Чекбоксы, прогресс-бары, пропуск.
+
+### 🎬 Выходной формат
+
+**MKV с дорожками:**
+- Оригинальное видео (copy, без перекодирования)
+- Original Audio
+- RU/TR Dub (дубляж + фон)
+- RU/TR Clean (чистый дубляж)
+- Оригинальные + переведённые субтитры
 
 ### 🔐 Безопасность
 
 - API-ключи в **Tauri Secure Store** (не localStorage!)
-- WebSocket с **token-аутентификацией**
-- CORS ограничен конкретными origin
-- HTTP-запросы restricted to 15 доменов (Tauri capability)
-- Нет `shell=True` в subprocess — защита от инъекций
-- Валидация video_path через `os.path.realpath()`
-- Авто-отправка ошибок в GitHub Issues
+- WebSocket с **token-аутентификацией** (secrets.token_urlsafe)
+- `/api/report-error` требует Bearer токен + rate limit
+- CORS: только localhost origins
+- HTTP: restricted to 15+ API доменов (Tauri capability)
+- Path validation через `os.path.realpath()`
+- `subprocess.run()` всегда с массивами, без `shell=True`
+- CSP: `default-src 'self'`
 
 ### ⚡ Умная озвучка (Sentence-Aware TTS)
 
-- Группировка сегментов по границам предложений (точка, вопрос, восклицание)
-- Одна TTS-генерация на группу → **естественная интонация**
-- Разбивка обратно по text-length ratios
+- Группировка сегментов по границам предложений
+- Одна TTS-генерация на группу → естественная интонация
 - Максимум 8 сегментов в группе
-- Без mid-sentence cuts!
+
+### 🪟 Windows 11
+
+- Mica эффект (нативный фон окна)
+- Single instance (защита от повторного запуска)
+- Window state persistence (позиция/размер)
+- `transparent: true` для плавного resize
 
 ---
 
 ## 📦 Установка
 
-### Требования
+### Из инсталлятора (Windows)
+
+Скачай [`AutoDub Studio Setup.exe`](https://github.com/LiskinLabs/autodubstudio/releases/latest) (~8 MB).  
+AI-модели скачиваются при первом запуске через Model Downloader.
+
+### Требования (для разработки)
 
 - Windows 10/11
-- Python 3.12
+- Python 3.12+
 - Node.js 20+
+- Rust (для сборки Tauri)
 - Ollama
 - FFmpeg (в PATH)
-- NVIDIA GPU с 6+ GB VRAM (рекомендуется) или CPU
+- NVIDIA GPU 6+ GB VRAM (рекомендуется)
 
-### Быстрый старт
+### Быстрый старт (dev)
 
 ```bash
-# 1. Клонировать
 git clone https://github.com/LiskinLabs/autodubstudio.git
 cd autodubstudio
 
-# 2. Python-окружение
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt  # или uv sync
+# Python backend
+uv sync
+python backend/main.py
 
-# 3. Модели ИИ
-download_models.bat              # → Gemma4 9B (Ollama)
-
-# 4. GUI
+# Frontend (другой терминал)
 cd gui
 npm install
 npm run tauri dev
 ```
 
-### Ручной запуск
+---
 
-```bash
-# Backend
-.venv\Scripts\python.exe backend\main.py
+## 🏗️ Архитектура
 
-# Frontend (другой терминал)
-cd gui && npm run dev
+```
+autodubstudio/
+├── engine.py                # Основной пайплайн (AutoDubWorker)
+├── live_engine.py           # Live-субтитры
+├── backend/
+│   ├── main.py              # FastAPI + WebSocket + /api/report-error + /api/models/*
+│   ├── translator.py        # ИИ-перевод (Gemma, Gemini, DeepSeek, Google, DeepL)
+│   ├── workers.py           # Фоновые задачи
+│   └── vram_manager.py      # Управление VRAM
+├── gui/                     # Tauri v2 + React 19
+│   ├── src/
+│   │   ├── components/      # 9 компонентов (CommandPalette, ErrorBoundary, ModelDownloader, ...)
+│   │   ├── hooks/           # useOllama, usePipelineWebSocket, useLiveWebSocket
+│   │   ├── lib/             # errorReporter, toast
+│   │   ├── pages/           # DubbingStudio, LiveSubtitles, AIChat, Settings
+│   │   └── store.ts         # 3 языка (240+ ключей), Tauri Secure Store
+│   └── src-tauri/           # Rust: Mica, single-instance, updater, plugins
+├── *_worker.py              # f5, qwen3, xtts, lip_sync, diarization
+└── tools/                   # Utility scripts
 ```
 
 ---
@@ -161,110 +205,22 @@ cd gui && npm run dev
 
 1. Запусти `Start_AutoDubStudio.bat`
 2. Выбери видео (файл или YouTube URL)
-3. Настрой: языки, голос, движок перевода
+3. Настрой: язык перевода, голос, движок перевода
 4. Нажми «Start Pipeline»
-5. Смотри прогресс в реальном времени
-6. Готовый MKV в папке `downloads/`
+5. MKV с дубляжом в папке `downloads/`
 
 ### CLI
 
 ```bash
-.venv\Scripts\python.exe cli_run.py
-```
-
-### Python API
-
-```python
-from engine import AutoDubWorker
-
-config = {
-    "video_path": "video.mp4",
-    "out_dir": "output/",
-    "target_langs": ["ru", "tr"],
-    "whisper_model": "small",
-    "device": "cuda",
-    "translation_engine": "Ollama (Local, Free)",
-    "dub_engine": "Edge-TTS (Cloud, Free, Fast)",
-    "manual_mode": False,
-    "lip_sync": False,
-    "tag": "my_project"
-}
-
-worker = AutoDubWorker(config)
-worker.log_signal.connect(lambda msg: print(msg))
-worker.finished_signal.connect(lambda ok, msg: print(f"Done: {msg}"))
-worker.run()
-```
-
----
-
-## 🏗️ Архитектура
-
-```
-AutoDubStudio/
-├── engine.py              # Основной пайплайн (AutoDubWorker)
-├── live_engine.py         # Live-субтитры (PyQt6 overlay)
-├── cli_run.py             # CLI-раннер
-├── backend/
-│   ├── main.py            # FastAPI + WebSocket сервер
-│   ├── translator.py      # ИИ-перевод (Gemma4, Gemini, DeepSeek, Google)
-│   ├── workers.py         # Фоновые задачи
-│   └── vram_manager.py    # Управление VRAM
-├── gui/                   # Tauri v2 + React 19
-│   ├── src/
-│   │   ├── pages/         # DubbingStudio, LiveSubtitles, AIChat, Settings
-│   │   ├── hooks/         # usePipelineWebSocket, useOllama
-│   │   └── store.ts       # Tauri Store (API keys)
-│   └── src-tauri/         # Rust backend
-├── f5_worker.py           # F5-TTS subprocess worker
-├── xtts_worker.py         # XTTSv2 subprocess worker
-├── qwen3_worker.py        # Qwen3-TTS subprocess worker
-├── diarization_worker.py  # Pyannote speaker diarization
-└── models/                # Ollama models directory
-```
-
-### Пайплайн (по шагам)
-
-```
-YouTube URL / Video File
-        │
-        ▼
-[yt-dlp download]    ← если URL
-        │
-        ▼
-[Demucs htdemucs]    ← изоляция вокала (~15s для 4.5 мин)
-        │
-        ▼
-[Whisper small]      ← транскрибация (~25s, 78 сегментов)
-        │
-        ├──→ [оригинальные субтитры SRT]
-        │
-        ▼
-[Google Translate]   ← быстрая база (~30s, 78 сегментов)
-        │
-        ▼
-[Gemma4 9B]          ← ИИ-рефайн (батчи по 4, ~120s)
-        │               ↓ если Gemma4 недоступен → circuit breaker
-        ▼
-[Edge-TTS / XTTSv2]  ← sentence-aware группы
-        │
-        ▼
-[FFmpeg MKV mux]     ← видео + аудио + субтитры
-        │
-        ▼
-    🎬 Final.mkv
+python cli_run.py
 ```
 
 ---
 
 ## 🔧 Конфигурация
 
-### config.json
-```json
-{"lang": "tr"}
-```
+### API-ключи (Settings → API Keys)
 
-### API-ключи (в GUI Settings)
 - Google Gemini API Key
 - DeepSeek API Key
 - DeepL API Key
@@ -273,47 +229,30 @@ YouTube URL / Video File
 - Azure Speech Key
 
 ### Переменные окружения
+
 ```bash
-GITHUB_TOKEN=ghp_...    # Для авто-репортов ошибок в GitHub Issues
+GITHUB_TOKEN=ghp_...     # Авто-репорты ошибок в GitHub Issues
+TAURI_SIGNING_PRIVATE_KEY # Подпись кода (для авто-апдейтера)
 ```
 
 ---
 
-## 🛡️ Безопасность (Security Features)
+## 🔗 Ссылки
 
-- **API keys:** Tauri Secure Store (encrypted app data), never in localStorage
-- **WebSocket:** token-based auth (`secrets.token_urlsafe(32)`)
-- **CORS:** restricted to `localhost:5173`, `localhost:1420`, `tauri://localhost`
-- **HTTP permissions:** 15 specific API domains only
-- **No shell injection:** all `subprocess.run()` use arrays, never `shell=True`
-- **Path validation:** `os.path.realpath()` on all file inputs
-- **Auto-cleanup:** temp files deleted after pipeline
-- **Error reporting:** automatic GitHub Issues creation via `/api/report-error`
-- **No eval/exec/pickle:** verified by SAST scan
+- **🌐 GitHub:** https://github.com/LiskinLabs/autodubstudio
+- **🪞 GitLab:** https://gitlab.com/LiskinLabs/autodubstudio
+- **📥 Релизы:** https://github.com/LiskinLabs/autodubstudio/releases
 
 ---
 
-## 📊 Тесты и бенчмарки
+## 🤝 Автор
 
-| Видео | Длит. | Языки | TTS | Перевод | Время |
-|-------|-------|-------|-----|---------|-------|
-| test_20s.mp4 | 20s | RU | Edge-TTS | Google + Gemma4 | 2.3 мин |
-| test_20s.mp4 | 20s | TR | Edge-TTS | Google + Gemma4 | 1.5 мин |
-| Samsung Dex | 4.5 мин | RU | Edge-TTS | Google + Gemma4 | ~12 мин |
-| Samsung Dex | 4.5 мин | RU+TR | Edge-TTS | Google Translate | ~12 мин |
-| Samsung Dex | 4.5 мин | TR | XTTSv2 | Google + Gemma4 | ~39 мин |
-
----
-
-## 🤝 Вклад
-
-Создано [Silvestr Liskin](https://github.com/LiskinLabs) — Senior Automation Engineer, Teknorob Robot ve Otomasyon, Bursa, TR.
-
-[![GitHub](https://img.shields.io/badge/GitHub-LiskinLabs%2Fautodubstudio-blue)](https://github.com/LiskinLabs/autodubstudio)
-[![GitLab](https://img.shields.io/badge/GitLab-LiskinLabs%2Fautodubstudio-orange)](https://gitlab.com/LiskinLabs/autodubstudio)
+**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer  
+Teknorob Robot ve Otomasyon — Bursa, TR  
+[GitHub](https://github.com/LiskinLabs) · [LiskinLabs.com](https://liskinlabs.com)
 
 ---
 
 ## 📄 Лицензия
 
-MIT License — см. [LICENSE](LICENSE)
+MIT License
