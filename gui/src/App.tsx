@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { AnimatePresence, motion } from "motion/react";
+// motion/react removed — pages are always mounted to preserve pipeline state
 import StatusBar from "./components/StatusBar";
 import CommandPalette from "./components/CommandPalette";
 import { useSettings } from "./store";
@@ -264,20 +264,20 @@ const App: React.FC = () => {
           </div>
         </aside>
 
-        {/* ── Main Content ── */}
+        {/* ── Main Content (all pages kept mounted to preserve state) ── */}
         <main className="main-content" role="main" aria-label="Page content">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              style={{ height: '100%' }}
-            >
-              <ActivePage />
-            </motion.div>
-          </AnimatePresence>
+          <div style={{ display: activeTab === 'dubbing' ? 'block' : 'none', height: '100%' }}>
+            <DubbingStudio />
+          </div>
+          <div style={{ display: activeTab === 'live' ? 'block' : 'none', height: '100%' }}>
+            <LiveSubtitles />
+          </div>
+          <div style={{ display: activeTab === 'chat' ? 'block' : 'none', height: '100%' }}>
+            <AIChat />
+          </div>
+          <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%' }}>
+            <Settings />
+          </div>
         </main>
       </div>
 
