@@ -141,6 +141,88 @@ async def websocket_pipeline(websocket: WebSocket):
         print("Client disconnected from WebSocket")
         # Do NOT stop the worker automatically on disconnect. The user might refresh the page.
 
+# ── Model Download / Status ──
+import subprocess
+import threading
+
+_model_download_status: dict = {}
+_model_download_lock = threading.Lock()
+
+@app.get("/api/models/status")
+async def get_model_status():
+    """Check which models are cached locally."""
+    models_status = {}
+
+    # Check Whisper cache
+    whisper_cache = os.path.expanduser("~/.cache/whisper")
+    models_status["whisper-large-v3"] = os.path.exists(os.path.join(whisper_cache, "large-v3.pt"))
+    models_status["whisper-base"] = os.path.exists(os.path.join(whisper_cache, "base.pt"))
+
+    # Check Pyannote cache
+    hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    pyannote_ok = False
+    if os.path.exists(hf_cache):
+        for root, dirs, _ in os.walk(hf_cache):
+            if "pyannote" in root.lower() and "speaker-diarization" in root.lower():
+                pyannote_ok = any(f.endswith(".bin") or f.endswith(".safetensors") for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)))
+    models_status["pyannote-segmentation"] = pyannote_ok
+
+    # Check XTTS cache
+    xtts_cache = os.path.expanduser("~/.local/share/tts")
+    models_status["xttsv2"] = os.path.exists(os.path.join(xtts_cache, "tts_models--multilingual--multi-dataset--xtts_v2"))
+
+    # Merge with in-progress downloads
+    with _model_download_lock:
+        for k, v in _model_download_status.items():
+            models_status[k] = v.get("done", models_status.get(k, False))
+
+    return {"models": models_status, "downloading": _model_download_status}
+
+@app.post("/api/models/preload/{model_id}")
+async def preload_model(model_id: str):
+    """Trigger model download via the actual ML library (auto-caches)."""
+    with _model_download_lock:
+        _model_download_status[model_id] = {"done": False, "progress": 0, "error": None}
+
+    def _download():
+        try:
+            if model_id.startswith("whisper"):
+                import whisper
+                size = model_id.replace("whisper-", "")
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 10
+                whisper.load_model(size)
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "pyannote-segmentation":
+                from pyannote.audio import Pipeline
+                token = os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 10
+                Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=token or True)
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "xttsv2":
+                from TTS.api import TTS
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 10
+                TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False)
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            else:
+                raise ValueError(f"Unknown model: {model_id}")
+
+        except Exception as e:
+            with _model_download_lock:
+                _model_download_status[model_id] = {"done": False, "progress": 0, "error": str(e)[:200]}
+
+    threading.Thread(target=_download, daemon=True).start()
+    return {"status": "started", "model": model_id}
+
+
 # ── Error Reporting ──
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 if not GITHUB_TOKEN:

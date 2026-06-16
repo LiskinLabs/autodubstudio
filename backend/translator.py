@@ -344,57 +344,52 @@ class Translator:
             torch.cuda.empty_cache()
 
     def smart_translate_segments(self, segments, target_lang, log_callback=None):
-        is_dumb_translation = "google" in self.engine_name.lower() or "deepl" in self.engine_name.lower()
         is_ollama = "ollama" in self.engine_name.lower()
+        is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
+                                      ("deepseek" in self.engine_name.lower() and self.deepseek_key))
 
-        if is_dumb_translation:
-            if log_callback: log_callback("⚡ Базовый машинный перевод...")
-            for seg in segments:
-                orig_text = seg["text"].strip()
+        # ── Step 1: ALWAYS get a base translation (Google Translate) for fallback ──
+        if log_callback: log_callback("⚡ Google Translate — базовый перевод...")
+        for seg in segments:
+            orig_text = seg["text"].strip()
+            if orig_text:
                 seg["translated_base"] = self.translate_text(orig_text, target_lang)
+            else:
+                seg["translated_base"] = ""
 
-        # Ollama (Gemma4): batch translation with context
+        # ── Step 2: AI refinement (Gemma4/Gemini/DeepSeek) ──
         if is_ollama:
-            batch_size = 6
+            # Gemma4: refine Google Translate in small batches
+            batch_size = 4  # Smaller batches = faster, less failure-prone
             total = len(segments)
-            lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic",
-                          "es": "Spanish", "fr": "French", "de": "German", "zh": "Chinese",
-                          "ja": "Japanese", "ko": "Korean", "it": "Italian", "pt": "Portuguese",
-                          "pl": "Polish", "hi": "Hindi"}
+            lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic"}
             lang_name = lang_names.get(target_lang, target_lang)
+
+            if log_callback:
+                log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
 
             for batch_start in range(0, total, batch_size):
                 batch_end = min(batch_start + batch_size, total)
                 batch = segments[batch_start:batch_end]
-                if log_callback:
-                    log_callback(f"  -> Gemma4 батч {batch_start+1}-{batch_end}/{total} (контекстный)...")
 
-                # Build dialogue with context
+                # Build dialogue for refinement
                 dialogue = []
                 for i, seg in enumerate(batch):
                     idx = batch_start + i
                     spk = seg.get("speaker", "SPEAKER_00")
-                    txt = seg["text"].strip()
-                    base = seg.get("translated_base", "")
-                    ctx = f"[{i}] {spk}: {txt}"
-                    if base and base != txt:
-                        ctx += f"\n    Draft: {base}"
-                    dialogue.append(ctx)
+                    orig = seg["text"].strip()
+                    base = seg.get("translated_base", orig)
+                    dialogue.append(f"[{i}] {spk}\n    Original: {orig}\n    Draft: {base}")
 
-                full_text = "\n".join(dialogue)
+                full_text = "\n\n".join(dialogue)
 
-                prompt = f"""You are a professional subtitle translator for video dubbing. Translate the following dialogue to {lang_name}.
+                prompt = f"""Improve these subtitle translations to sound natural in {lang_name}. Fix grammar, flow, and make them conversational.
 
-CRITICAL RULES:
-1. Translate EACH segment naturally for spoken {lang_name}
-2. Preserve names, brands, and technical terms exactly as-is
-3. If a segment is already in {lang_name}, keep it unchanged
-4. Match the conversational tone of the original
-5. Keep translations concise — they'll be spoken as voice-over
-
-Output a JSON object with a "segments" array. Each entry MUST have:
-- "text": the translation
-- "skip_dub": true ONLY if the original is already in {lang_name}
+Rules:
+- Output a JSON object with "segments" array
+- Each segment: {{"text": "improved translation", "skip_dub": false}}
+- Keep names/brands/tech terms unchanged
+- If the Draft is already perfect, copy it as-is
 
 Dialogue:
 {full_text}
@@ -408,37 +403,40 @@ JSON:"""
 
                     if parsed and len(parsed) == len(batch):
                         for i, p_seg in enumerate(parsed):
-                            orig = batch[i]["text"].strip()
-                            trans = p_seg.get("text", orig)
-                            if orig.lower() == trans.lower():
-                                batch[i]["skip_dub"] = True
-                            batch[i]["text"] = trans
+                            new_text = p_seg.get("text", "").strip()
+                            if new_text:
+                                batch[i]["text"] = new_text
+                                # Check if same as original → skip dubbing
+                                if batch[i]["text"].strip().lower() == batch[i]["text"].strip().lower():
+                                    pass  # keep as is
                     elif parsed:
-                        # Partial match — use what we have
                         if log_callback:
-                            log_callback(f"  ⚠ JSON mismatch ({len(parsed)}/{len(batch)}), partial merge")
+                            log_callback(f"  ⚠ Gemma4 mismatch ({len(parsed)}/{len(batch)}), partial merge")
                         for i in range(min(len(parsed), len(batch))):
-                            batch[i]["text"] = parsed[i].get("text", batch[i]["text"])
-                    else:
-                        raise ValueError("Empty JSON response")
+                            new_text = parsed[i].get("text", "").strip()
+                            if new_text:
+                                batch[i]["text"] = new_text
+                    # If Gemma4 returned nothing useful → Google Translate stays
 
                 except Exception as e:
                     if log_callback:
-                        log_callback(f"  ⚠ Gemma4 batch failed: {e}. Per-segment fallback...")
-                    for seg in batch:
-                        orig_text = seg["text"].strip()
-                        base = seg.get("translated_base", "")
-                        try:
-                            p = f"Translate to {lang_name}. Output only the translation.\n{orig_text}"
-                            ai = self._call_llm(p, is_json=False)
-                            ai = ai.strip().strip('"').strip("'")
-                            if ai and len(ai) > 1:
-                                seg["text"] = ai
-                            elif base:
-                                seg["text"] = base
-                        except Exception:
-                            if base:
-                                seg["text"] = base
+                        log_callback(f"  ⚠ Gemma4 batch failed: {e}. Using Google Translate for this batch.")
+                    # Google Translate is already in translated_base → keep it
+
+            if log_callback: log_callback("✅ Перевод завершен!")
+            self.release_models()
+            return segments
+
+        # ── Non-AI engines: just use base translation ──
+        if not is_ai_refine:
+            for seg in segments:
+                seg["text"] = seg.get("translated_base", seg["text"])
+            if log_callback: log_callback("✅ Перевод завершен!")
+            self.release_models()
+            return segments
+
+        # ── Gemini/DeepSeek: smart batch translation ──
+        if is_ai_refine and not is_ollama:
 
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()
