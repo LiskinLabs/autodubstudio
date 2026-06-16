@@ -171,6 +171,23 @@ async def get_model_status():
     xtts_cache = os.path.expanduser("~/.local/share/tts")
     models_status["xttsv2"] = os.path.exists(os.path.join(xtts_cache, "tts_models--multilingual--multi-dataset--xtts_v2"))
 
+    # Check Qwen3-TTS (checks if model files exist)
+    qwen3_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    models_status["qwen3-tts"] = False
+    if os.path.exists(qwen3_cache):
+        for root, dirs, _ in os.walk(qwen3_cache):
+            if "qwen" in root.lower() and "tts" in root.lower():
+                models_status["qwen3-tts"] = True
+                break
+
+    # Check F5-TTS
+    models_status["f5-tts"] = False
+    if os.path.exists(qwen3_cache):
+        for root, dirs, _ in os.walk(qwen3_cache):
+            if "f5" in root.lower() and "tts" in root.lower():
+                models_status["f5-tts"] = True
+                break
+
     # Check Gemma 4 via Ollama
     try:
         result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
@@ -216,6 +233,26 @@ async def preload_model(model_id: str):
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 10
                 TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False)
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "qwen3-tts":
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 10
+                # Qwen3-TTS auto-downloads on first use
+                from qwen3_worker import Qwen3TTSWorker
+                worker = Qwen3TTSWorker()
+                worker.load_model()
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "f5-tts":
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 10
+                # F5-TTS auto-downloads on first use
+                from f5_worker import F5TTSWorker
+                worker = F5TTSWorker()
+                worker.load_model()
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 

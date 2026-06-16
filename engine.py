@@ -444,7 +444,14 @@ class AutoDubWorker(threading.Thread):
                 all_created_files.extend([ducked_path, bg_path])
                 
                 ffmpeg_maps.extend(["-map", f"{file_idx}:a:0", "-map", f"{file_idx+1}:a:0", "-map", f"{file_idx+2}:s:0"])
-                metadata.extend([f"-metadata:s:a:{audio_track_idx}", f"title={lang.upper()} Dub", f"-metadata:s:a:{audio_track_idx+1}", f"title={lang.upper()} Clean"])
+                lang_names = {"ru": "Russian", "tr": "Turkish", "en": "English", "ar": "Arabic",
+                              "es": "Spanish", "fr": "French", "de": "German"}
+                lang_display = lang_names.get(lang, lang.upper())
+                metadata.extend([
+                    f"-metadata:s:a:{audio_track_idx}", f"title={lang_display} Dub",
+                    f"-metadata:s:a:{audio_track_idx+1}", f"title={lang_display} Clean",
+                    f"-metadata:s:s:{subtitle_track_idx}", f"title={lang_display} Subtitles",
+                ])
                 audio_track_idx += 2; subtitle_track_idx += 1
                 file_idx += 3
 

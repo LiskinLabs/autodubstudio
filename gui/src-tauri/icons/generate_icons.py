@@ -27,13 +27,15 @@ def save_ico_pillow(png_src, ico_path):
 
 if __name__ == '__main__':
     print(f"Loading source: {SOURCE}")
-    base = Image.open(SOURCE).convert('RGBA')
-    w, h = base.size
-    side = min(w, h)
-    left = (w - side) // 2
-    top = (h - side) // 2
-    base = base.crop((left, top, left + side, top + side))
-    print(f"  Size: {base.size} -> cropped to square: ({side}, {side})")
+    src = Image.open(SOURCE).convert('RGBA')
+    w, h = src.size
+    # Fit into square with transparent padding (NO crop)
+    side = max(w, h)
+    base = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    paste_x = (side - w) // 2
+    paste_y = (side - h) // 2
+    base.paste(src, (paste_x, paste_y))
+    print(f"  Source: {w}x{h} -> fitted to: {side}x{side} (no crop)")
 
     # Standard PNG icons
     for s in STANDARD:
