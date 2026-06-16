@@ -70,31 +70,15 @@ pub fn run() {
                     }
                 }
 
-                // Fallback: .venv python (check multiple locations)
+                // Fallback: .venv python (check project_dir + well-known dev location)
                 if !started {
-                    // Look for .venv in project_dir, Desktop project, and relative to exe
                     let mut venv_dirs = vec![
                         project_dir.join(".venv"),
                     ];
-                    // Also check well-known project locations
-                    if let Ok(exe) = std::env::current_exe() {
-                        if let Some(exe_dir) = exe.parent() {
-                            // Walk up from exe to find .venv
-                            let mut current = exe_dir.to_path_buf();
-                            for _ in 0..4 {
-                                let candidate = current.join(".venv");
-                                if !venv_dirs.contains(&candidate) {
-                                    venv_dirs.push(candidate);
-                                }
-                                if let Some(parent) = current.parent() {
-                                    current = parent.to_path_buf();
-                                } else { break; }
-                            }
-                        }
-                    }
-                    // Desktop project
+                    // Desktop project — user-controlled dev environment
                     if let Ok(home) = std::env::var("USERPROFILE") {
-                        venv_dirs.push(std::path::PathBuf::from(home).join("Desktop").join("AutoDubStudio").join(".venv"));
+                        venv_dirs.push(std::path::PathBuf::from(home)
+                            .join("Desktop").join("AutoDubStudio").join(".venv"));
                     }
 
                     for venv_dir in &venv_dirs {
