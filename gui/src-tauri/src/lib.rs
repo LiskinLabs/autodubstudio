@@ -1,4 +1,5 @@
 use tauri::Manager;
+use tauri::window::{Effect, EffectState, EffectsBuilder};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,7 +10,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // Focus existing window when second instance launched
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
@@ -20,15 +20,14 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
 
-            // Apply Windows 11 Mica effect if available
+            // Windows 11 Mica / Windows 10 Acrylic effect
             #[cfg(target_os = "windows")]
             {
-                use tauri::window::Effect;
-                let _ = window.set_effects(tauri::window::WindowEffects {
-                    effects: vec![Effect::Mica],
-                    state: Some(tauri::window::EffectState::Active),
-                    ..Default::default()
-                });
+                let effects = EffectsBuilder::new()
+                    .effect(Effect::Mica)
+                    .state(EffectState::Active)
+                    .build();
+                let _ = window.set_effects(effects);
             }
 
             Ok(())
