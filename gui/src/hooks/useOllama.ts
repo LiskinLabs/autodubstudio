@@ -17,9 +17,7 @@ interface SendMessageOptions {
 const OLLAMA_BASE = 'http://127.0.0.1:11434';
 
 const FALLBACK_MAP: Record<string, string> = {
-  'qwen2.5:14b': 'qwen2.5:7b',
-  'qwen3:14b': 'qwen3:7b',
-  'gemma4:e4b': 'gemma4:e2b',
+  // Add fallbacks here if needed: 'big-model': 'smaller-model'
 };
 
 export function useOllama() {
