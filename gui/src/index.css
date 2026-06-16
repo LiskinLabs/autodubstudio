@@ -125,7 +125,8 @@
 /* ─── Base ─── */
 html, body {
   height: 100%;
-  overflow: hidden;
+  margin: 0;
+  padding: 0;
   background: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -349,12 +350,15 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-app);
+  min-height: 0; /* Allow flex child to shrink for scrolling */
 }
 
 .page {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--space-8);
+  min-height: 0; /* Required: allow flex child to scroll when content overflows */
   animation: fadeIn var(--transition-base);
 }
 
@@ -851,12 +855,14 @@ html, body {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: calc(100vh - var(--titlebar-height) - var(--statusbar-height));
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-6);
   display: flex;
