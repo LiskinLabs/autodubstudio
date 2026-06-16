@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AutoDub Studio",
-  "version": "1.0.0",
+  "version": "1.0.0-beta",
   "identifier": "com.silvestrliskin.autodubstudio",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,7 +35,38 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/StoreLogo.png",
+        "languages": ["English", "Russian", "Turkish"],
+        "displayLanguageSelector": true,
+        "startMenuFolder": "AutoDub Studio"
+      },
+      "wix": {
+        "language": ["en-US", "ru-RU", "tr-TR"],
+        "bannerPath": "icons/StoreLogo.png",
+        "dialogImagePath": "icons/StoreLogo.png"
+      }
+    },
+    "resources": [
+      "../../backend/**/*.py",
+      "../../backend/**/*.json",
+      "../../pyproject.toml",
+      "../../uv.lock",
+      "../../engine.py",
+      "../../live_engine.py",
+      "../../*_worker.py",
+      "../../diarization_worker.py",
+      "../../cli_run.py",
+      "../../download_models.bat",
+      "../../start_ollama.bat",
+      "../../logo.png",
+      "../../ornament.png",
+      "../../teknorob.png"
+    ]
   },
   "plugins": {
     "updater": {

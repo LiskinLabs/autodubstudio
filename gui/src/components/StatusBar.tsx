@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSettings } from "../store";
 import { useOllama } from "../hooks/useOllama";
 import UpdateChecker from "./UpdateChecker";
+import ModelDownloader from "./ModelDownloader";
 import pkg from "../../package.json";
 
 type GpuStatus = "gpu" | "cpu";
@@ -65,6 +66,9 @@ const StatusBar: React.FC = () => {
 
       {/* Update Checker — shows progress/status when active */}
       <UpdateChecker />
+
+      {/* Model Downloader — shows download progress */}
+      <ModelDownloader />
 
       {/* Version — pushed to right */}
       <div className="status-item" style={{ marginLeft: "auto" }}>
