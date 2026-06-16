@@ -12,6 +12,7 @@ const MODELS: ModelInfo[] = [
   { id: 'whisper-base', name: 'Whisper base', size: '~290 MB', description: 'Распознавание речи — быстро, ниже точность' },
   { id: 'pyannote-segmentation', name: 'Pyannote Segmentation', size: '~500 MB', description: 'Диаризация — определяет кто говорит' },
   { id: 'xttsv2', name: 'XTTSv2', size: '~1.9 GB', description: 'Синтез речи — турецкий, русский, английский' },
+  { id: 'gemma4', name: 'Gemma 4 (e4b)', size: '~4.6 GB', description: 'AI чат — локальная языковая модель для перевода и общения' },
 ];
 
 const BACKEND = 'http://127.0.0.1:8000';

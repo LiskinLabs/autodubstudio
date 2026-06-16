@@ -218,14 +218,25 @@ class AutoDubWorker(threading.Thread):
             
             self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
 
+            # 3.5 — Save original English subtitles
+            orig_srt_path = os.path.join(self.out_dir, f"{base_name}_original.srt")
+            all_created_files.append(orig_srt_path)
+            with open(orig_srt_path, "w", encoding="utf-8") as f:
+                for idx, s in enumerate(segments):
+                    f.write(f"{idx+1}\n{self.format_timestamp(s['start'])} --> {self.format_timestamp(s['end'])}\n{s['text'].strip()}\n\n")
+            self.log_signal.emit("📝 Оригинальные субтитры сохранены.")
+
             # 4. Обработка языков
-            ffmpeg_inputs = ["-i", self.video_path]
-            ffmpeg_maps = ["-map", "0:v:0", "-map", "0:a:0"]
-            metadata = ["-metadata:s:a:0", "title=Original Audio", "-metadata:s:a:0", "language=orig"]
-            audio_track_idx, subtitle_track_idx = 1, 0
-            
+            ffmpeg_inputs = ["-i", self.video_path, "-i", orig_srt_path]
+            ffmpeg_maps = ["-map", "0:v:0", "-map", "0:a:0", "-map", "1:s:0"]
+            metadata = [
+                "-metadata:s:a:0", "title=Original Audio", "-metadata:s:a:0", "language=eng",
+                "-metadata:s:s:0", "title=English (Original)", "-metadata:s:s:0", "language=eng",
+            ]
+            audio_track_idx, subtitle_track_idx = 1, 1
+
             # Start tracking input files for ffmpeg map
-            file_idx = 1
+            file_idx = 2  # 0=video, 1=original audio+subs
 
             for i, (lang, _) in enumerate(self.langs.items()):
                 self.log_signal.emit(f"▶ Обработка языка: {lang}...")

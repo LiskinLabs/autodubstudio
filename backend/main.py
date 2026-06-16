@@ -171,6 +171,13 @@ async def get_model_status():
     xtts_cache = os.path.expanduser("~/.local/share/tts")
     models_status["xttsv2"] = os.path.exists(os.path.join(xtts_cache, "tts_models--multilingual--multi-dataset--xtts_v2"))
 
+    # Check Gemma 4 via Ollama
+    try:
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+        models_status["gemma4"] = "gemma4" in result.stdout
+    except Exception:
+        models_status["gemma4"] = False
+
     # Merge with in-progress downloads
     with _model_download_lock:
         for k, v in _model_download_status.items():
@@ -211,6 +218,17 @@ async def preload_model(model_id: str):
                 TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "gemma4":
+                # Pull via Ollama CLI
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 5
+                result = subprocess.run(["ollama", "pull", "gemma4:e4b"], capture_output=True, text=True, timeout=3600)
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    raise RuntimeError(result.stderr[:200] or "ollama pull failed")
 
             else:
                 raise ValueError(f"Unknown model: {model_id}")
