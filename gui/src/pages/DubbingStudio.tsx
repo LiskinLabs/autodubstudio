@@ -268,7 +268,7 @@ export default function DubbingStudio() {
       video_path: fileName || youtubeUrl,
       out_dir: '',
       langs: [config.targetLanguage.toLowerCase()],
-      whisper_model: settings.models.whisperModel,
+      whisper_model: JSON.parse(localStorage.getItem('autodub_models') || '{}')?.whisperModel || 'large-v3',
       device: 'cuda',
       translation_engine: config.translationEngine,
       dub_engine: config.voiceModel,
@@ -320,31 +320,27 @@ export default function DubbingStudio() {
     return '';
   };
 
-  const getConnectorState = (stepNumber: number): string => {
-    return stepNumber < activeStep ? 'done' : '';
-  };
-
   // const logTypeClass = (type: 'info' | 'success' | 'warning' | 'error'): string => {
   //   return `log-${type}`;
   // };
 
   /* Render helpers */
   const renderSwitch = (label: string, checked: boolean, onChange: (v: boolean) => void, tooltip?: string) => (
-    <div className="flex items-center justify-between" style={{ padding: 'var(--space-2) 0' }} title={tooltip}>
-      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <label className="switch">
-        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-        <span className="switch-slider" />
+    <div className="form-control w-full" title={tooltip}>
+      <label className="label cursor-pointer">
+        <span className="label-text text-base-content/80">{label}</span>
+        <input type="checkbox" className="toggle toggle-primary" checked={checked} onChange={e => onChange(e.target.checked)} />
       </label>
     </div>
   );
 
   return (
-    <div className="page">
-      {/* ─── Header ─── */}
-      <div className="page-header">
-        <h1 className="page-title">{t('dubbing.title')}</h1>
-        <p className="page-subtitle">
+    <div className="flex flex-col flex-1 h-full overflow-y-auto">
+      <div className="max-w-5xl mx-auto w-full p-8 flex flex-col flex-1 pb-24">
+        {/* ─── Header ─── */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-base-content">{t('dubbing.title')}</h1>
+        <p className="text-base text-base-content/60 mt-2">
           {t('dubbing.subtitle')}
         </p>
       </div>
@@ -354,90 +350,91 @@ export default function DubbingStudio() {
         <>
           {/* Drop Zone */}
           <div
-            className={`drop-zone${isDragging ? ' drag-over' : ''}`}
+            className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center transition-all ${
+              isDragging ? 'border-primary bg-primary/10' : 'border-base-content/10 bg-base-200/50 hover:bg-base-200'
+            }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={handleSelectFile}
-            style={{ marginBottom: 'var(--space-6)', cursor: 'pointer' }}
+            style={{ marginBottom: '1.5rem', cursor: 'pointer' }}
           >
-            <div className="drop-zone-icon">
+            <div className="text-base-content/40 mb-4">
               <FilmIcon />
             </div>
-            <div className="drop-zone-text">
+            <div className="text-lg mb-1">
               {fileName
-                ? <>{t('dubbing.file.selected')} <strong>{fileName}</strong></>
-                : <div style={{ fontWeight: 500 }}>{t('dubbing.dropzone')}</div>
+                ? <>{t('dubbing.file.selected')} <strong className="text-primary">{fileName}</strong></>
+                : <div className="font-medium text-base-content/80">{t('dubbing.dropzone')}</div>
               }
             </div>
-            <div className="text-sm text-muted">{t('dubbing.supported')}</div>
+            <div className="text-sm text-base-content/50">{t('dubbing.supported')}</div>
           </div>
             {/* Log Viewer */}
-          <div className="log-viewer" style={{ marginTop: 'var(--space-4)', flex: 1 }}>
+          <div className="flex-1 mt-4 bg-base-300 rounded-lg border border-base-content/10 p-3" aria-live="polite">
             {logs.length === 0 ? (
-              <div style={{ color: 'var(--text-tertiary)' }}>{t('dubbing.logs.waiting')}</div>
+              <div className="text-base-content/40 font-mono text-sm">{t('dubbing.logs.waiting')}</div>
             ) : (
               <VirtualLogViewer logs={logs} />
             )}
           </div>
 
           {/* YouTube URL Input */}
-          <div className="flex gap-3 mb-6">
+          <div className="flex gap-3 mb-6 mt-4">
             <input
               type="text"
-              className="form-input flex-1"
+              className="input input-bordered w-full flex-1"
               placeholder="https://youtube.com/watch?v=..."
               value={youtubeUrl}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setYoutubeUrl(e.target.value)}
             />
-            <button className="btn btn-secondary" onClick={handlePaste} title={t('dubbing.btn.paste_title')}>
+            <button className="btn btn-neutral" onClick={handlePaste} title={t('dubbing.btn.paste_title')}>
               <ClipboardIcon />
-              <span>{t('dubbing.btn.paste')}</span>
+              {t('dubbing.btn.paste')}
             </button>
           </div>
 
           {/* Configuration */}
-          <div className="card mb-6">
-            <div className="card-header">
-              <h3 className="card-title">{t('dubbing.config')}</h3>
-            </div>
+          <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-6">
+            <div className="card-body p-6">
+              <h3 className="card-title text-lg mb-4">{t('dubbing.config')}</h3>
 
-            {/* Row 1 */}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">{t('dubbing.target_lang')}</label>
-                <select
-                  className="form-select"
-                  value={config.targetLanguage}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('targetLanguage', e.target.value)}
-                >
-                  {LANGUAGE_OPTIONS.map(code => (
-                    <option key={code} value={code}>{t(LANG_T_KEY[code] as any)}</option>
-                  ))}
-                </select>
+              {/* Row 1 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-control w-full">
+                  <label className="label"><span className="label-text">{t('dubbing.target_lang')}</span></label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={config.targetLanguage}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('targetLanguage', e.target.value)}
+                  >
+                    {LANGUAGE_OPTIONS.map(code => (
+                      <option key={code} value={code}>{t(LANG_T_KEY[code] as any)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-control w-full">
+                  <label className="label"><span className="label-text">{t('dubbing.voice_model')}</span></label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={config.voiceModel}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('voiceModel', e.target.value)}
+                  >
+                    {(TTS_MODELS_BY_LANG[config.targetLanguage] || []).map(modelKey => (
+                      <option key={modelKey} value={modelKey}>
+                        {t(TTS_T_KEY[modelKey] as any) || modelKey}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">{t('dubbing.voice_model')}</label>
-                <select
-                  className="form-select"
-                  value={config.voiceModel}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('voiceModel', e.target.value)}
-                >
-                  {(TTS_MODELS_BY_LANG[config.targetLanguage] || []).map(modelKey => (
-                    <option key={modelKey} value={modelKey}>
-                      {t(TTS_T_KEY[modelKey] as any) || modelKey}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
             {/* Row 2 */}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">{t('dubbing.translation_engine')}</label>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="form-control w-full">
+                <label className="label"><span className="label-text">{t('dubbing.translation_engine')}</span></label>
                 <select
-                  className="form-select"
+                  className="select select-bordered w-full"
                   value={config.translationEngine}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('translationEngine', e.target.value)}
                 >
@@ -448,10 +445,10 @@ export default function DubbingStudio() {
                   <option value="google">{t('dubbing.engine.google')}</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">{t('dubbing.translator_model')}</label>
+              <div className="form-control w-full">
+                <label className="label"><span className="label-text">{t('dubbing.translator_model')}</span></label>
                 <select
-                  className="form-select"
+                  className="select select-bordered w-full"
                   value={config.translatorModel}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('translatorModel', e.target.value)}
                   disabled={config.translationEngine === 'google' || config.translationEngine === 'gemini'}
@@ -470,71 +467,78 @@ export default function DubbingStudio() {
                   ) : config.translationEngine === 'deepl' ? (
                     <option value="deepl-api">{t('dubbing.translator.deepl_api')}</option>
                   ) : (
-                    <option value="default">{t('dubbing.translator.default')}</option>
+                     <option value="default">{t('dubbing.translator.default')}</option>
                   )}
                 </select>
               </div>
             </div>
+            </div>
           </div>
 
           {/* Pipeline Mode */}
-          <div className="card mb-6">
-            <div className="card-header">
-              <label className="form-label">{t('dubbing.mode')}</label>
-            </div>
-            <div className="flex-col gap-3">
-              <label className="form-radio">
-                <input
-                  type="radio"
-                  name="pipelineMode"
-                  checked={config.pipelineMode === 'automatic'}
-                  onChange={() => updateConfig('pipelineMode', 'automatic')}
-                />
-                <div>
-                  <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{t('dubbing.mode.auto_label')}</div>
-                  <div className="text-sm text-muted">{t('dubbing.mode.auto_desc')}</div>
+          <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-6">
+            <div className="card-body p-6">
+              <label className="label p-0 mb-4"><span className="label-text font-semibold text-lg">{t('dubbing.mode')}</span></label>
+              <div className="flex flex-col gap-3">
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-4 p-0">
+                    <input
+                      type="radio"
+                      name="pipelineMode"
+                      className="radio radio-primary"
+                      checked={config.pipelineMode === 'automatic'}
+                      onChange={() => updateConfig('pipelineMode', 'automatic')}
+                    />
+                    <div>
+                      <div className="text-base-content font-medium">{t('dubbing.mode.auto_label')}</div>
+                      <div className="text-sm text-base-content/60">{t('dubbing.mode.auto_desc')}</div>
+                    </div>
+                  </label>
                 </div>
-              </label>
-              <label className="form-radio">
-                <input
-                  type="radio"
-                  name="pipelineMode"
-                  checked={config.pipelineMode === 'manual'}
-                  onChange={() => updateConfig('pipelineMode', 'manual')}
-                />
-                <div>
-                  <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{t('dubbing.mode.manual_label')}</div>
-                  <div className="text-sm text-muted">{t('dubbing.mode.manual_desc')}</div>
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-4 p-0">
+                    <input
+                      type="radio"
+                      name="pipelineMode"
+                      className="radio radio-primary"
+                      checked={config.pipelineMode === 'manual'}
+                      onChange={() => updateConfig('pipelineMode', 'manual')}
+                    />
+                    <div>
+                      <div className="text-base-content font-medium">{t('dubbing.mode.manual_label')}</div>
+                      <div className="text-sm text-base-content/60">{t('dubbing.mode.manual_desc')}</div>
+                    </div>
+                  </label>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
 
           {/* Advanced Options */}
-          <div className="card mb-6">
-            <div
-              className="flex items-center justify-between"
-              style={{ cursor: 'pointer' }}
-              onClick={() => setShowAdvanced(v => !v)}
-            >
-              <h3 className="card-title">{t('dubbing.advanced')}</h3>
-              <ChevronIcon open={showAdvanced} />
-            </div>
-            {showAdvanced && (
-              <div className="mt-4">
-                {renderSwitch(t('dubbing.adv.mux'), config.autoMux, v => updateConfig('autoMux', v), t('dubbing.adv.mux_desc'))}
-                {renderSwitch(t('dubbing.adv.clone'), config.voiceCloning, v => updateConfig('voiceCloning', v), t('dubbing.adv.clone_desc'))}
-                {renderSwitch(t('dubbing.adv.demucs'), config.audioSeparation, v => updateConfig('audioSeparation', v), t('dubbing.adv.demucs_desc'))}
+          <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-6">
+            <div className="card-body p-6">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setShowAdvanced(v => !v)}
+              >
+                <h3 className="card-title text-lg mb-0">{t('dubbing.advanced')}</h3>
+                <ChevronIcon open={showAdvanced} />
               </div>
-            )}
+              {showAdvanced && (
+                <div className="mt-4 flex flex-col gap-2">
+                  {renderSwitch(t('dubbing.adv.mux'), config.autoMux, v => updateConfig('autoMux', v), t('dubbing.adv.mux_desc'))}
+                  {renderSwitch(t('dubbing.adv.clone'), config.voiceCloning, v => updateConfig('voiceCloning', v), t('dubbing.adv.clone_desc'))}
+                  {renderSwitch(t('dubbing.adv.demucs'), config.audioSeparation, v => updateConfig('audioSeparation', v), t('dubbing.adv.demucs_desc'))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Start Button */}
           <button
-            className="btn btn-primary btn-lg btn-full"
+            className="btn btn-primary btn-lg w-full"
             onClick={handleStartPipeline}
             disabled={!fileName && !youtubeUrl}
-            style={{ opacity: (!fileName && !youtubeUrl) ? 0.5 : 1 }}
           >
             <PlayIcon />
             {t('dubbing.start')}
@@ -546,39 +550,33 @@ export default function DubbingStudio() {
       {(pipelineState === 'running' || pipelineState === 'done') && (
         <>
           {/* Pipeline Steps */}
-          <div className="pipeline-steps" style={{ flexWrap: 'wrap' }}>
+          <ul className="steps steps-horizontal w-full mb-8 text-xs font-medium">
             {PIPELINE_STEP_KEYS.map((key, idx) => {
               const num = idx + 1;
+              const state = getStepState(num);
+              let stepClass = "";
+              if (state === 'done') stepClass = "step-success text-success";
+              else if (state === 'active') stepClass = "step-primary text-primary font-bold";
+              
               return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                <div className={`pipeline-step ${getStepState(num)}`}>
-                  {getStepState(num) === 'done' ? (
-                    <CheckIcon />
-                  ) : (
-                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, opacity: 0.7 }}>{num}</span>
-                  )}
+                <li key={key} data-content={state === 'done' ? '✓' : num} className={`step ${stepClass}`}>
                   {t(STEP_T_KEY[key] as any)}
-                </div>
-                {idx < PIPELINE_STEP_KEYS.length - 1 && (
-                  <div className={`pipeline-connector ${getConnectorState(num)}`} />
-                )}
-              </div>
-            )})}
-          </div>
+                </li>
+              );
+            })}
+          </ul>
 
           {/* Progress Bar */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          <div className="mb-8 px-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-base-content/80">
                 {pipelineState === 'done' ? t('dubbing.status.done') : t('dubbing.status.processing')} {activeStep} / {PIPELINE_STEP_KEYS.length}…
               </span>
-              <span className="text-sm" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              <span className="text-sm font-mono font-bold text-primary">
                 {progress}%
               </span>
             </div>
-            <div className="progress-bar">
-              <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
-            </div>
+            <progress className="progress progress-primary w-full h-2" value={progress} max="100"></progress>
           </div>
 
           {/* Status Badge */}
@@ -613,21 +611,23 @@ export default function DubbingStudio() {
           </div>
 
           {/* Log Viewer */}
-          <div className="card mb-6">
-            <div className="card-header">
-              <h3 className="card-title">{t('dubbing.log.title')}</h3>
-              <span className="badge badge-neutral">{logs.length} {t('dubbing.log.entries')}</span>
-            </div>
-            <div className="log-viewer" role="log" aria-live="polite">
+          <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-6">
+            <div className="card-body p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="card-title text-lg mb-0">{t('dubbing.log.title')}</h3>
+                <span className="badge badge-neutral">{logs.length} {t('dubbing.log.entries')}</span>
+              </div>
+            <div className="bg-base-300 rounded-lg border border-base-content/10 p-3" role="log" aria-live="polite">
               {logs.length > 0 ? (
                 <VirtualLogViewer logs={logs} maxHeight={200} />
               ) : (
-              <div className="log-entry">
-                <span className="log-time">[{new Date().toLocaleTimeString()}]</span>
-                <span className="log-text log-info">{t('dubbing.status.waiting_backend')}</span>
+              <div className="flex items-center gap-2 text-info text-sm font-mono py-1 px-1 opacity-80">
+                <span className="text-base-content/40">[{new Date().toLocaleTimeString()}]</span>
+                <span>{t('dubbing.status.waiting_backend')}</span>
               </div>
             )}
             </div>
+          </div>
           </div>
 
           {/* Done actions */}
@@ -653,28 +653,24 @@ export default function DubbingStudio() {
       {pipelineState === 'review' && (
         <>
           {/* Pipeline steps (frozen at step 4) */}
-          <div className="pipeline-steps" style={{ flexWrap: 'wrap' }}>
+          <ul className="steps steps-horizontal w-full mb-8 text-xs font-medium">
             {PIPELINE_STEP_KEYS.map((key, idx) => {
               const num = idx + 1;
+              const state = getStepState(num);
+              let stepClass = "";
+              if (state === 'done') stepClass = "step-success text-success";
+              else if (state === 'active') stepClass = "step-primary text-primary font-bold";
+              
               return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                <div className={`pipeline-step ${getStepState(num)}`}>
-                  {getStepState(num) === 'done' ? (
-                    <CheckIcon />
-                  ) : (
-                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, opacity: 0.7 }}>{num}</span>
-                  )}
+                <li key={key} data-content={state === 'done' ? '✓' : num} className={`step ${stepClass}`}>
                   {t(STEP_T_KEY[key] as any)}
-                </div>
-                {idx < PIPELINE_STEP_KEYS.length - 1 && (
-                  <div className={`pipeline-connector ${getConnectorState(num)}`} />
-                )}
-              </div>
-            )})}
-          </div>
+                </li>
+              );
+            })}
+          </ul>
 
-          <div className="callout callout-warning mb-6">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+          <div className="alert alert-warning mb-6 shadow-sm">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -685,28 +681,28 @@ export default function DubbingStudio() {
           </div>
 
           {/* Split Editor */}
-          <div className="editor-split mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 h-[400px] mb-6">
             {/* Left: Original */}
-            <div className="editor-panel">
-              <div className="editor-panel-header">
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex items-center justify-between px-4 py-2 bg-base-200 border border-base-content/10 border-b-0 rounded-t-lg text-xs font-semibold text-base-content/70 uppercase tracking-wider">
                 <span>{t('dubbing.review.original')}</span>
-                <span className="badge badge-neutral">{t('dubbing.review.readonly')}</span>
+                <span className="badge badge-neutral badge-sm">{t('dubbing.review.readonly')}</span>
               </div>
-              <div className="editor-content">
+              <div className="flex-1 bg-base-300 border border-base-content/10 rounded-b-lg p-4 font-mono text-sm leading-relaxed overflow-y-auto text-base-content/80 shadow-inner">
                 {originalSegments.length > 0
-                  ? originalSegments.map((seg, i) => <div key={i}>{seg}</div>)
-                  : <span style={{ color: 'var(--text-muted)' }}>{t('dubbing.status.waiting_backend')}</span>}
+                  ? originalSegments.map((seg, i) => <div key={i} className="mb-4 last:mb-0">{seg}</div>)
+                  : <span className="opacity-50 italic">{t('dubbing.status.waiting_backend')}</span>}
               </div>
             </div>
 
             {/* Right: Translated (editable) */}
-            <div className="editor-panel">
-              <div className="editor-panel-header">
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex items-center justify-between px-4 py-2 bg-base-200 border border-base-content/10 border-b-0 rounded-t-lg text-xs font-semibold text-base-content/70 uppercase tracking-wider">
                 <span>{t('dubbing.review.translated')}</span>
-                <span className="badge badge-info">{t('dubbing.review.editable')}</span>
+                <span className="badge badge-info badge-sm">{t('dubbing.review.editable')}</span>
               </div>
               <textarea
-                className="editor-content"
+                className="flex-1 bg-base-100 border border-base-content/20 rounded-b-lg p-4 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-inner"
                 value={translatedSrt}
                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTranslatedSrt(e.target.value)}
               />
@@ -727,6 +723,7 @@ export default function DubbingStudio() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

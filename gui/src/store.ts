@@ -921,9 +921,9 @@ class SettingsStore {
       const storedTheme = await this._store.get<string>('theme');
       if (storedTheme) {
         this.theme = storedTheme;
-        document.documentElement.setAttribute('data-theme', storedTheme);
+        document.documentElement.setAttribute('data-theme', storedTheme === 'dark' ? 'dim' : storedTheme);
       } else {
-        document.documentElement.setAttribute('data-theme', this.theme);
+        document.documentElement.setAttribute('data-theme', this.theme === 'dark' ? 'dim' : this.theme);
       }
       const stored = await this._store.get<Record<string, string>>('apiKeys');
 
@@ -973,7 +973,7 @@ class SettingsStore {
 
   async setTheme(theme: string) {
     this.theme = theme;
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dim' : theme);
     if (this._store) {
       await this._store.set('theme', theme);
       await this._store.save();

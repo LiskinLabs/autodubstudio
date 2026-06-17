@@ -29,6 +29,30 @@ import threading
 
 download_semaphore = threading.Semaphore(2)
 
+# ── Safe subprocess environment (security: don't leak API keys to child processes) ──
+_SUBPROCESS_SAFE_VARS = {
+    "PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE", "HOME",
+    "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "ProgramData",
+    "PYTHONPATH", "PYTHONIOENCODING", "PYTHONUNBUFFERED",
+    "CUDA_PATH", "CUDA_VISIBLE_DEVICES", "HF_HOME", "TORCH_HOME",
+    "OLLAMA_HOST", "COQUI_TOS_AGREED",
+    "COMSPEC", "PATHEXT", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE",
+}
+
+def _safe_subprocess_env(**extra) -> dict:
+    """Return a minimal environment dict for subprocess calls — no API keys, no secrets."""
+    env = {}
+    for key in _SUBPROCESS_SAFE_VARS:
+        val = os.environ.get(key)
+        if val:
+            env[key] = val
+    # Whitelist: pass GPU-related vars
+    for key, val in os.environ.items():
+        if key.startswith(("CUDA_", "NVIDIA_", "TORCH_", "HF_", "OLLAMA_")) and key not in env:
+            env[key] = val
+    env.update(extra)
+    return env
+
 # ── Clean up old zombie backend instances ──
 try:
     current_pid = os.getpid()
@@ -64,13 +88,13 @@ app.add_middleware(
         "http://tauri.localhost"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
 # ── WebSocket auth token (generated fresh each backend startup) ──
 WS_AUTH_TOKEN = secrets.token_urlsafe(32)
-print(f"[SECURITY] WebSocket auth token: {WS_AUTH_TOKEN[:8]}... (full token shared with frontend)")
+print(f"[SECURITY] WebSocket auth token generated (len={len(WS_AUTH_TOKEN)} chars)")
 print(f"[SECURITY] Backend bound to 127.0.0.1:8000 — no external network access")
 
 class StatusResponse(BaseModel):
@@ -102,7 +126,10 @@ async def get_ws_token(request: Request):
     return {"token": WS_AUTH_TOKEN}
 
 @app.post("/api/ollama/start")
-async def start_ollama():
+async def start_ollama(request: Request):
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    if origin and not ("tauri://localhost" in origin or "http://localhost" in origin or "http://127.0.0.1" in origin):
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid origin")
     try:
         import subprocess
         # Try to start ollama serve detached
@@ -110,14 +137,18 @@ async def start_ollama():
             ["ollama", "serve"],
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=_safe_subprocess_env()
         )
         return {"status": "ok", "message": "Ollama started"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ollama/stop")
-async def stop_ollama():
+async def stop_ollama(request: Request):
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    if origin and not ("tauri://localhost" in origin or "http://localhost" in origin or "http://127.0.0.1" in origin):
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid origin")
     try:
         import psutil
         for proc in psutil.process_iter(['name']):
@@ -155,10 +186,10 @@ async def websocket_pipeline(websocket: WebSocket):
         event_queue.put({"type": "progress", "data": val})
     def on_log(text):
         try:
-            print(f"[ENGINE LOG] {text}".encode("utf-8", "replace").decode("utf-8"))
+            print(f"[ENGINE LOG] {redact_secrets(text)}".encode("utf-8", "replace").decode("utf-8"))
         except Exception:
             pass
-        event_queue.put({"type": "log", "data": text})
+        event_queue.put({"type": "log", "data": redact_secrets(text)})
     def on_finished(success, msg):
         event_queue.put({"type": "finished", "success": success, "message": msg})
     def on_manual_edit(manual_subs):
@@ -337,7 +368,7 @@ async def get_model_status():
 
     # Check Gemma 4 via Ollama
     try:
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=5)
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=5, env=_safe_subprocess_env())
         models_status["gemma4"] = "gemma4" in result.stdout
     except Exception:
         models_status["gemma4"] = False
@@ -426,7 +457,7 @@ async def delete_model(model_id: str):
     elif model_id == "gemma4":
         try:
             import subprocess
-            subprocess.run(["ollama", "rm", "gemma4:e4b"], capture_output=True)
+            subprocess.run(["ollama", "rm", "gemma4:e4b"], capture_output=True, env=_safe_subprocess_env())
             deleted_paths.append("ollama: gemma4:e4b")
         except Exception as e:
             errors.append(str(e))
@@ -518,7 +549,7 @@ Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.e
 print('PYANNOTE_OK')
 """],
                     capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,
-                    env={**os.environ, "HF_TOKEN": token}
+                    env=_safe_subprocess_env(HF_TOKEN=token)
                 )
                 if result.returncode == 0:
                     with _model_download_lock:
@@ -537,7 +568,7 @@ print('PYANNOTE_OK')
                 result = subprocess.run(
                     [xtts_venv, "-c", "from TTS.api import TTS; TTS(model_name='tts_models/multilingual/multi-dataset/xtts_v2', progress_bar=False)"],
                     capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,
-                    env={**os.environ, "COQUI_TOS_AGREED": "1"}
+                    env=_safe_subprocess_env(COQUI_TOS_AGREED="1")
                 )
                 if result.returncode == 0:
                     with _model_download_lock:
@@ -574,7 +605,8 @@ print('PYANNOTE_OK')
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
                     [sys.executable, "-c", "from demucs import pretrained; pretrained.get_model('htdemucs'); print('htdemucs ready')"],
-                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,
+                    env=_safe_subprocess_env()
                 )
                 if result.returncode == 0:
                     with _model_download_lock:
@@ -594,7 +626,8 @@ print('PYANNOTE_OK')
                     text=True,
                     bufsize=1,
                     encoding='utf-8',
-                    errors='replace'
+                    errors='replace',
+                    env=_safe_subprocess_env()
                 )
                 
                 buffer = ""
@@ -699,11 +732,13 @@ def redact_secrets(text: str) -> str:
     if not text:
         return text
     # Redact common env variables if they somehow leak into logs
-    text = re.sub(r'(HF_TOKEN|GITHUB_TOKEN|GEMINI_API_KEY)[\s:=]+[\w\-]+', r'\1=***', text)
+    text = re.sub(r'(HF_TOKEN|GITHUB_TOKEN|GEMINI_API_KEY|DEEPSEEK_API_KEY|DEEPL_API_KEY)[\s:=]+[\w\-]+', r'\1=***', text)
     # Redact HF token
     text = re.sub(r'hf_[a-zA-Z0-9]{34}', r'hf_***', text)
     # Redact GitHub token
     text = re.sub(r'ghp_[a-zA-Z0-9]{36}', r'ghp_***', text)
+    # Redact DeepL key (often ends with :fx)
+    text = re.sub(r'[a-f0-9\-]{36}:fx', r'***:fx', text)
     # Hide user home directory
     return text.replace(os.path.expanduser("~"), "~")
 

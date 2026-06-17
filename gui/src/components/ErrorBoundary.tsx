@@ -37,45 +37,30 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            gap: 'var(--space-4)',
-            padding: 'var(--space-8)',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: '48px', marginBottom: 'var(--space-2)' }}>💥</div>
-          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-primary)' }}>
+        <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
+          <div className="text-5xl mb-2">💥</div>
+          <h2 className="text-xl font-semibold text-base-content">
             Something went wrong
           </h2>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', maxWidth: 400, lineHeight: 1.6 }}>
+          <p className="text-sm text-base-content/70 max-w-[400px] leading-relaxed">
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
 
           {this.state.reported && (
-            <div className="callout callout-success" style={{ maxWidth: 380, textAlign: 'left' }}>
+            <div className="alert alert-success shadow-sm max-w-[380px] text-left text-xs">
               <span>✅</span>
-              <span style={{ fontSize: 'var(--text-xs)' }}>
-                Error report sent automatically. Our team will investigate.
-              </span>
+              <span>Error report sent automatically. Our team will investigate.</span>
             </div>
           )}
 
           {!this.state.reported && (
-            <div className="callout callout-info" style={{ maxWidth: 380, textAlign: 'left' }}>
+            <div className="alert alert-info shadow-sm max-w-[380px] text-left text-xs">
               <span>📤</span>
-              <span style={{ fontSize: 'var(--text-xs)' }}>
-                Sending error report automatically...
-              </span>
+              <span>Sending error report automatically...</span>
             </div>
           )}
 
-          <button className="btn btn-primary" onClick={this.handleReload} style={{ marginTop: 'var(--space-4)' }}>
+          <button className="btn btn-primary mt-4" onClick={this.handleReload}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />

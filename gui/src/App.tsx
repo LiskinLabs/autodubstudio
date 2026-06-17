@@ -156,101 +156,92 @@ const App: React.FC = () => {
   }, [handleKeyDown]);
 
   return (
-    <div className="app-root">
+    <div className="flex flex-col h-screen w-full bg-base-100 text-base-content overflow-hidden font-sans">
       {/* ── Titlebar (Tauri drag region) ── */}
-      <div className="titlebar">
-        <img src="/logo-icon.png" alt="" className="titlebar-logo" style={{ width: 18, height: 18, marginRight: 8 }} />
-        <span className="titlebar-title">AutoDub Studio</span>
+      <div className="h-9 flex items-center px-4 bg-base-200 border-b border-base-content/10 shrink-0 select-none drag-region">
+        <img src="/logo-icon.png" alt="" className="w-4 h-4 mr-2 object-contain pointer-events-none" />
+        <span className="text-xs font-semibold tracking-wide opacity-80 pointer-events-none">AutoDub Studio</span>
       </div>
 
       {/* ── Body: Sidebar + Main ── */}
-      <div className="app-body">
-        {/* ── Sidebar (inline) ── */}
-        <aside className="sidebar" role="complementary" aria-label="Sidebar">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* ── Sidebar (DaisyUI) ── */}
+        <aside className="w-60 bg-base-200/50 border-r border-base-content/5 flex flex-col shrink-0" role="complementary" aria-label="Sidebar">
           {/* Brand */}
-          <div className="sidebar-brand">
-            <img
-              src="/logo-icon.png"
-              alt="AutoDub Studio"
-              className="sidebar-brand-icon"
-              style={{ objectFit: 'contain' }}
-            />
-            <span className="sidebar-brand-text">AutoDub Studio</span>
+          <div className="h-14 flex items-center px-4 gap-3 shrink-0 select-none drag-region">
+            <img src="/logo-icon.png" alt="AutoDub Studio" className="w-6 h-6 object-contain" />
+            <span className="font-semibold text-sm tracking-wide">AutoDub Studio</span>
           </div>
 
           {/* Navigation */}
-          <nav className="sidebar-nav" role="navigation" aria-label="Main navigation">
-            {/* TOOLS section */}
-            <div className="sidebar-section-label">{t('nav.tools')}</div>
-            {toolItems.map((item) => (
-              <div
-                key={item.id}
-                role="tab"
-                aria-selected={activeTab === item.id}
-                aria-label={t(item.labelKey as any)}
-                tabIndex={0}
-                className={`nav-item${activeTab === item.id ? " active" : ""}`}
-                onClick={() => setActiveTab(item.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setActiveTab(item.id);
-                  }
-                }}
-              >
-                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-                <span>{t(item.labelKey as any)}</span>
-                {item.badge && (
-                  <span className="nav-badge new">{item.badge}</span>
-                )}
-                {item.kbShortcut && (
-                  <span className="nav-kb">{item.kbShortcut}</span>
-                )}
-              </div>
-            ))}
+          <nav className="flex-1 overflow-y-auto px-2 py-4" role="navigation" aria-label="Main navigation">
+            <ul className="menu menu-sm gap-1">
+              {/* TOOLS section */}
+              <li className="menu-title uppercase tracking-widest text-[10px] font-bold opacity-50 px-2 mt-2 mb-1">{t('nav.tools')}</li>
+              {toolItems.map((item) => (
+                <li key={item.id}>
+                  <a
+                    role="tab"
+                    aria-selected={activeTab === item.id}
+                    className={activeTab === item.id ? "active bg-primary text-primary-content" : "hover:bg-base-content/10 text-base-content/80"}
+                    onClick={() => setActiveTab(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setActiveTab(item.id);
+                      }
+                    }}
+                  >
+                    <span className="opacity-70">{item.icon}</span>
+                    <span className="font-medium">{t(item.labelKey as any)}</span>
+                    {item.badge && (
+                      <span className="badge badge-xs badge-info ml-1">{item.badge}</span>
+                    )}
+                    {item.kbShortcut && (
+                      <span className="ml-auto text-[10px] opacity-40 font-mono tracking-widest">{item.kbShortcut}</span>
+                    )}
+                  </a>
+                </li>
+              ))}
 
-            {/* SYSTEM section */}
-            <div className="sidebar-section-label">{t('nav.system')}</div>
-            {systemItems.map((item) => (
-              <div
-                key={item.id}
-                role="tab"
-                aria-selected={activeTab === item.id}
-                aria-label={t(item.labelKey as any)}
-                tabIndex={0}
-                className={`nav-item${activeTab === item.id ? " active" : ""}`}
-                onClick={() => setActiveTab(item.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setActiveTab(item.id);
-                  }
-                }}
-              >
-                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-                <span>{t(item.labelKey as any)}</span>
-                {item.kbShortcut && (
-                  <span className="nav-kb">{item.kbShortcut}</span>
-                )}
-              </div>
-            ))}
+              {/* SYSTEM section */}
+              <li className="menu-title uppercase tracking-widest text-[10px] font-bold opacity-50 px-2 mt-4 mb-1">{t('nav.system')}</li>
+              {systemItems.map((item) => (
+                <li key={item.id}>
+                  <a
+                    role="tab"
+                    aria-selected={activeTab === item.id}
+                    className={activeTab === item.id ? "active bg-primary text-primary-content" : "hover:bg-base-content/10 text-base-content/80"}
+                    onClick={() => setActiveTab(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setActiveTab(item.id);
+                      }
+                    }}
+                  >
+                    <span className="opacity-70">{item.icon}</span>
+                    <span className="font-medium">{t(item.labelKey as any)}</span>
+                    {item.kbShortcut && (
+                      <span className="ml-auto text-[10px] opacity-40 font-mono tracking-widest">{item.kbShortcut}</span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </nav>
 
           {/* Footer */}
-          <div className="sidebar-footer flex items-center gap-3 p-4 border-t border-base-content/5 mt-auto">
-            <div className="w-8 h-8 rounded-lg bg-base-300 flex items-center justify-center border border-base-content/5 overflow-hidden">
-              <img
-                src="/logo-icon.png"
-                alt="LiskinLabs"
-                className="w-full h-full object-cover"
-              />
+          <div className="flex items-center gap-3 p-4 border-t border-base-content/5 mt-auto">
+            <div className="w-8 h-8 rounded-lg bg-base-300 flex items-center justify-center border border-base-content/5 overflow-hidden shrink-0">
+              <img src="/logo-icon.png" alt="LiskinLabs" className="w-full h-full object-cover opacity-80" />
             </div>
             <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{t('brand.powered_by')}</span>
           </div>
         </aside>
 
         {/* ── Main Content (all pages kept mounted to preserve state) ── */}
-        <main className="main-content" role="main" aria-label="Page content">
+        <main className="flex-1 relative overflow-hidden bg-base-100" role="main" aria-label="Page content">
           <div style={{ display: activeTab === 'dubbing' ? 'block' : 'none', height: '100%' }}>
             <DubbingStudio />
           </div>

@@ -54,31 +54,21 @@ export default function EmptyState({ icon, title, subtitle, action }: EmptyState
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--space-12) var(--space-6)',
-        textAlign: 'center',
-        gap: 'var(--space-4)',
-        flex: 1,
-      }}
+      className="flex flex-col items-center justify-center py-12 px-6 text-center gap-4 flex-1"
     >
-      <div style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
+      <div className="text-base-content/40 mb-2">
         <Icon />
       </div>
-      <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+      <h3 className="text-lg font-semibold text-base-content m-0">
         {title}
       </h3>
-      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', maxWidth: 360, lineHeight: 1.6, margin: 0 }}>
+      <p className="text-sm text-base-content/70 max-w-[360px] leading-relaxed m-0">
         {subtitle}
       </p>
       {action && (
         <button
-          className="btn btn-primary"
+          className="btn btn-primary mt-2"
           onClick={action.onClick}
-          style={{ marginTop: 'var(--space-2)' }}
         >
           {action.label}
         </button>

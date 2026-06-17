@@ -36,12 +36,9 @@ export default function VirtualLogViewer({ logs, maxHeight = 200, itemHeight = 2
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      style={{
+      className="font-mono text-xs overflow-auto bg-base-100 rounded-lg border border-base-content/10 p-3 relative"
+      style={{ 
         height: Math.min(maxHeight, logs.length * itemHeight),
-        overflow: 'auto',
-        position: 'relative',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--text-xs)',
       }}
     >
       {/* Spacer for total scroll height */}
@@ -51,25 +48,22 @@ export default function VirtualLogViewer({ logs, maxHeight = 200, itemHeight = 2
           const isError = log.toLowerCase().includes('error');
           const isWarn = log.toLowerCase().includes('warn');
           const isSuccess = log.toLowerCase().includes('success') || log.toLowerCase().includes('finished');
-          const colorClass = isError ? 'log-error' : isWarn ? 'log-warning' : isSuccess ? 'log-success' : 'log-info';
+          const colorClass = isError ? 'text-error' : isWarn ? 'text-warning' : isSuccess ? 'text-success' : 'text-info';
 
           return (
             <div
               key={actualIdx}
-              className="log-line"
+              className="flex items-center gap-2 w-full truncate px-1"
               style={{
                 position: 'absolute',
                 top: actualIdx * itemHeight,
                 height: itemHeight,
                 left: 0,
                 right: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
               }}
             >
-              <span className="log-time">[{time}]</span>
-              <span className={`log-text ${colorClass}`}>{log}</span>
+              <span className="text-base-content/40 shrink-0">[{time}]</span>
+              <span className={`truncate ${colorClass}`}>{log}</span>
             </div>
           );
         })}

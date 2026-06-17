@@ -15,6 +15,30 @@ from pydub import AudioSegment
 from backend.vram_manager import get_free_vram_mb, free_up_vram
 from backend.translator import Translator
 
+# ── Safe subprocess environment (security: don't leak API keys to child processes) ──
+_SUBPROCESS_SAFE_VARS = {
+    "PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE", "HOME",
+    "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "ProgramData",
+    "PYTHONPATH", "PYTHONIOENCODING", "PYTHONUNBUFFERED",
+    "CUDA_PATH", "CUDA_VISIBLE_DEVICES", "HF_HOME", "TORCH_HOME",
+    "OLLAMA_HOST", "COQUI_TOS_AGREED",
+    "COMSPEC", "PATHEXT", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE",
+}
+
+def _safe_subprocess_env(**extra) -> dict:
+    """Return a minimal environment dict for subprocess calls — no API keys, no secrets."""
+    import os as _os
+    env = {}
+    for key in _SUBPROCESS_SAFE_VARS:
+        val = _os.environ.get(key)
+        if val:
+            env[key] = val
+    for key, val in _os.environ.items():
+        if key.startswith(("CUDA_", "NVIDIA_", "TORCH_", "HF_", "OLLAMA_")) and key not in env:
+            env[key] = val
+    env.update(extra)
+    return env
+
 class EventSignal:
     def __init__(self):
         self.callbacks = []
@@ -97,14 +121,23 @@ class AutoDubWorker(threading.Thread):
 
     def _run_subprocess(self, cmd, **kwargs):
         check = kwargs.pop("check", False)
-        
+
+        # ── Security: don't leak API keys to child processes ──
+        if "env" not in kwargs:
+            kwargs["env"] = _safe_subprocess_env()
+        else:
+            # Merge caller-provided extras into safe base (caller's keys take precedence)
+            base = _safe_subprocess_env()
+            base.update(kwargs["env"])
+            kwargs["env"] = base
+
         # Don't override if explicitly devnull
         if kwargs.get('stdout') != subprocess.DEVNULL:
             kwargs['stdout'] = subprocess.PIPE
             kwargs['stderr'] = subprocess.STDOUT
             kwargs['bufsize'] = 1
             kwargs['universal_newlines'] = True
-            
+
         process = subprocess.Popen(cmd, **kwargs)
         self.active_processes.append(process)
         

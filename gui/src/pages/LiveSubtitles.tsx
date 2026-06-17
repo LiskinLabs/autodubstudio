@@ -103,35 +103,37 @@ export default function LiveSubtitles() {
   };
 
   return (
-    <div className="page">
-      {/* ─── Header ─── */}
-      <div className="page-header">
-        <h1 className="page-title">{t('live.title')}</h1>
-        <p className="page-subtitle">
+    <div className="flex flex-col flex-1 h-full overflow-y-auto">
+      <div className="flex flex-col h-full max-w-5xl mx-auto w-full px-4 py-8 md:px-8 pb-24">
+        {/* ─── Header ─── */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-base-content mb-2">{t('live.title')}</h1>
+        <p className="text-base-content/60">
           {t('live.subtitle')}
         </p>
       </div>
 
       {/* ─── Info Callout ─── */}
-      <div className="callout callout-info">
+      <div className="alert alert-info shadow-sm border border-info/20 mb-8">
         <InfoIcon />
-        <div>
-          {t('live.callout')}
-        </div>
+        <span>{t('live.callout')}</span>
       </div>
 
       {/* ─── Configuration ─── */}
-      <div className="card mb-6">
-        <div className="card-header">
-          <h3 className="card-title">{t('live.config')}</h3>
-          <SubtitleIcon />
-        </div>
+      <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-8">
+        <div className="card-body p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <SubtitleIcon />
+            <h3 className="card-title text-lg m-0">{t('live.config')}</h3>
+          </div>
 
-        {/* Row 1: Translation Engine */}
-        <div className="form-group">
-          <label className="form-label">{t('live.engine_label')}</label>
-          <select
-            className="form-select"
+          {/* Row 1: Translation Engine */}
+          <div className="form-control w-full mb-4">
+            <label className="label">
+              <span className="label-text font-medium">{t('live.engine_label')}</span>
+            </label>
+            <select
+              className="select select-bordered w-full"
             value={config.translationEngine}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('translationEngine', e.target.value)}
           >
@@ -141,11 +143,13 @@ export default function LiveSubtitles() {
         </div>
 
         {/* Row 2: Languages */}
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">{t('live.source_lang')}</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="form-control w-full">
+            <label className="label">
+              <span className="label-text font-medium">{t('live.source_lang')}</span>
+            </label>
             <select
-              className="form-select"
+              className="select select-bordered w-full"
               value={config.sourceLanguage}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('sourceLanguage', e.target.value)}
             >
@@ -156,10 +160,12 @@ export default function LiveSubtitles() {
               <option value="ru">{t('lang.ru')}</option>
             </select>
           </div>
-          <div className="form-group">
-            <label className="form-label">{t('live.target_lang')}</label>
+          <div className="form-control w-full">
+            <label className="label">
+              <span className="label-text font-medium">{t('live.target_lang')}</span>
+            </label>
             <select
-              className="form-select"
+              className="select select-bordered w-full"
               value={config.targetLanguage}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('targetLanguage', e.target.value)}
             >
@@ -171,11 +177,13 @@ export default function LiveSubtitles() {
         </div>
 
         {/* Row 3: Display */}
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">{t('live.position')}</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="form-control w-full">
+            <label className="label">
+              <span className="label-text font-medium">{t('live.position')}</span>
+            </label>
             <select
-              className="form-select"
+              className="select select-bordered w-full"
               value={config.subtitlePosition}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('subtitlePosition', e.target.value)}
             >
@@ -184,10 +192,12 @@ export default function LiveSubtitles() {
               <option value="center">{t('pos.center')}</option>
             </select>
           </div>
-          <div className="form-group">
-            <label className="form-label">{t('live.fontsize')}</label>
+          <div className="form-control w-full">
+            <label className="label">
+              <span className="label-text font-medium">{t('live.fontsize')}</span>
+            </label>
             <select
-              className="form-select"
+              className="select select-bordered w-full"
               value={config.fontSize}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('fontSize', e.target.value)}
             >
@@ -197,27 +207,29 @@ export default function LiveSubtitles() {
             </select>
           </div>
         </div>
+        </div>
       </div>
 
       {/* ─── Audio Status ─── */}
-      <div className="card">
-        <div className="card-header" style={{ marginBottom: 'var(--space-4)' }}>
-          <h3 className="card-title">{t('live.audio_status')}</h3>
-          <div className={`badge ${isCapturing ? 'badge-success' : isConnected ? 'badge-info' : 'badge-neutral'}`}>
-            {isCapturing ? t('live.listening') : isConnected ? t('live.standby') : t('status.ollama_off')}
+      <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-8">
+        <div className="card-body p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="card-title text-lg m-0">{t('live.audio_status')}</h3>
+            <div className={`badge font-medium ${isCapturing ? 'badge-success' : isConnected ? 'badge-info' : 'badge-neutral'}`}>
+              {isCapturing ? t('live.listening') : isConnected ? t('live.standby') : t('status.ollama_off')}
+            </div>
           </div>
-        </div>
 
-        <div className="flex-col gap-3">
+          <div className="flex flex-col gap-6">
           {/* Microphone */}
-          <div className="flex items-center gap-3">
-            <div className={`status-dot ${isCapturing ? 'green' : 'yellow'}`} />
-            <MicIcon />
-            <div className="flex-col" style={{ gap: 2 }}>
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex items-center gap-4">
+            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-warning'}`} />
+            <div className="opacity-70"><MicIcon /></div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-base-content">
                 {t('live.status_audio')}
               </span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              <span className="text-xs text-base-content/60">
                 {isCapturing
                   ? t('live.status_audio.active')
                   : t('live.status_audio.idle')
@@ -227,14 +239,14 @@ export default function LiveSubtitles() {
           </div>
 
           {/* Translation Engine Status */}
-          <div className="flex items-center gap-3">
-            <div className={`status-dot ${isCapturing ? 'green' : 'blue'}`} />
-            <SubtitleIcon />
-            <div className="flex-col" style={{ gap: 2 }}>
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex items-center gap-4">
+            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-info'}`} />
+            <div className="opacity-70"><SubtitleIcon /></div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-base-content">
                 {t('live.status_engine')}
               </span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              <span className="text-xs text-base-content/60">
                 {isCapturing
                   ? t('live.status_engine.active')
                   : t('live.status_engine.idle')
@@ -244,18 +256,20 @@ export default function LiveSubtitles() {
           </div>
 
           {/* Subtitle Overlay */}
-          <div className="flex items-center gap-3">
-            <div className={`status-dot ${isCapturing ? 'green' : 'yellow'}`} />
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 9h18" />
-              <path d="M9 21V9" />
-            </svg>
-            <div className="flex-col" style={{ gap: 2 }}>
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex items-center gap-4">
+            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-warning'}`} />
+            <div className="opacity-70">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-base-content">
                 {t('live.status_overlay')}
               </span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              <span className="text-xs text-base-content/60">
                 {isCapturing
                   ? t('live.status_overlay.active')
                   : t('live.status_overlay.idle')
@@ -264,32 +278,24 @@ export default function LiveSubtitles() {
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* ─── Live Subtitle Preview (when listening) ─── */}
       {isCapturing && (
-        <div className="card mb-6" style={{ borderColor: 'rgba(34, 197, 94, 0.2)' }}>
-          <div className="card-header">
-            <h3 className="card-title">{t('live.preview')}</h3>
-            <div className="flex items-center gap-2">
-              <div className="status-dot green" />
-              <span className="text-sm" style={{ color: 'var(--success)' }}>{t('live.recording')}</span>
+        <div className="card bg-base-200 shadow-sm border border-success/30 mb-8">
+          <div className="card-body p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="card-title text-lg m-0">{t('live.preview')}</h3>
+              <div className="flex items-center gap-2 text-success">
+                <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                <span className="text-sm font-medium">{t('live.recording')}</span>
+              </div>
             </div>
-          </div>
-          <div
-            className="font-mono"
-            style={{
-              padding: 'var(--space-4)',
-              background: 'var(--bg-primary)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 1.8,
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <div style={{ color: subtitleText ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-              {subtitleText || t('live.waiting_audio')}
+            <div className="bg-base-300 rounded-lg p-6 font-mono text-sm leading-relaxed border border-base-content/10 text-base-content">
+              <div className={subtitleText ? '' : 'opacity-50 italic'}>
+                {subtitleText || t('live.waiting_audio')}
+              </div>
             </div>
           </div>
         </div>
@@ -297,7 +303,7 @@ export default function LiveSubtitles() {
 
       {/* ─── Start / Stop Button ─── */}
       <button
-        className={`btn btn-lg btn-full ${isCapturing ? 'btn-danger' : 'btn-primary'}`}
+        className={`btn btn-lg w-full ${isCapturing ? 'btn-error' : 'btn-primary'}`}
         onClick={handleToggle}
       >
         {isCapturing ? (
@@ -312,6 +318,7 @@ export default function LiveSubtitles() {
           </>
         )}
       </button>
+      </div>
     </div>
   );
 }

@@ -17,7 +17,6 @@ export default function ModelDownloader() {
   useEffect(() => {
     const hasRun = localStorage.getItem('autodub_first_launch_v2');
     if (!hasRun) {
-      setIsOpen(true);
       setSelected(new Set(['whisper-large-v3', 'pyannote-segmentation', 'xttsv2', 'gemma4']));
     }
     fetchModelStatus();
@@ -97,7 +96,7 @@ export default function ModelDownloader() {
     const downloading = Object.values(modelStatus).filter(s => !s.done && s.progress > 0).length;
     if (downloading > 0) {
       return (
-        <div className="status-item" style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setIsOpen(true)}>
+        <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-pointer text-primary" onClick={() => setIsOpen(true)}>
           <span>⬇️ {downloading} model(s)</span>
         </div>
       );
@@ -109,17 +108,17 @@ export default function ModelDownloader() {
   const pendingDownloadCount = MODELS.filter(m => selected.has(m.id) && !modelStatus[m.id]?.done).length;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
-      <div style={{ width: 600, maxHeight: '85vh', overflow: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', padding: 'var(--space-8)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <img src="/logo-icon.png" alt="AutoDub Studio" style={{ width: 80, height: 80, marginBottom: 'var(--space-4)', objectFit: 'contain' }} />
-          <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: 0 }}>{t('dl.title')}</h2>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-2)', lineHeight: 1.6 }}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+      <div className="w-[600px] max-h-[85vh] overflow-y-auto bg-base-100 border border-base-content/10 rounded-2xl shadow-2xl p-8">
+        <div className="text-center mb-6">
+          <img src="/logo-icon.png" alt="AutoDub Studio" className="w-20 h-20 mb-4 object-contain mx-auto" />
+          <h2 className="text-2xl font-bold m-0 text-base-content">{t('dl.title')}</h2>
+          <p className="text-sm text-base-content/70 mt-2 leading-relaxed max-w-sm mx-auto">
             {t('dl.desc')}
           </p>
         </div>
 
-        <div className="flex-col gap-3" style={{ display: 'flex', marginBottom: 'var(--space-6)' }}>
+        <div className="flex flex-col gap-3 mb-6">
           {MODELS.map(model => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
@@ -128,43 +127,41 @@ export default function ModelDownloader() {
             const isChecked = selected.has(model.id) || isDone;
 
             return (
-              <label key={model.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)', background: isDone ? 'var(--success-muted)' : 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: `1px solid ${isChecked ? 'var(--accent)' : 'var(--border-subtle)'}`, cursor: isDone ? 'default' : 'pointer', opacity: isDownloading ? 0.7 : 1, transition: 'all 120ms ease' }}>
-                <input type="checkbox" checked={isChecked} disabled={isDone || isDownloading} onChange={() => !isDone && toggleModel(model.id)} style={{ accentColor: 'var(--accent)', width: 18, height: 18, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>
+              <label key={model.id} className={`flex items-center gap-4 p-4 rounded-lg border transition-all duration-120 ${isDone ? 'bg-success/10 border-success/20 cursor-default' : 'bg-base-200 cursor-pointer'} ${isChecked && !isDone ? 'border-primary' : ''} ${!isDone && !isChecked ? 'border-base-content/10 hover:border-base-content/20' : ''} ${isDownloading ? 'opacity-70' : 'opacity-100'}`}>
+                <input type="checkbox" checked={isChecked} disabled={isDone || isDownloading} onChange={() => !isDone && toggleModel(model.id)} className="checkbox checkbox-primary w-5 h-5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-base-content">
                     {model.name}
-                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
+                    <span className="font-normal text-base-content/50 text-xs ml-2">{model.size}</span>
                   </div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{t(model.descKey as any)}</div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 1 }}>{t(model.descDetailKey as any)}</div>
+                  <div className="text-xs text-base-content/70 mt-0.5">{t(model.descKey as any)}</div>
+                  <div className="text-xs text-primary mt-0.5">{t(model.descDetailKey as any)}</div>
                   {isDownloading && hasRealProgress && (
-                    <div className="progress-bar" style={{ marginTop: 'var(--space-2)' }}>
-                      <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
-                    </div>
+                    <progress className="progress progress-primary w-full h-1.5 mt-2" value={st.progress} max="100"></progress>
                   )}
                   {isDownloading && !hasRealProgress && (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 4 }}>
+                    <div className="text-xs text-primary mt-1 font-medium">
                       {t('dl.downloading')}
                     </div>
                   )}
-                  {st?.error && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>{st.error}</div>}
+                  {st?.error && <div className="text-xs text-error mt-1">{st.error}</div>}
                 </div>
-                {isDone && <span className="badge badge-success">✓</span>}
+                {isDone && <span className="badge badge-success badge-sm">✓</span>}
                 {isDownloading && hasRealProgress && (
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600 }}>{st.progress}%</span>
+                  <span className="text-xs text-primary font-semibold">{st.progress}%</span>
                 )}
               </label>
             );
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={downloadSelected} disabled={pendingDownloadCount === 0}>
+        <div className="flex gap-3 mt-4">
+          <button className="btn btn-primary flex-1" onClick={downloadSelected} disabled={pendingDownloadCount === 0}>
             {t('dl.btn_download')} ({pendingDownloadCount})
           </button>
-          <button className="btn btn-secondary btn-lg" onClick={skipAll}>{t('dl.btn_skip')}</button>
+          <button className="btn btn-neutral" onClick={skipAll}>{t('dl.btn_skip')}</button>
         </div>
-        <div style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
+        <div className="mt-4 text-xs text-base-content/50 text-center">
           {t('dl.note')}
         </div>
       </div>

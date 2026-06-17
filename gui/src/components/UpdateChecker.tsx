@@ -121,8 +121,7 @@ export default function UpdateChecker() {
 
     return (
       <div
-        className="status-item"
-        style={{ cursor: 'pointer', color: 'var(--accent)' }}
+        className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-pointer text-primary"
         onClick={() => {
           if (status === 'ready') installUpdate();
         }}
@@ -141,7 +140,7 @@ export default function UpdateChecker() {
 
   if (status === 'checking') {
     return (
-      <div className="status-item" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-default opacity-50">
         <span>🔄 Checking updates...</span>
       </div>
     );

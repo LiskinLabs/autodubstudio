@@ -30,30 +30,30 @@ const StatusBar: React.FC = () => {
   });
 
   return (
-    <div className="statusbar">
+    <div className="h-8 bg-base-200 border-t border-base-content/10 flex items-center px-3 text-[11px] font-medium text-base-content/60 shrink-0 select-none z-50">
       {/* GPU Status */}
-      <div className="status-item">
+      <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-default">
         <span
-          className={`status-dot ${status.gpu === "gpu" ? "green" : "yellow"}`}
+          className={`w-2 h-2 rounded-full ${status.gpu === "gpu" ? "bg-success" : "bg-warning"}`}
         />
         <span>{status.gpu === "gpu" ? t('status.gpu') : t('status.cpu')}</span>
       </div>
 
-      <div className="status-separator" />
+      <div className="w-px h-3 bg-base-content/10 mx-1" />
 
       {/* VRAM */}
-      <div className="status-item">
+      <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-default">
         <span>
           {t('status.vram')}
         </span>
       </div>
 
-      <div className="status-separator" />
+      <div className="w-px h-3 bg-base-content/10 mx-1" />
 
       {/* Ollama */}
-      <div className="status-item">
+      <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-default">
         <span
-          className={`status-dot ${isConnected ? "green" : "red"}`}
+          className={`w-2 h-2 rounded-full ${isConnected ? "bg-success" : "bg-error"}`}
         />
         <span>
           {isConnected
@@ -62,7 +62,7 @@ const StatusBar: React.FC = () => {
         </span>
       </div>
 
-      <div className="status-separator" />
+      <div className="w-px h-3 bg-base-content/10 mx-1" />
 
       {/* Update Checker — shows progress/status when active */}
       <UpdateChecker />
@@ -71,7 +71,7 @@ const StatusBar: React.FC = () => {
       <ModelDownloader />
 
       {/* Version — pushed to right */}
-      <div className="status-item" style={{ marginLeft: "auto" }}>
+      <div className="flex items-center gap-1.5 h-full px-2 hover:bg-base-content/5 transition-colors cursor-default ml-auto opacity-50">
         <span>v{pkg.version}</span>
       </div>
     </div>

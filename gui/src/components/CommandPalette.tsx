@@ -85,34 +85,15 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        paddingTop: '20vh',
-        background: 'rgba(0,0,0,0.5)',
-      }}
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[20vh] bg-black/50"
       onClick={onClose}
     >
       <div
-        style={{
-          width: 560,
-          maxHeight: 480,
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-lg), 0 0 0 1px var(--border-subtle)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="w-[560px] max-h-[480px] bg-base-200 border border-base-content/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Search input */}
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="p-4 border-b border-base-content/10">
           <input
             ref={inputRef}
             type="text"
@@ -120,28 +101,20 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
             onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
             onKeyDown={handleKeyDown}
             placeholder={t('cmd.placeholder')}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: 'var(--text-primary)',
-              fontSize: 'var(--text-lg)',
-              fontFamily: 'var(--font-sans)',
-            }}
+            className="w-full bg-transparent border-none outline-none text-base-content text-lg"
           />
         </div>
 
         {/* Results */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-2)' }}>
+        <div className="flex-1 overflow-auto p-2">
           {filtered.length === 0 ? (
-            <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+            <div className="p-8 text-center text-base-content/50 text-sm">
               {t('cmd.no_results')}
             </div>
           ) : (
             groups.map(group => (
               <div key={group}>
-                <div style={{ padding: 'var(--space-3) var(--space-3) var(--space-1)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <div className="px-3 pt-3 pb-1 text-xs font-semibold text-base-content/50 uppercase tracking-wider">
                   {group}
                 </div>
                 {filtered.filter(c => c.group === group).map((cmd, _i) => {
@@ -152,23 +125,14 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
                       key={cmd.id}
                       onClick={() => { cmd.action(); onClose(); }}
                       onMouseEnter={() => setSelectedIndex(globalIdx)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-3)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: 'pointer',
-                        background: isSelected ? 'var(--bg-hover)' : 'transparent',
-                        color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontSize: 'var(--text-sm)',
-                        transition: 'background 80ms ease',
-                      }}
+                      className={`flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer text-sm transition-colors duration-75 ${
+                        isSelected ? 'bg-base-content/10 text-base-content' : 'text-base-content/70 hover:bg-base-content/5'
+                      }`}
                     >
-                      <span style={{ fontSize: 'var(--text-base)' }}>{cmd.icon}</span>
-                      <span style={{ flex: 1 }}>{cmd.label}</span>
+                      <span className="text-base">{cmd.icon}</span>
+                      <span className="flex-1">{cmd.label}</span>
                       {cmd.shortcut && (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-disabled)', fontFamily: 'var(--font-mono)' }}>
+                        <span className="text-xs text-base-content/40 font-mono">
                           {cmd.shortcut}
                         </span>
                       )}
@@ -181,7 +145,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
         </div>
 
         {/* Footer */}
-        <div style={{ padding: 'var(--space-2) var(--space-4)', borderTop: '1px solid var(--border-subtle)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'flex', gap: 'var(--space-4)' }}>
+        <div className="py-2 px-4 border-t border-base-content/10 text-xs text-base-content/50 flex gap-4">
           <span>{t('cmd.navigate')}</span>
           <span>{t('cmd.select')}</span>
           <span>{t('cmd.close')}</span>

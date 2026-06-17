@@ -107,7 +107,7 @@ function Settings() {
 
   const renderStatus = (id: string) => {
     const status = keyStatus[id];
-    if (status === 'testing') return <span className="status-dot yellow" title={t("settings.keys.testing")} style={{ marginLeft: 8 }} />;
+    if (status === 'testing') return <span className="w-2 h-2 rounded-full bg-warning shadow-[0_0_6px_var(--color-warning)]" title={t("settings.keys.testing")} style={{ marginLeft: 8 }} />;
     if (status === 'success') return <span style={{ marginLeft: 8, color: 'var(--success)' }}>✅</span>;
     if (status === 'error') return <span style={{ marginLeft: 8, color: 'var(--error)' }}>❌</span>;
     return null;
@@ -200,14 +200,14 @@ function Settings() {
   const renderGeneral = () => (
     <div className="flex-col gap-4" style={{ display: 'flex' }}>
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.appearance')}</span>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.language')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.language')}</label>
           <select
-            className="form-select"
+            className="select select-bordered w-full"
             value={lang}
             onChange={(e) => setLanguage(e.target.value as Language)}
           >
@@ -217,10 +217,10 @@ function Settings() {
           </select>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.theme')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.theme')}</label>
           <select
-            className="form-select"
+            className="select select-bordered w-full"
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
           >
@@ -232,14 +232,14 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.performance')}</span>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.gpu_limit')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.gpu_limit')}</label>
           <select
-            className="form-select"
+            className="select select-bordered w-full"
             value={general.gpuMemory}
             onChange={(e) => setGeneral({ ...general, gpuMemory: e.target.value })}
           >
@@ -254,10 +254,10 @@ function Settings() {
           </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
+        <div className="form-control w-full mb-4" style={{ marginBottom: 0 }}>
           <div className="flex items-center justify-between">
             <div>
-              <label className="form-label" style={{ marginBottom: 'var(--space-1)' }}>
+              <label className="label" style={{ marginBottom: 'var(--space-1)' }}>
                 {t('settings.auto_update')}
               </label>
               <div className="text-sm text-muted">
@@ -283,14 +283,14 @@ function Settings() {
   const renderModels = () => (
     <div className="flex-col gap-4" style={{ display: 'flex' }}>
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.speech_rec')}</span>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.whisper_model')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.whisper_model')}</label>
           <select
-            className="form-select"
+            className="select select-bordered w-full"
             value={models.whisperModel}
             onChange={(e) =>
               setModels({ ...models, whisperModel: e.target.value })
@@ -307,14 +307,14 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.ollama_config')}</span>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.ollama_url')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.ollama_url')}</label>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="text"
             value={models.ollamaUrl}
             onChange={(e) => setModels({ ...models, ollamaUrl: e.target.value })}
@@ -324,12 +324,12 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.tts_audio')}</span>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">{t('settings.tts_cache')}</label>
+        <div className="form-control w-full mb-4">
+          <label className="label">{t('settings.tts_cache')}</label>
           <div className="flex gap-2">
             <input
               className="form-input flex-1"
@@ -365,7 +365,7 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.model_status')}</span>
         </div>
         <div className="card-description mb-4">
@@ -463,13 +463,13 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.keys.translation_apis')}</span>
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.keys.gemini_label')}
               {renderStatus('gemini')}
             </label>
@@ -478,7 +478,7 @@ function Settings() {
             </a>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.gemini}
             onChange={(e) => updateKey('gemini', e.target.value)}
@@ -486,9 +486,9 @@ function Settings() {
           />
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.deepl_key')}
               {renderStatus('deepl')}
             </label>
@@ -500,7 +500,7 @@ function Settings() {
             {t('settings.deepl_desc')}
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.deepl}
             onChange={(e) => updateKey('deepl', e.target.value)}
@@ -508,9 +508,9 @@ function Settings() {
           />
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.keys.deepseek_label')}
               {renderStatus('deepseek')}
             </label>
@@ -519,7 +519,7 @@ function Settings() {
             </a>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.deepseek}
             onChange={(e) => updateKey('deepseek', e.target.value)}
@@ -527,9 +527,9 @@ function Settings() {
           />
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.keys.openai_label')}
               {renderStatus('openai')}
             </label>
@@ -538,7 +538,7 @@ function Settings() {
             </a>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.openai}
             onChange={(e) => updateKey('openai', e.target.value)}
@@ -548,13 +548,13 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.keys.speech_apis')}</span>
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.keys.azure_label')}
               {renderStatus('azure')}
             </label>
@@ -563,7 +563,7 @@ function Settings() {
             </a>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.azure}
             onChange={(e) => updateKey('azure', e.target.value)}
@@ -571,9 +571,9 @@ function Settings() {
           />
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.keys.google_label')}
               {renderStatus('google')}
             </label>
@@ -582,7 +582,7 @@ function Settings() {
             </a>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.google}
             onChange={(e) => updateKey('google', e.target.value)}
@@ -590,9 +590,9 @@ function Settings() {
           />
         </div>
 
-        <div className="form-group">
+        <div className="form-control w-full mb-4">
           <div className="flex justify-between items-center mb-2">
-            <label className="form-label" style={{ marginBottom: 0 }}>
+            <label className="label" style={{ marginBottom: 0 }}>
               {t('settings.hf_key')}
               {renderStatus('huggingface')}
             </label>
@@ -610,7 +610,7 @@ function Settings() {
             </div>
           </div>
           <input
-            className="form-input"
+            className="input input-bordered w-full font-mono text-sm"
             type="password"
             value={keys.huggingface}
             onChange={(e) => updateKey('huggingface', e.target.value)}
@@ -673,7 +673,7 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.about.author')}</span>
         </div>
 
@@ -721,7 +721,7 @@ function Settings() {
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="mb-4">
           <span className="card-title">{t('settings.about.links')}</span>
         </div>
 
@@ -794,20 +794,20 @@ function Settings() {
   );
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">{t('settings.title')}</h1>
-        <p className="page-subtitle">
+    <div className="flex flex-col flex-1 h-full overflow-y-auto"><div className="flex flex-col h-full max-w-5xl mx-auto w-full px-4 py-8 md:px-8 pb-24">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-base-content mb-2">{t('settings.title')}</h1>
+        <p className="text-base-content/60">
           {t('settings.subtitle')}
         </p>
       </div>
 
       {/* Tab bar */}
-      <div className="settings-tabs">
+      <div className="tabs tabs-box mb-6 bg-base-200/50 p-1 w-full sm:w-auto inline-flex overflow-x-auto no-scrollbar rounded-lg border border-base-content/5">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`settings-tab ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab gap-2 flex-1 sm:flex-none whitespace-nowrap font-medium transition-all duration-200 ${activeTab === tab.id ? 'tab-active bg-base-100 text-primary shadow-sm rounded-md' : 'text-base-content/60 hover:text-base-content hover:bg-base-content/5 rounded-md'}`}
             onClick={() => {
               setActiveTab(tab.id);
               setTestResult(null);
@@ -819,10 +819,11 @@ function Settings() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'general' && renderGeneral()}
-      {activeTab === 'models' && renderModels()}
-      {activeTab === 'keys' && renderKeys()}
-      {activeTab === 'about' && renderAbout()}
+      <div className={`transition-opacity duration-300 ${activeTab === 'general' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderGeneral()}</div>
+      <div className={`transition-opacity duration-300 ${activeTab === 'models' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderModels()}</div>
+      <div className={`transition-opacity duration-300 ${activeTab === 'keys' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderKeys()}</div>
+      <div className={`transition-opacity duration-300 ${activeTab === 'about' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderAbout()}</div>
+      </div>
     </div>
   );
 }
