@@ -48,6 +48,26 @@ export function useOllama() {
     }
   }, []);
 
+  const startOllama = useCallback(async () => {
+    try {
+      await fetch(`http://127.0.0.1:8000/api/ollama/start`, { method: 'POST' });
+      // give it a sec to start
+      setTimeout(() => checkConnection(), 2000);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [checkConnection]);
+
+  const stopOllama = useCallback(async () => {
+    try {
+      await fetch(`http://127.0.0.1:8000/api/ollama/stop`, { method: 'POST' });
+      setIsConnected(false);
+      setModels([]);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   const abort = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -158,7 +178,7 @@ export function useOllama() {
     [abort],
   );
 
-  return { sendMessage, abort, isConnected, models, checkConnection };
+  return { sendMessage, abort, isConnected, models, checkConnection, startOllama, stopOllama };
 }
 
 export default useOllama;

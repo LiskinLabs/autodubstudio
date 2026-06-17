@@ -165,6 +165,14 @@ class AutoDubWorker(threading.Thread):
     def _download_youtube(self, url, out_dir):
         """Download video from YouTube/TikTok/Vimeo URL using yt-dlp."""
         import yt_dlp
+        from urllib.parse import urlparse
+        
+        # SSRF Protection: Validate URL scheme and domain
+        parsed = urlparse(url)
+        allowed_domains = ["youtube.com", "youtu.be", "www.youtube.com", "tiktok.com", "www.tiktok.com", "vimeo.com", "www.vimeo.com"]
+        if parsed.scheme not in ["http", "https"] or parsed.hostname not in allowed_domains:
+            raise ValueError(f"URL domain '{parsed.hostname}' is not allowed or invalid scheme. Only YouTube, TikTok, and Vimeo are supported.")
+
         self.log_signal.emit(f"📥 Загрузка видео: {url[:60]}...")
         ydl_opts = {
             'outtmpl': os.path.join(out_dir, '%(title)s.%(ext)s'),

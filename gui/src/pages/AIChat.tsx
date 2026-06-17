@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useOllama, type OllamaMessage } from '../hooks/useOllama';
 
 // Removed hardcoded MODELS
@@ -15,16 +17,23 @@ function AIChat() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { sendMessage, abort, isConnected, models, checkConnection } = useOllama();
+  const { sendMessage, abort, isConnected, models, checkConnection, startOllama, stopOllama } = useOllama();
 
-  // Check connection on mount
+  // Check connection on mount and interval
   useEffect(() => {
-    checkConnection().then(availableModels => {
-      if (availableModels.length > 0) {
-        setSelectedModel(availableModels[0]);
-      }
-    });
-  }, [checkConnection]);
+    const fetchModels = () => {
+      checkConnection().then(availableModels => {
+        if (availableModels.length > 0 && !selectedModel) {
+          setSelectedModel(availableModels[0]);
+        }
+      });
+    };
+    fetchModels();
+    
+    // Poll every 10 seconds to catch newly downloaded models
+    const interval = setInterval(fetchModels, 10000);
+    return () => clearInterval(interval);
+  }, [checkConnection, selectedModel]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -56,9 +65,15 @@ function AIChat() {
     const assistantMessage: OllamaMessage = { role: 'assistant', content: '' };
     setMessages([...newMessages, assistantMessage]);
 
+    // System prompt for agentic context
+    const systemPrompt: OllamaMessage = {
+      role: 'system',
+      content: 'You are Gemma, the intelligent AI agent of AutoDubStudio. AutoDubStudio is a professional video dubbing software using Whisper for transcription and XTTS v2 for voice cloning. Your goal is to help the user translate scripts, adapt them for lip-sync, analyze emotions, and summarize content. Always keep the conversation context in mind. Be concise and professional.'
+    };
+
     await sendMessage({
       model: selectedModel,
-      messages: newMessages,
+      messages: [systemPrompt, ...newMessages],
       onChunk: (chunk) => {
         setMessages((prev) => {
           const updated = [...prev];
@@ -118,24 +133,40 @@ function AIChat() {
         }}
       >
         <div className="flex items-center gap-3">
-          <select
-            className="form-select"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            style={{ width: 200 }}
-          >
-            {models.length === 0 ? (
-              <option value="">
-                {isConnected ? t('chat.no_models') : t('chat.ollama_error')}
-              </option>
-            ) : (
-              models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))
-            )}
-          </select>
+          {isConnected && (
+            <>
+              <select
+                className="form-select"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                style={{ width: 200 }}
+              >
+                {models.length === 0 ? (
+                  <option value="">
+                    {t('chat.no_models')}
+                  </option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))
+                )}
+              </select>
+              
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => checkConnection()}
+                title="Обновить список моделей"
+                style={{ padding: '0 8px' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 4v6h6" />
+                  <path d="M3.51 9a7 7 0 1 0-.12-4.46l-2.3 2.3" />
+                </svg>
+              </button>
+            </>
+          )}
 
           {isConnected !== null && (
             <div className="flex items-center gap-2">
@@ -154,6 +185,24 @@ function AIChat() {
               <span className="text-sm text-muted">
                 {isConnected ? t('status.ollama') : t('status.ollama_off')}
               </span>
+              
+              {isConnected ? (
+                <button 
+                  onClick={stopOllama}
+                  className="btn btn-ghost text-error" 
+                  style={{ marginLeft: '8px', padding: '2px 8px', fontSize: '12px' }}
+                >
+                  Выключить
+                </button>
+              ) : (
+                <button 
+                  onClick={startOllama}
+                  className="btn btn-primary" 
+                  style={{ marginLeft: '8px', padding: '4px 12px', fontSize: '12px' }}
+                >
+                  Включить Ollama
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -176,7 +225,18 @@ function AIChat() {
 
       {/* Chat area */}
       <div className="chat-container" style={{ flex: 1, minHeight: 0 }}>
-        {messages.length === 0 ? (
+        {!isConnected ? (
+          <div className="chat-empty" style={{ opacity: 0.8 }}>
+            <div className="chat-empty-icon" style={{ filter: 'grayscale(1)' }}>💤</div>
+            <div className="chat-empty-title">ИИ выключен</div>
+            <div className="chat-empty-subtitle" style={{ maxWidth: 380, textAlign: 'center', lineHeight: 1.6 }}>
+              Локальный ИИ движок (Ollama) отключен для экономии памяти.
+            </div>
+            <button className="btn btn-primary mt-4" onClick={startOllama}>
+              Запустить Ollama
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           /* Empty state */
           <div className="chat-empty">
             <div className="chat-empty-icon">🤖</div>
@@ -215,18 +275,21 @@ function AIChat() {
                         <div className="typing-dot" />
                       </div>
                     ) : (
-                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {msg.content}
+                      <div className="markdown-body" style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontSize: '14px', lineHeight: '1.6' }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
                         {isLastAssistant && (
                           <span
                             style={{
                               display: 'inline-block',
-                              width: 2,
+                              width: 6,
                               height: '1em',
                               background: 'var(--accent)',
-                              marginLeft: 2,
+                              marginLeft: 4,
                               animation: 'typingBounce 1s infinite',
                               verticalAlign: 'text-bottom',
+                              borderRadius: '2px'
                             }}
                           />
                         )}
@@ -242,28 +305,30 @@ function AIChat() {
       </div>
 
       {/* Input area */}
-      <div className="chat-input-area">
-        <textarea
-          ref={textareaRef}
-          className="chat-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('chat.placeholder')}
-          rows={1}
-          disabled={isStreaming}
-        />
-        <button
-          className="chat-send-btn"
-          onClick={handleSend}
-          disabled={isStreaming || !input.trim()}
-          title={t('chat.send_title')}
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 9l14-7-7 14V9H2z" />
-          </svg>
-        </button>
-      </div>
+      {isConnected && (
+        <div className="chat-input-area">
+          <textarea
+            ref={textareaRef}
+            className="chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t('chat.placeholder')}
+            rows={1}
+            disabled={isStreaming}
+          />
+          <button
+            className="chat-send-btn"
+            onClick={handleSend}
+            disabled={isStreaming || !input.trim()}
+            title={t('chat.send_title')}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 9l14-7-7 14V9H2z" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

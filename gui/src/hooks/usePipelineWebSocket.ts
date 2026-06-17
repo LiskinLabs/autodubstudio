@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { notifyToast } from '../lib/toast';
+import { settingsStore } from '../store';
 
 export interface PipelineEvent {
   type: 'progress' | 'log' | 'review_ready' | 'finished' | 'error' | 'info';
@@ -83,7 +84,7 @@ export function usePipelineWebSocket(
         wsRef.current = null;
         if ((window as any).__pipelineToast) {
           notifyToast.dismiss((window as any).__pipelineToast);
-          notifyToast.error('Соединение с бекендом разорвано');
+          notifyToast.error(settingsStore.t('ws.disconnect') as string);
           (window as any).__pipelineToast = undefined;
         }
         // Auto-reconnect after 3s

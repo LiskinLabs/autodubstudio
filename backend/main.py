@@ -25,6 +25,9 @@ logging.basicConfig(
 logger = logging.getLogger("autodub")
 from queue import Queue, Empty
 import psutil
+import threading
+
+download_semaphore = threading.Semaphore(2)
 
 # ── Clean up old zombie backend instances ──
 try:
@@ -88,9 +91,14 @@ async def get_models():
         ]
     }
 
+from fastapi import Request
+
 @app.get("/api/token")
-async def get_ws_token():
+async def get_ws_token(request: Request):
     """Frontend fetches this token once to authenticate the WebSocket connection."""
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    if not origin or not ("tauri://localhost" in origin or "http://localhost" in origin or "http://127.0.0.1" in origin):
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid origin")
     return {"token": WS_AUTH_TOKEN}
 
 @app.post("/api/ollama/start")
@@ -281,14 +289,15 @@ async def get_model_status():
         cache_path = os.path.join(hf_cache, f"models--Systran--faster-whisper-{w_id}")
         models_status[f"whisper-{w_id}"] = os.path.exists(cache_path)
 
-    # Check Pyannote cache (in torch hub, not HF hub)
+    # Check Pyannote cache (HF format, but pyannote puts it in torch hub sometimes)
     torch_pyannote = os.path.expanduser("~/.cache/torch/pyannote")
     pyannote_ok = False
     if os.path.exists(torch_pyannote):
-        for root, dirs, _ in os.walk(torch_pyannote):
+        for root, dirs, files in os.walk(torch_pyannote):
+            # speaker-diarization 3.1 only has a config.yaml, the actual weights are in segmentation and wespeaker
             if "speaker-diarization" in root.lower():
-                pyannote_ok = any(f.endswith(".bin") or f.endswith(".safetensors") for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)))
-                if pyannote_ok:
+                if any(f == "config.yaml" for f in files):
+                    pyannote_ok = True
                     break
     models_status["pyannote-segmentation"] = pyannote_ok
 
@@ -328,7 +337,7 @@ async def get_model_status():
 
     # Check Gemma 4 via Ollama
     try:
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=5)
         models_status["gemma4"] = "gemma4" in result.stdout
     except Exception:
         models_status["gemma4"] = False
@@ -410,8 +419,9 @@ async def delete_model(model_id: str):
         demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
         if os.path.exists(demucs_cache):
             for f in os.listdir(demucs_cache):
-                if f.startswith("htdemucs") and f.endswith(".th"):
-                    try_remove_file(os.path.join(demucs_cache, f))
+                fp = os.path.join(demucs_cache, f)
+                if f.endswith(".th") and os.path.isfile(fp) and os.path.getsize(fp) > 50_000_000:
+                    try_remove_file(fp)
 
     elif model_id == "gemma4":
         try:
@@ -434,22 +444,25 @@ async def preload_model(model_id: str, hf_token: str = ""):
     token = hf_token or os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
 
     with _model_download_lock:
-        _model_download_status[model_id] = {"done": False, "progress": 0, "error": None}
+        _model_download_status[model_id] = {"done": False, "progress": 1, "error": None}
 
-    def _monitor_dir_size(cache_dir: str, expected_mb: int, start_pct: int = 5, max_pct: int = 95):
+    def _monitor_dir_size(cache_dir, expected_mb: int, start_pct: int = 5, max_pct: int = 95):
         """Shared progress monitor: track directory size growth."""
-        os.makedirs(cache_dir, exist_ok=True)
+        dirs_to_check = cache_dir if isinstance(cache_dir, list) else [cache_dir]
+        for d in dirs_to_check:
+            os.makedirs(d, exist_ok=True)
         for _ in range(180):  # Max 6 minutes
             time.sleep(2)
             if _model_cancel_flags.get(model_id):
                 return
             try:
                 total = 0
-                for dirpath, _, filenames in os.walk(cache_dir):
-                    for fn in filenames:
-                        fp = os.path.join(dirpath, fn)
-                        if os.path.isfile(fp):
-                            total += os.path.getsize(fp)
+                for d in dirs_to_check:
+                    for dirpath, _, filenames in os.walk(d):
+                        for fn in filenames:
+                            fp = os.path.join(dirpath, fn)
+                            if os.path.isfile(fp):
+                                total += os.path.getsize(fp)
                 current_mb = total / (1024 * 1024)
                 pct = min(start_pct + int((current_mb / max(expected_mb, 1)) * (max_pct - start_pct)), max_pct)
                 with _model_download_lock:
@@ -482,7 +495,7 @@ async def preload_model(model_id: str, hf_token: str = ""):
             elif model_id == "pyannote-segmentation":
                 # Run in subprocess to isolate DLL/import issues
                 if not token:
-                    raise ValueError("HuggingFace token required. Add it in Settings → API Keys → HuggingFace Token.")
+                    raise ValueError("HuggingFace token required. Add it in Settings -> API Keys -> HuggingFace Token.")
                 cache_dir = os.path.expanduser("~/.cache/torch/pyannote")
                 threading.Thread(target=_monitor_dir_size, args=(cache_dir, 220, 5, 95), daemon=True).start()
                 with _model_download_lock:
@@ -494,6 +507,7 @@ import torchvision
 import speechbrain.utils.importutils as sb_imports
 _orig_getattr = sb_imports.LazyModule.__getattr__
 def _safe_getattr(self, attr):
+    if attr.startswith('__'): raise AttributeError(attr)
     try: return _orig_getattr(self, attr)
     except ImportError: return types.ModuleType(self.target)
 sb_imports.LazyModule.__getattr__ = _safe_getattr
@@ -503,7 +517,7 @@ import os
 Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.environ['HF_TOKEN'])
 print('PYANNOTE_OK')
 """],
-                    capture_output=True, text=True, timeout=1800,
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,
                     env={**os.environ, "HF_TOKEN": token}
                 )
                 if result.returncode == 0:
@@ -522,7 +536,7 @@ print('PYANNOTE_OK')
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
                     [xtts_venv, "-c", "from TTS.api import TTS; TTS(model_name='tts_models/multilingual/multi-dataset/xtts_v2', progress_bar=False)"],
-                    capture_output=True, text=True, timeout=1800,
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,
                     env={**os.environ, "COQUI_TOS_AGREED": "1"}
                 )
                 if result.returncode == 0:
@@ -533,8 +547,9 @@ print('PYANNOTE_OK')
 
             elif model_id == "qwen3-tts":
                 from huggingface_hub import snapshot_download
-                qwen3_cache = os.path.expanduser("~/.cache/huggingface/hub")
-                threading.Thread(target=_monitor_dir_size, args=(qwen3_cache, 2400, 5, 95), daemon=True).start()
+                qwen3_cache_1 = os.path.expanduser("~/.cache/huggingface/hub/models--Qwen--Qwen3-TTS-12Hz-0.6B-CustomVoice")
+                qwen3_cache_2 = os.path.expanduser("~/.cache/huggingface/hub/models--Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice")
+                threading.Thread(target=_monitor_dir_size, args=([qwen3_cache_1, qwen3_cache_2], 2300, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 snapshot_download("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
@@ -544,7 +559,7 @@ print('PYANNOTE_OK')
 
             elif model_id == "f5-tts":
                 from huggingface_hub import snapshot_download
-                f5_cache = os.path.expanduser("~/.cache/huggingface/hub")
+                f5_cache = os.path.expanduser("~/.cache/huggingface/hub/models--SWivid--F5-TTS")
                 threading.Thread(target=_monitor_dir_size, args=(f5_cache, 1300, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
@@ -559,7 +574,7 @@ print('PYANNOTE_OK')
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
                     [sys.executable, "-c", "from demucs import pretrained; pretrained.get_model('htdemucs'); print('htdemucs ready')"],
-                    capture_output=True, text=True, timeout=1800
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800
                 )
                 if result.returncode == 0:
                     with _model_download_lock:
@@ -568,16 +583,41 @@ print('PYANNOTE_OK')
                     raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "Demucs download failed")
 
             elif model_id == "gemma4":
-                ollama_models = os.path.expanduser("~/.ollama/models")
-                threading.Thread(target=_monitor_dir_size, args=(ollama_models, 9600, 5, 95), daemon=True).start()
+                import re
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                result = subprocess.run(["ollama", "pull", "gemma4:e4b"], capture_output=True, text=True, timeout=3600)
-                if result.returncode == 0:
+                
+                process = subprocess.Popen(
+                    ["ollama", "pull", "gemma4:e4b"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    encoding='utf-8',
+                    errors='replace'
+                )
+                
+                buffer = ""
+                while True:
+                    char = process.stdout.read(1)
+                    if not char and process.poll() is not None:
+                        break
+                    if char == '\r' or char == '\n':
+                        match = re.search(r'(\d+)%', buffer)
+                        if match:
+                            pct = int(match.group(1))
+                            with _model_download_lock:
+                                _model_download_status[model_id]["progress"] = max(5, min(99, pct))
+                        buffer = ""
+                    else:
+                        buffer += char
+
+                process.wait()
+                if process.returncode == 0:
                     with _model_download_lock:
                         _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
                 else:
-                    raise RuntimeError(result.stderr[:200] or "ollama pull failed")
+                    raise RuntimeError(f"ollama pull failed with code {process.returncode}")
 
             else:
                 raise ValueError(f"Unknown model: {model_id}")
@@ -605,7 +645,13 @@ print('PYANNOTE_OK')
             except Exception:
                 pass
 
-    threading.Thread(target=_download, daemon=True).start()
+    def _download_task():
+        with download_semaphore:
+            if _model_cancel_flags.get(model_id):
+                return
+            _download()
+
+    threading.Thread(target=_download_task, daemon=True).start()
     logger.info(f"Download started: {model_id} (token={'yes' if token else 'no'})")
     return {"status": "started", "model": model_id}
 
@@ -647,6 +693,20 @@ async def set_github_token(data: dict, authorization: str = Header("")):
 _error_report_count = 0
 _MAX_ERROR_REPORTS = 5
 
+import re
+
+def redact_secrets(text: str) -> str:
+    if not text:
+        return text
+    # Redact common env variables if they somehow leak into logs
+    text = re.sub(r'(HF_TOKEN|GITHUB_TOKEN|GEMINI_API_KEY)[\s:=]+[\w\-]+', r'\1=***', text)
+    # Redact HF token
+    text = re.sub(r'hf_[a-zA-Z0-9]{34}', r'hf_***', text)
+    # Redact GitHub token
+    text = re.sub(r'ghp_[a-zA-Z0-9]{36}', r'ghp_***', text)
+    # Hide user home directory
+    return text.replace(os.path.expanduser("~"), "~")
+
 def verify_error_report_token(authorization: str = Header("")) -> bool:
     """Reuse WS auth token — frontend already has it from /api/token."""
     if not authorization.startswith("Bearer "):
@@ -684,7 +744,12 @@ async def report_error(report: ErrorReport, authorization: str = Header("")):
     if not GITHUB_TOKEN:
         return {"status": "error", "message": "GitHub token not configured on backend"}
 
-    title = f"[Bug] {report.error_message[:80]}"
+    safe_error_msg = redact_secrets(report.error_message)
+    safe_error_stack = redact_secrets(report.error_stack or 'No stack trace')
+    safe_logs = redact_secrets(chr(10).join(report.logs[-40:]) if report.logs else 'No logs captured')
+    safe_component_stack = redact_secrets(report.error_component_stack or '')
+
+    title = f"[Bug] {safe_error_msg[:80]}"
     body = f"""## 🐛 Auto-Reported Error
 
 **Time:** {report.timestamp}
@@ -695,18 +760,18 @@ async def report_error(report: ErrorReport, authorization: str = Header("")):
 
 ### Error
 ```
-{report.error_message}
+{safe_error_msg}
 ```
 
 ### Stack Trace
 ```
-{report.error_stack or 'No stack trace'}
+{safe_error_stack}
 ```
 
-{chr(10) + '### Component Stack' + chr(10) + '```' + chr(10) + report.error_component_stack + chr(10) + '```' + chr(10) if report.error_component_stack else ''}
+{chr(10) + '### Component Stack' + chr(10) + '```' + chr(10) + safe_component_stack + chr(10) + '```' + chr(10) if safe_component_stack else ''}
 ### Recent Logs
 ```
-{chr(10).join(report.logs[-40:]) if report.logs else 'No logs captured'}
+{safe_logs}
 ```
 
 ---
@@ -744,8 +809,8 @@ CRASH_LOG = os.path.join(os.path.dirname(os.path.dirname(__file__)), "crash_repo
 def report_crash_to_github(error_msg: str):
     """Write crash info to a file for next-startup reporting."""
     try:
-        # Redact PII: replace home dir path with ~
-        safe = error_msg[:500].replace(os.path.expanduser("~"), "~")
+        # Redact secrets and PII
+        safe = redact_secrets(error_msg[:500])
         crash_data = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "error": safe,
@@ -791,7 +856,7 @@ def send_pending_crash_report():
         )
         resp.encoding = "utf-8"
         if resp.status_code == 201:
-            print(f"[CRASH] Sent crash report → GitHub Issue #{resp.json().get('number')}")
+            print(f"[CRASH] Sent crash report -> GitHub Issue #{resp.json().get('number')}")
         else:
             print(f"[CRASH] Failed to send: HTTP {resp.status_code}")
     except Exception as e:

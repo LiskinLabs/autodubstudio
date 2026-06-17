@@ -146,6 +146,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.note': 'You can download models later in the settings menu',
     'dl.downloading': 'Downloading... (can take 10-30 mins depending on internet speed)',
     'dl.downloading_short': 'Downloading...',
+    'dl.queued': 'Queued...',
     'dl.select_all': 'Select All',
     'dl.btn_delete': 'Delete',
     'dl.deleting': 'Deleting...',
@@ -283,6 +284,7 @@ const translations: Record<Language, Record<string, string>> = {
     'toast.pipeline_init': 'Initializing dubbing pipeline...',
     'toast.pipeline_stopping': 'Pipeline stopping...',
     'toast.pipeline_cancel': 'Cancelling current operation',
+    'ws.disconnect': 'Connection to backend lost',
 
     // File filter
     'dubbing.file_filter': 'Video',
@@ -524,6 +526,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.note': 'Вы можете скачать модели позже в меню настроек',
     'dl.downloading': 'Загрузка... (может занять 10-30 минут в зависимости от скорости интернета)',
     'dl.downloading_short': 'Загрузка...',
+    'dl.queued': 'В очереди...',
     'dl.select_all': 'Выбрать все',
     'dl.btn_delete': 'Удалить',
     'dl.deleting': 'Удаление...',
@@ -578,6 +581,7 @@ const translations: Record<Language, Record<string, string>> = {
     'toast.pipeline_init': 'Инициализация пайплайна...',
     'toast.pipeline_stopping': 'Остановка пайплайна...',
     'toast.pipeline_cancel': 'Отмена текущей операции',
+    'ws.disconnect': 'Соединение с бекендом разорвано',
 
     // File filter
     'dubbing.file_filter': 'Видео',
@@ -819,6 +823,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.note': 'Modelleri daha sonra ayarlar menüsünden indirebilirsiniz',
     'dl.downloading': 'İndiriliyor... (internet hızına bağlı olarak 10-30 dakika sürebilir)',
     'dl.downloading_short': 'İndiriliyor...',
+    'dl.queued': 'Sırada...',
     'dl.select_all': 'Tümünü Seç',
     'dl.btn_delete': 'Sil',
     'dl.deleting': 'Siliniyor...',
@@ -875,6 +880,7 @@ const translations: Record<Language, Record<string, string>> = {
     'toast.pipeline_init': 'İşlem başlatılıyor...',
     'toast.pipeline_stopping': 'İşlem durduruluyor...',
     'toast.pipeline_cancel': 'Mevcut işlem iptal ediliyor',
+    'ws.disconnect': 'Arka uç bağlantısı kesildi',
 
     // File filter
     'dubbing.file_filter': 'Video',

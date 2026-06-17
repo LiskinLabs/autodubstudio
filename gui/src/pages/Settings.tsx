@@ -300,6 +300,7 @@ function Settings() {
             <option value="base">base — {t('settings.whisper.base')}</option>
             <option value="small">small — {t('settings.whisper.small')}</option>
             <option value="medium">medium — {t('settings.whisper.medium')}</option>
+            <option value="large-v2">large-v2 — {t('settings.whisper.large')}</option>
             <option value="large-v3">large-v3 — {t('settings.whisper.large')}</option>
           </select>
         </div>
@@ -417,7 +418,9 @@ function Settings() {
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{st.progress}%</span>
                     )}
                     {isDownloading && !hasProgress && (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', whiteSpace: 'nowrap' }}>⏳ {t('dl.downloading_short')}</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+                        ⏳ {st?.progress === 1 ? t('dl.queued') : t('dl.downloading_short')}
+                      </span>
                     )}
                     {isDownloading && (
                       <button className="btn btn-sm" onClick={() => cancelDownload(model.id)} title={t('dubbing.btn.cancel')} style={{ color: 'var(--error)', border: '1px solid var(--error)', background: 'transparent', fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
