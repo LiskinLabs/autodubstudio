@@ -38,70 +38,108 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-            let mut started = false;
+            // Find backend command
+            let (backend_program, backend_args, backend_dir): (String, Vec<&str>, std::path::PathBuf) = {
+                let desktop_project = std::path::PathBuf::from(
+                    std::env::var("USERPROFILE").unwrap_or_default()
+                ).join("Desktop").join("AutoDubStudio");
 
-            if let Ok(home) = std::env::var("USERPROFILE") {
-                let desktop_project = std::path::PathBuf::from(home).join("Desktop").join("AutoDubStudio");
-                let desktop_venv_python = desktop_project.join(".venv").join("Scripts").join("python.exe");
+                let uvicorn_path = desktop_project.join(".venv").join("Scripts").join("uvicorn.exe");
+                if uvicorn_path.exists() {
+                    (uvicorn_path.to_string_lossy().to_string(),
+                     vec!["backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
+                     desktop_project)
+                } else {
+                    let resource_dir = app.path().resource_dir()
+                        .unwrap_or_else(|_| std::env::current_dir().unwrap());
+                    let candidates = vec![
+                        resource_dir.join("backend").join("main.py"),
+                        resource_dir.join("_up_").join("_up_").join("backend").join("main.py"),
+                        resource_dir.join("_up_").join("backend").join("main.py"),
+                        std::env::current_dir().unwrap().join("backend").join("main.py"),
+                    ];
+                    let script = candidates.iter().find(|p| p.exists())
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    let dir = candidates.iter().find(|p| p.exists())
+                        .and_then(|p| p.parent().and_then(|pp| pp.parent()))
+                        .map(|d| d.to_path_buf())
+                        .unwrap_or_else(|| std::env::current_dir().unwrap());
+                    if script.is_empty() {
+                        eprintln!("[AutoDub] Backend script not found!");
+                        return Ok(());
+                    }
+                    ("uv".to_string(),
+                     vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
+                     dir)
+                }
+            };
 
-                let desktop_venv_uvicorn = desktop_project.join(".venv").join("Scripts").join("uvicorn.exe");
+            // Auto-restart backend on crash
+            std::thread::spawn(move || {
+                let mut restart_count = 0u32;
+                loop {
+                    if restart_count > 0 {
+                        println!("[AutoDub] Backend crashed — restarting in 2s (attempt {})...", restart_count);
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                    }
 
-                if desktop_venv_uvicorn.exists() {
-                    let mut cmd = StdCommand::new(&desktop_venv_uvicorn);
-                    cmd.args(["backend.main:app", "--host", "127.0.0.1", "--port", "8000"])
-                       .current_dir(&desktop_project)
-                       .stdout(Stdio::null())
-                       .stderr(Stdio::null());
+                    let log_file = backend_dir.join("autodub_backend.log");
+                    // Rotate if > 5MB
+                    if let Ok(meta) = std::fs::metadata(&log_file) {
+                        if meta.len() > 5_000_000 {
+                            let _ = std::fs::rename(&log_file, backend_dir.join("autodub_backend.old.log"));
+                        }
+                    }
+                    let log_fd = std::fs::OpenOptions::new()
+                        .create(true).append(true).open(&log_file)
+                        .ok();
+
+                    let mut cmd = StdCommand::new(&backend_program);
+                    cmd.args(&backend_args)
+                       .current_dir(&backend_dir);
+                    if let Some(f) = log_fd {
+                        let f2 = f.try_clone().unwrap();
+                        cmd.stdout(Stdio::from(f)).stderr(Stdio::from(f2));
+                    }
+
+                    // Pass GitHub token from config.json for crash reporting
+                    // In production, place config.json next to the .exe or in the project dir
+                    for config_dir in &[backend_dir.clone(), std::env::current_dir().unwrap_or_default()] {
+                        let config_path = config_dir.join("config.json");
+                        if let Ok(config_str) = std::fs::read_to_string(&config_path) {
+                            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_str) {
+                                if let Some(token) = config.get("github_token").and_then(|v| v.as_str()) {
+                                    cmd.env("GITHUB_TOKEN", token);
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     #[cfg(target_os = "windows")]
                     cmd.creation_flags(CREATE_NO_WINDOW);
 
-                    if let Ok(child) = cmd.spawn() {
-                        println!("[AutoDub] Backend started using Desktop .venv (PID: {})", child.id());
-                        started = true;
-                    }
-                }
-            }
-
-            if !started {
-                let resource_dir = app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap());
-                let backend_candidates = vec![
-                    resource_dir.join("backend").join("main.py"),
-                    resource_dir.join("_up_").join("_up_").join("backend").join("main.py"),
-                    resource_dir.join("_up_").join("backend").join("main.py"),
-                    std::env::current_dir().unwrap().join("backend").join("main.py"),
-                ];
-
-                let backend_script = backend_candidates.iter().find(|p| p.exists());
-                if let Some(script_path) = backend_script {
-                    let project_dir = script_path.parent().unwrap().parent().unwrap();
-                    let starters = vec![
-                        ("uv", vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
-                        ("python", vec!["-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
-                    ];
-
-                    for (prog, args) in &starters {
-                        let mut cmd = StdCommand::new(prog);
-                        cmd.args(args)
-                           .current_dir(project_dir)
-                           .stdout(Stdio::null())
-                           .stderr(Stdio::null());
-                        
-                        #[cfg(target_os = "windows")]
-                        cmd.creation_flags(CREATE_NO_WINDOW);
-
-                        if let Ok(child) = cmd.spawn() {
-                            println!("[AutoDub] Backend started: {} (PID: {})", prog, child.id());
-                            started = true;
-                            break;
+                    match cmd.spawn() {
+                        Ok(mut child) => {
+                            println!("[AutoDub] Backend started (PID: {}, restarts: {})", child.id(), restart_count);
+                            let _ = child.wait();
+                            // Child process died — write crash marker
+                            if let Ok(mut f) = std::fs::File::create(
+                                backend_dir.join("_backend_crashed.flag")
+                            ) {
+                                use std::io::Write;
+                                let _ = writeln!(f, "backend_crashed");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[AutoDub] Failed to start backend: {}", e);
+                            std::thread::sleep(std::time::Duration::from_secs(5));
                         }
                     }
+                    restart_count += 1;
                 }
-            }
-
-            if !started {
-                eprintln!("[AutoDub] WARNING: Could not start Python backend.");
-            }
+            });
 
             Ok(())
         })

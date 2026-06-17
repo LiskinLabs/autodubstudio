@@ -19,6 +19,7 @@ dependencies = [
     "pyqt6-fluent-widgets>=1.11.2",
     "pysrt>=1.1.2",
     "soundcard>=0.4.6",
+    "numpy>=1.26,<2.0",
     "torch==2.4.1+cu121",
     "torchaudio==2.4.1+cu121",
     "torchvision==0.19.1+cu121",

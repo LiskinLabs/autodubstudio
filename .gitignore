@@ -38,3 +38,15 @@ gui/src-tauri/gen/
 .idea/
 *.swp
 *.swo
+gui/src-tauri/config.json
+*.log
+crash_report.json
+
+# AI assistant files (not for GitHub)
+CLAUDE.md
+GEMINI.md
+MEMORY.md
+.claude/
+*.md.tmp
+_*.py
+_backend_crashed.flag

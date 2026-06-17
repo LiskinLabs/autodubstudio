@@ -52,6 +52,7 @@
       }
     },
     "resources": [
+      "config.json",
       "../../backend/main.py",
       "../../backend/translator.py",
       "../../backend/vram_manager.py",

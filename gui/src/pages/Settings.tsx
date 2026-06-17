@@ -60,8 +60,9 @@ function Settings() {
   });
 
   const { setApiKeys, apiKeys: storedKeys } = useSettings();
-  const { modelStatus, isLoading, startDownload } = useModelStatus();
+  const { modelStatus, isLoading, startDownload, cancelDownload, deleteModel } = useModelStatus(keys.huggingface);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
 
   type KeyStatus = 'idle' | 'testing' | 'success' | 'error';
   const [keyStatus, setKeyStatus] = useState<Record<string, KeyStatus>>({});
@@ -370,45 +371,69 @@ function Settings() {
           {t('settings.model_status_desc')}
         </div>
 
-        <div className="flex-col gap-3" style={{ display: 'flex' }}>
+        {/* Bulk actions */}
+        <div className="flex items-center gap-3 mb-4">
+          <label className="flex items-center gap-2" style={{ cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
+            <input type="checkbox" checked={ALL_MODELS.length > 0 && ALL_MODELS.every(m => selectedModels.has(m.id))} onChange={(e) => { if (e.target.checked) { setSelectedModels(new Set(ALL_MODELS.map(m => m.id))); } else { setSelectedModels(new Set()); } }} />
+            {t('dl.select_all')}
+          </label>
+          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{selectedModels.size} / {ALL_MODELS.length}</span>
+          <button className="btn btn-sm btn-primary" disabled={isLoading || selectedModels.size === 0} onClick={() => { selectedModels.forEach(id => { if (!modelStatus[id]?.done) startDownload(id); }); }}>
+            ⬇ {t('dl.btn_download')} ({selectedModels.size})
+          </button>
+          <button className="btn btn-sm btn-danger" disabled={isLoading || selectedModels.size === 0} onClick={() => { selectedModels.forEach(id => { if (modelStatus[id]?.done) deleteModel(id); }); }}>
+            🗑 {t('dl.btn_delete')}
+          </button>
+        </div>
+
+        <div className="flex-col gap-2" style={{ display: 'flex' }}>
           {ALL_MODELS.map((model, index, arr) => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
-            const isDownloading = !isDone && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0 && st?.progress < 100));
-            const hasProgress = st?.progress >= 5;
+            const isDeleting = st?.progress === -2;
+            const isDownloading = !isDone && !isDeleting && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0 && st?.progress < 100));
+            const hasProgress = (st?.progress ?? 0) >= 5;
+            const isChecked = selectedModels.has(model.id);
 
             return (
               <React.Fragment key={model.id}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3" style={{ padding: 'var(--space-2) 0' }}>
+                  <input type="checkbox" checked={isChecked} onChange={() => { setSelectedModels(prev => { const next = new Set(prev); if (next.has(model.id)) next.delete(model.id); else next.add(model.id); return next; }); }} style={{ flexShrink: 0, width: 18, height: 18, cursor: 'pointer' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span className="text-sm" style={{ fontWeight: 500 }}>
                       {model.name}
                       <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
                     </span>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 2 }}>{t(model.descDetailKey as any)}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
                     {isDownloading && hasProgress && (
-                      <>
-                        <div className="progress-bar" style={{ width: 100 }}>
-                          <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
-                        </div>
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{st.progress}%</span>
-                      </>
+                      <div className="progress-bar" style={{ marginTop: 4, maxWidth: 200 }}>
+                        <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
+                      </div>
+                    )}
+                    {st?.error && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 2 }}>{st.error}</div>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+                    {isDownloading && hasProgress && (
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{st.progress}%</span>
                     )}
                     {isDownloading && !hasProgress && (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)' }}>⏳ {t('dl.downloading_short')}</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', whiteSpace: 'nowrap' }}>⏳ {t('dl.downloading_short')}</span>
                     )}
-                    {isDone ? (
-                      <span className="badge badge-success">{t('settings.installed')}</span>
+                    {isDownloading && (
+                      <button className="btn btn-sm" onClick={() => cancelDownload(model.id)} title={t('dubbing.btn.cancel')} style={{ color: 'var(--error)', border: '1px solid var(--error)', background: 'transparent', fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        ✕
+                      </button>
+                    )}
+                    {isDeleting ? (
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', whiteSpace: 'nowrap' }}>🗑 {t('dl.deleting')}</span>
+                    ) : isDone ? (
+                      <button className="btn btn-sm" onClick={() => deleteModel(model.id)} title={t('dl.btn_delete')} style={{ color: 'var(--error)', border: '1px solid var(--error)', background: 'transparent', fontSize: 'var(--text-sm)', padding: '4px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+                        🗑 {t('dl.btn_delete')}
+                      </button>
                     ) : isDownloading ? (
                       <span className="badge badge-info" style={{ fontSize: 'var(--text-xs)' }}>⏳</span>
                     ) : (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => startDownload(model.id)}
-                        disabled={isLoading}
-                      >
+                      <button className="btn btn-sm btn-primary" onClick={() => startDownload(model.id)} disabled={isLoading}>
                         ⬇ {t('dl.btn_download')}
                       </button>
                     )}

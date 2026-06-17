@@ -5,9 +5,24 @@ import uvicorn
 import json
 import os
 import sys
+import time
+import logging
 import asyncio
 import secrets
 import httpx
+from datetime import datetime
+
+# ── Logging to file ──
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "autodub_backend.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger("autodub")
 from queue import Queue, Empty
 import psutil
 
@@ -46,7 +61,7 @@ app.add_middleware(
         "http://tauri.localhost"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -206,6 +221,14 @@ import time
 
 _model_download_status: dict = {}
 _model_download_lock = threading.Lock()
+_model_cancel_flags: dict = {}
+
+VALID_MODEL_IDS = {
+    "whisper-tiny", "whisper-base", "whisper-small", "whisper-medium",
+    "whisper-large-v2", "whisper-large-v3",
+    "pyannote-segmentation", "xttsv2", "qwen3-tts", "f5-tts",
+    "htdemucs", "gemma4"
+}
 
 # Expected model sizes in bytes (for progress tracking)
 _MODEL_SIZES = {
@@ -230,6 +253,20 @@ def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, st
                     _model_download_status[model_id]["progress"] = pct
         time.sleep(2)
 
+@app.get("/api/logs")
+async def get_logs(lines: int = 200):
+    """Return recent backend log lines."""
+    try:
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                all_lines = f.readlines()
+                recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                return {"logs": recent, "total": len(all_lines)}
+    except Exception:
+        pass
+    return {"logs": [], "total": 0}
+
+
 @app.get("/api/models/status")
 async def get_model_status():
     """Check which models are cached locally."""
@@ -237,58 +274,55 @@ async def get_model_status():
 
     # Check Faster-Whisper cache
     hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
-    
     whisper_ids = ["tiny", "base", "small", "medium", "large-v2", "large-v3"]
     for w_id in whisper_ids:
         cache_path = os.path.join(hf_cache, f"models--Systran--faster-whisper-{w_id}")
         models_status[f"whisper-{w_id}"] = os.path.exists(cache_path)
 
-    # Check Pyannote cache
-    hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    # Check Pyannote cache (in torch hub, not HF hub)
+    torch_pyannote = os.path.expanduser("~/.cache/torch/pyannote")
     pyannote_ok = False
-    if os.path.exists(hf_cache):
-        for root, dirs, _ in os.walk(hf_cache):
-            if "pyannote" in root.lower() and "speaker-diarization" in root.lower():
+    if os.path.exists(torch_pyannote):
+        for root, dirs, _ in os.walk(torch_pyannote):
+            if "speaker-diarization" in root.lower():
                 pyannote_ok = any(f.endswith(".bin") or f.endswith(".safetensors") for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)))
+                if pyannote_ok:
+                    break
     models_status["pyannote-segmentation"] = pyannote_ok
 
-    # Check XTTS cache
-    xtts_cache = os.path.expanduser("~/.local/share/tts")
+    # Check XTTS cache (Windows: %LOCALAPPDATA%/tts, Linux: ~/.local/share/tts)
+    xtts_cache = os.environ.get("LOCALAPPDATA", os.path.expanduser("~/.local/share"))
+    xtts_cache = os.path.join(xtts_cache, "tts")
     models_status["xttsv2"] = os.path.exists(os.path.join(xtts_cache, "tts_models--multilingual--multi-dataset--xtts_v2"))
 
-    # Check Qwen3-TTS (checks if model files exist)
+    # Check Qwen3-TTS (skip .locks)
     qwen3_cache = os.path.expanduser("~/.cache/huggingface/hub")
     models_status["qwen3-tts"] = False
     if os.path.exists(qwen3_cache):
         for root, dirs, _ in os.walk(qwen3_cache):
+            dirs[:] = [d for d in dirs if d != ".locks"]
             if "qwen" in root.lower() and "tts" in root.lower():
                 models_status["qwen3-tts"] = True
                 break
 
-    # Check F5-TTS
+    # Check F5-TTS (skip .locks dirs — they're not model data)
     models_status["f5-tts"] = False
     if os.path.exists(qwen3_cache):
         for root, dirs, _ in os.walk(qwen3_cache):
+            dirs[:] = [d for d in dirs if d != ".locks"]  # skip lock files
             if "f5" in root.lower() and "tts" in root.lower():
                 models_status["f5-tts"] = True
                 break
 
-    # Check Demucs (htdemucs model)
+    # Check Demucs — model saved as .th file in torch hub checkpoints (~80 MB)
     demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
     models_status["htdemucs"] = False
     if os.path.exists(demucs_cache):
         for f in os.listdir(demucs_cache):
-            if "htdemucs" in f.lower() or "demucs" in f.lower():
+            fp = os.path.join(demucs_cache, f)
+            if f.endswith(".th") and os.path.isfile(fp) and os.path.getsize(fp) > 50_000_000:
                 models_status["htdemucs"] = True
                 break
-    # Also check if demucs package is installed (model auto-downloads on first use)
-    if not models_status["htdemucs"]:
-        try:
-            result = subprocess.run([sys.executable, "-m", "demucs", "--version"], capture_output=True, timeout=5)
-            if result.returncode == 0:
-                models_status["htdemucs"] = True  # Package installed = model available
-        except Exception:
-            pass
 
     # Check Gemma 4 via Ollama
     try:
@@ -304,11 +338,71 @@ async def get_model_status():
 
     return {"models": models_status, "downloading": _model_download_status}
 
+@app.post("/api/models/cancel/{model_id}")
+async def cancel_download(model_id: str):
+    """Cancel an in-progress download and clean up partial files."""
+    if model_id not in VALID_MODEL_IDS:
+        raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
+    with _model_download_lock:
+        _model_cancel_flags[model_id] = True
+        _model_download_status[model_id] = {"done": False, "progress": 0, "error": "Cancelled"}
+
+    # Clean up partial files
+    import shutil
+    if model_id.startswith("whisper"):
+        size = model_id.replace("whisper-", "")
+        cache_dir = os.path.expanduser(f"~/.cache/huggingface/hub/models--Systran--faster-whisper-{size}")
+        if os.path.exists(cache_dir):
+            shutil.rmtree(cache_dir, ignore_errors=True)
+    elif model_id == "pyannote-segmentation":
+        torch_pyannote = os.path.expanduser("~/.cache/torch/pyannote")
+        if os.path.exists(torch_pyannote):
+            shutil.rmtree(torch_pyannote, ignore_errors=True)
+
+    else:
+        return {"status": "error", "message": f"Unknown model: {model_id}"}
+
+    # Clear download status so model shows as not installed
+    with _model_download_lock:
+        _model_download_status.pop(model_id, None)
+
+    if errors:
+        return {"status": "partial", "deleted": deleted_paths, "errors": errors}
+    return {"status": "deleted", "paths": deleted_paths}
+
+
 @app.post("/api/models/preload/{model_id}")
-async def preload_model(model_id: str):
+async def preload_model(model_id: str, hf_token: str = ""):
     """Trigger model download via the actual ML library (auto-caches)."""
+    if model_id not in VALID_MODEL_IDS:
+        raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
+    token = hf_token or os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
+
     with _model_download_lock:
         _model_download_status[model_id] = {"done": False, "progress": 0, "error": None}
+
+    def _monitor_dir_size(cache_dir: str, expected_mb: int, start_pct: int = 5, max_pct: int = 95):
+        """Shared progress monitor: track directory size growth."""
+        os.makedirs(cache_dir, exist_ok=True)
+        for _ in range(180):  # Max 6 minutes
+            time.sleep(2)
+            if _model_cancel_flags.get(model_id):
+                return
+            try:
+                total = 0
+                for dirpath, _, filenames in os.walk(cache_dir):
+                    for fn in filenames:
+                        fp = os.path.join(dirpath, fn)
+                        if os.path.isfile(fp):
+                            total += os.path.getsize(fp)
+                current_mb = total / (1024 * 1024)
+                pct = min(start_pct + int((current_mb / max(expected_mb, 1)) * (max_pct - start_pct)), max_pct)
+                with _model_download_lock:
+                    if _model_download_status.get(model_id, {}).get("done"):
+                        return
+                    _model_download_status[model_id]["progress"] = max(pct, start_pct)
+            except Exception:
+                pass
 
     def _download():
         try:
@@ -316,30 +410,58 @@ async def preload_model(model_id: str):
                 from faster_whisper import WhisperModel
                 size = model_id.replace("whisper-", "")
 
+                SIZES_MB = {"tiny": 75, "base": 145, "small": 465, "medium": 1536, "large-v2": 3174, "large-v3": 3174}
+                expected_mb = SIZES_MB.get(size, 1500)
+                cache_path = os.path.expanduser(f"~/.cache/huggingface/hub/models--Systran--faster-whisper-{size}")
+
+                threading.Thread(target=_monitor_dir_size, args=(cache_path, expected_mb, 1, 90), daemon=True).start()
+
                 try:
                     with _model_download_lock:
                         _model_download_status[model_id]["progress"] = 1
                     WhisperModel(size, device="cpu", compute_type="int8")
                 finally:
-                    pass
-
-                with _model_download_lock:
-                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "pyannote-segmentation":
-                from pyannote.audio import Pipeline
-                token = os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
+                # Run in subprocess to isolate DLL/import issues
+                if not token:
+                    raise ValueError("HuggingFace token required. Add it in Settings → API Keys → HuggingFace Token.")
+                cache_dir = os.path.expanduser("~/.cache/torch/pyannote")
+                threading.Thread(target=_monitor_dir_size, args=(cache_dir, 220, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=token or True)
-                with _model_download_lock:
-                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                result = subprocess.run(
+                [sys.executable, "-c", """import sys, types
+# Fix speechbrain broken lazy imports
+import speechbrain.utils.importutils as sb_imports
+_orig_getattr = sb_imports.LazyModule.__getattr__
+def _safe_getattr(self, attr):
+    try: return _orig_getattr(self, attr)
+    except ImportError: return types.ModuleType(self.target)
+sb_imports.LazyModule.__getattr__ = _safe_getattr
+
+from pyannote.audio import Pipeline
+import os
+Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.environ['HF_TOKEN'])
+print('PYANNOTE_OK')
+"""],
+                capture_output=True, text=True, timeout=1800,
+                env={**os.environ, "HF_TOKEN": token}
+            )
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "Pyannote download failed")
 
             elif model_id == "xttsv2":
-                # XTTS must run in its own venv (TTS package not in main venv)
                 xtts_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-xtts", "Scripts", "python.exe")
                 if not os.path.exists(xtts_venv):
-                    xtts_venv = sys.executable  # fallback
+                    xtts_venv = sys.executable
+                xtts_cache = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~/.local/share")), "tts")
+                threading.Thread(target=_monitor_dir_size, args=(xtts_cache, 1800, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
@@ -354,67 +476,44 @@ async def preload_model(model_id: str):
                     raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "XTTS download failed")
 
             elif model_id == "qwen3-tts":
-                # Qwen3-TTS must run in its own venv
-                qwen3_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-qwen3-tts", "Scripts", "python.exe")
-                if not os.path.exists(qwen3_venv):
-                    qwen3_venv = sys.executable
+                from huggingface_hub import snapshot_download
+                qwen3_cache = os.path.expanduser("~/.cache/huggingface/hub")
+                threading.Thread(target=_monitor_dir_size, args=(qwen3_cache, 2400, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                result = subprocess.run(
-                    [qwen3_venv, "-c", "from qwen3_worker import Qwen3TTSWorker; w = Qwen3TTSWorker(); w.load_model()"],
-                    capture_output=True, text=True, timeout=1800,
-                    env={**os.environ, "PYTHONPATH": os.path.dirname(os.path.dirname(__file__))}
-                )
-                if result.returncode == 0:
-                    with _model_download_lock:
-                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
-                else:
-                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "Qwen3-TTS download failed")
+                snapshot_download("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
+                snapshot_download("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "f5-tts":
-                # F5-TTS must run in its own venv
-                f5_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-f5", "Scripts", "python.exe")
-                if not os.path.exists(f5_venv):
-                    f5_venv = sys.executable
+                from huggingface_hub import snapshot_download
+                f5_cache = os.path.expanduser("~/.cache/huggingface/hub")
+                threading.Thread(target=_monitor_dir_size, args=(f5_cache, 1300, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                result = subprocess.run(
-                    [f5_venv, "-c", "from f5_worker import F5TTSWorker; w = F5TTSWorker(); w.load_model()"],
-                    capture_output=True, text=True, timeout=1800,
-                    env={**os.environ, "PYTHONPATH": os.path.dirname(os.path.dirname(__file__))}
-                )
-                if result.returncode == 0:
-                    with _model_download_lock:
-                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
-                else:
-                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "F5-TTS download failed")
+                snapshot_download("SWivid/F5-TTS")
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "htdemucs":
-                # Demucs downloads automatically on first use
+                demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
+                threading.Thread(target=_monitor_dir_size, args=(demucs_cache, 80, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
-                    [sys.executable, "-m", "demucs", "--version"],
-                    capture_output=True, text=True, timeout=30
+                    [sys.executable, "-c", "from demucs import pretrained; pretrained.get_model('htdemucs'); print('htdemucs ready')"],
+                    capture_output=True, text=True, timeout=1800
                 )
-                # Just verifying demucs is installed triggers model availability check
-                # The actual model downloads on first separation run
                 if result.returncode == 0:
                     with _model_download_lock:
                         _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
                 else:
-                    # Demucs not installed in main venv either, try pip install
-                    result2 = subprocess.run(
-                        [sys.executable, "-m", "pip", "install", "demucs"],
-                        capture_output=True, text=True, timeout=300
-                    )
-                    if result2.returncode == 0:
-                        with _model_download_lock:
-                            _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
-                    else:
-                        raise RuntimeError(f"Demucs install failed: {result2.stderr[:200]}")
+                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "Demucs download failed")
 
             elif model_id == "gemma4":
+                ollama_models = os.path.expanduser("~/.ollama/models")
+                threading.Thread(target=_monitor_dir_size, args=(ollama_models, 9600, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(["ollama", "pull", "gemma4:e4b"], capture_output=True, text=True, timeout=3600)
@@ -428,18 +527,62 @@ async def preload_model(model_id: str):
                 raise ValueError(f"Unknown model: {model_id}")
 
         except Exception as e:
+            logger.error(f"Download failed: {model_id} — {e}")
             with _model_download_lock:
                 _model_download_status[model_id] = {"done": False, "progress": 0, "error": str(e)[:200]}
+            # Write crash report AND try to send immediately
+            report_crash_to_github(f"Model download failed ({model_id}): {e}")
+            # Try sending now (backend is still alive)
+            try:
+                if GITHUB_TOKEN:
+                    title = f"[Bug] Model download failed: {model_id}"
+                    body = f"**Model:** {model_id}\n**Error:** {e}\n**Time:** {time.strftime('%Y-%m-%dT%H:%M:%S')}"
+                    resp = httpx.post(
+                        f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+                        json={"title": title, "body": body, "labels": ["bug", "auto-reported"]},
+                        headers={"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
+                        timeout=10
+                    )
+                    if resp.status_code == 201:
+                        logger.info(f"GitHub Issue #{resp.json().get('number')} created for {model_id} failure")
+            except Exception:
+                pass
 
     threading.Thread(target=_download, daemon=True).start()
+    logger.info(f"Download started: {model_id} (token={'yes' if token else 'no'})")
     return {"status": "started", "model": model_id}
 
 
 # ── Error Reporting ──
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 if not GITHUB_TOKEN:
+    # Try reading from config.json
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            GITHUB_TOKEN = cfg.get("github_token", "")
+            if GITHUB_TOKEN:
+                print("[CONFIG] GitHub token loaded from config.json")
+    except Exception:
+        pass
+if not GITHUB_TOKEN:
     print("[WARNING] GITHUB_TOKEN not set — error reporting disabled")
 GITHUB_REPO = "LiskinLabs/autodubstudio"
+
+
+@app.post("/api/config/github-token")
+async def set_github_token(data: dict):
+    """Receive GitHub token from frontend settings for crash reporting."""
+    global GITHUB_TOKEN
+    token = data.get("token", "")
+    if token:
+        GITHUB_TOKEN = token
+        print("[CONFIG] GitHub token configured — crash reporting enabled")
+        # Send any pending crash report
+        send_pending_crash_report()
+        return {"status": "ok"}
+    return {"status": "error", "message": "No token provided"}
 
 # Rate limiter: max 5 reports per backend session
 _error_report_count = 0
@@ -536,5 +679,72 @@ async def report_error(report: ErrorReport, authorization: str = Header("")):
         return {"status": "error", "message": str(e)[:200]}
 
 
+CRASH_LOG = os.path.join(os.path.dirname(os.path.dirname(__file__)), "crash_report.json")
+
+
+def report_crash_to_github(error_msg: str):
+    """Write crash info to a file for next-startup reporting."""
+    try:
+        # Redact PII: replace home dir path with ~
+        safe = error_msg[:500].replace(os.path.expanduser("~"), "~")
+        crash_data = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "error": safe,
+            "version": "0.0.1-beta",
+            "platform": sys.platform,
+        }
+        with open(CRASH_LOG, "w", encoding="utf-8") as f:
+            json.dump(crash_data, f)
+        print(f"[CRASH] Crash report written to {CRASH_LOG}")
+    except Exception:
+        pass
+
+
+def send_pending_crash_report():
+    """On startup, check for a previous crash report and send to GitHub."""
+    if not os.path.exists(CRASH_LOG):
+        return
+    try:
+        with open(CRASH_LOG, "r", encoding="utf-8") as f:
+            crash_data = json.load(f)
+        os.remove(CRASH_LOG)
+
+        if not GITHUB_TOKEN:
+            return
+
+        title = f"[Crash] Backend crash — {crash_data.get('timestamp', 'unknown')}"
+        body = f"""## Backend Crash Report
+
+**Time:** {crash_data.get('timestamp', 'unknown')}
+**Version:** {crash_data.get('version', 'unknown')}
+**Platform:** {crash_data.get('platform', 'unknown')}
+
+**Error:**
+```
+{crash_data.get('error', 'unknown')}
+```
+"""
+        resp = httpx.post(
+            f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+            json={"title": title, "body": body, "labels": ["bug", "crash"]},
+            headers={"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
+            timeout=10
+        )
+        resp.encoding = "utf-8"
+        if resp.status_code == 201:
+            print(f"[CRASH] Sent crash report → GitHub Issue #{resp.json().get('number')}")
+        else:
+            print(f"[CRASH] Failed to send: HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"[CRASH] Failed to send crash report: {e}")
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    # Send any pending crash reports from previous runs
+    send_pending_crash_report()
+
+    try:
+        uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    except Exception as e:
+        report_crash_to_github(str(e))
+        raise
