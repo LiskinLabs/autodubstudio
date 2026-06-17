@@ -153,7 +153,7 @@ export default function DubbingStudio() {
   
   const [logs, setLogs] = useState<string[]>([]);
   const [originalSegments, setOriginalSegments] = useState<string[]>([]);
-  const [translatedSegments, setTranslatedSegments] = useState<string[]>([]);
+  const [_translatedSegments, setTranslatedSegments] = useState<string[]>([]);
   const [editedSegments, setEditedSegments] = useState<any[]>([]);
 
   const onProgress = useCallback((val: number) => setProgress(val), []);
@@ -181,7 +181,7 @@ export default function DubbingStudio() {
     onLog(`[FINISHED] Success: ${success}, Message: ${msg}`);
   }, [onLog]);
 
-  const { isConnected, startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(
+  const { isConnected: _isConnected, startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(
     onProgress, onLog, onReviewReady, onFinished
   );
 
@@ -259,7 +259,7 @@ export default function DubbingStudio() {
 
   const handleStartPipeline = useCallback(() => {
     if (!fileName && !youtubeUrl) return;
-    const toastId = notifyToast.loading('Pipeline started', { description: 'Initializing dubbing pipeline...' });
+    const toastId = notifyToast.loading(t('toast.pipeline_started'), { description: t('toast.pipeline_init') });
     setPipelineState('running');
     setActiveStep(1);
     setProgress(0);
@@ -300,7 +300,7 @@ export default function DubbingStudio() {
       const selected = await open({
         multiple: false,
         filters: [{
-          name: 'Video',
+          name: t('dubbing.file_filter'),
           extensions: ['mp4', 'mkv', 'avi', 'webm', 'mov']
         }]
       });
@@ -592,7 +592,7 @@ export default function DubbingStudio() {
                   className="btn btn-danger btn-lg"
                   onClick={() => {
                     stopPipeline();
-                    notifyToast.info('Pipeline stopping...', { description: 'Cancelling current operation' });
+                    notifyToast.info(t('toast.pipeline_stopping'), { description: t('toast.pipeline_cancel') });
                   }}
                   style={{ marginLeft: 'auto' }}
                 >

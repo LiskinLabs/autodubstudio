@@ -123,21 +123,11 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "settings", labelKey: "nav.settings", icon: IconSettings, kbShortcut: "⌘,", section: "system" },
 ];
 
-// ─── Page map ───
-const PAGE_MAP: Record<TabId, React.FC> = {
-  dubbing: DubbingStudio,
-  live: LiveSubtitles,
-  chat: AIChat,
-  settings: Settings,
-};
-
 // ─── App ───
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("dubbing");
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const { t } = useSettings();
-
-  const ActivePage = PAGE_MAP[activeTab];
 
   const toolItems = NAV_ITEMS.filter((n) => n.section === "tools");
   const systemItems = NAV_ITEMS.filter((n) => n.section === "system");
@@ -164,13 +154,6 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  const tabOrder: TabId[] = ['dubbing', 'live', 'chat', 'settings'];
-  const handleNavKey = useCallback((e: React.KeyboardEvent, direction: 1 | -1) => {
-    const idx = tabOrder.indexOf(activeTab);
-    const next = tabOrder[idx + direction];
-    if (next) setActiveTab(next);
-  }, [activeTab]);
 
   return (
     <div className="app-root">
@@ -254,13 +237,15 @@ const App: React.FC = () => {
           </nav>
 
           {/* Footer */}
-          <div className="sidebar-footer">
-            <img
-              src="/logo.png"
-              alt="Teknorob"
-              className="sidebar-footer-logo"
-            />
-            <span className="sidebar-footer-text">Powered by LiskinLabs</span>
+          <div className="sidebar-footer flex items-center gap-3 p-4 border-t border-base-content/5 mt-auto">
+            <div className="w-8 h-8 rounded-lg bg-base-300 flex items-center justify-center border border-base-content/5 overflow-hidden">
+              <img
+                src="/logo-icon.png"
+                alt="LiskinLabs"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{t('brand.powered_by')}</span>
           </div>
         </aside>
 

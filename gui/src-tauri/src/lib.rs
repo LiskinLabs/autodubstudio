@@ -33,80 +33,74 @@ pub fn run() {
             }
 
             // ── Auto-start Python Backend ──
-            let resource_dir = app.path().resource_dir()
-                .unwrap_or_else(|_| std::env::current_dir().unwrap());
+            #[cfg(target_os = "windows")]
+            use std::os::windows::process::CommandExt;
+            #[cfg(target_os = "windows")]
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-            // Try multiple possible backend locations (dev vs installed)
-            let backend_candidates = vec![
-                resource_dir.join("backend").join("main.py"),
-                resource_dir.join("_up_").join("_up_").join("backend").join("main.py"),
-                resource_dir.join("_up_").join("backend").join("main.py"),
-                std::env::current_dir().unwrap().join("backend").join("main.py"),
-            ];
+            let mut started = false;
 
-            let backend_script = backend_candidates.iter().find(|p| p.exists());
+            if let Ok(home) = std::env::var("USERPROFILE") {
+                let desktop_project = std::path::PathBuf::from(home).join("Desktop").join("AutoDubStudio");
+                let desktop_venv_python = desktop_project.join(".venv").join("Scripts").join("python.exe");
 
-            if let Some(script_path) = backend_script {
-                let project_dir = script_path.parent().unwrap().parent().unwrap();
+                let desktop_venv_uvicorn = desktop_project.join(".venv").join("Scripts").join("uvicorn.exe");
 
-                // Try python/uv to start uvicorn backend
-                let starters = vec![
-                    ("uv", vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
-                    ("python", vec!["-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
-                ];
+                if desktop_venv_uvicorn.exists() {
+                    let mut cmd = StdCommand::new(&desktop_venv_uvicorn);
+                    cmd.args(["backend.main:app", "--host", "127.0.0.1", "--port", "8000"])
+                       .current_dir(&desktop_project)
+                       .stdout(Stdio::null())
+                       .stderr(Stdio::null());
 
-                let mut started = false;
-                for (cmd, args) in &starters {
-                    if let Ok(child) = StdCommand::new(cmd)
-                        .args(args)
-                        .current_dir(project_dir)
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn()
-                    {
-                        println!("[AutoDub] Backend started: {} (PID: {})", cmd, child.id());
+                    #[cfg(target_os = "windows")]
+                    cmd.creation_flags(CREATE_NO_WINDOW);
+
+                    if let Ok(child) = cmd.spawn() {
+                        println!("[AutoDub] Backend started using Desktop .venv (PID: {})", child.id());
                         started = true;
-                        break;
                     }
                 }
+            }
 
-                // Fallback: .venv python (check project_dir + well-known dev location)
-                if !started {
-                    let mut venv_dirs = vec![
-                        project_dir.join(".venv"),
+            if !started {
+                let resource_dir = app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap());
+                let backend_candidates = vec![
+                    resource_dir.join("backend").join("main.py"),
+                    resource_dir.join("_up_").join("_up_").join("backend").join("main.py"),
+                    resource_dir.join("_up_").join("backend").join("main.py"),
+                    std::env::current_dir().unwrap().join("backend").join("main.py"),
+                ];
+
+                let backend_script = backend_candidates.iter().find(|p| p.exists());
+                if let Some(script_path) = backend_script {
+                    let project_dir = script_path.parent().unwrap().parent().unwrap();
+                    let starters = vec![
+                        ("uv", vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
+                        ("python", vec!["-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]),
                     ];
-                    // Desktop project — user-controlled dev environment
-                    if let Ok(home) = std::env::var("USERPROFILE") {
-                        venv_dirs.push(std::path::PathBuf::from(home)
-                            .join("Desktop").join("AutoDubStudio").join(".venv"));
-                    }
 
-                    for venv_dir in &venv_dirs {
-                        let venv_python = venv_dir.join("Scripts").join("python.exe");
-                        if venv_python.exists() {
-                            if let Ok(child) = StdCommand::new(&venv_python)
-                                .arg(script_path)
-                                .stdout(Stdio::null())
-                                .stderr(Stdio::null())
-                                .spawn()
-                            {
-                                println!("[AutoDub] Backend started: {} (PID: {})", venv_python.display(), child.id());
-                                started = true;
-                                break;
-                            }
+                    for (prog, args) in &starters {
+                        let mut cmd = StdCommand::new(prog);
+                        cmd.args(args)
+                           .current_dir(project_dir)
+                           .stdout(Stdio::null())
+                           .stderr(Stdio::null());
+                        
+                        #[cfg(target_os = "windows")]
+                        cmd.creation_flags(CREATE_NO_WINDOW);
+
+                        if let Ok(child) = cmd.spawn() {
+                            println!("[AutoDub] Backend started: {} (PID: {})", prog, child.id());
+                            started = true;
+                            break;
                         }
                     }
                 }
+            }
 
-                if !started {
-                    eprintln!("[AutoDub] WARNING: Could not start Python backend. Is Python/uv installed?");
-                    eprintln!("[AutoDub] The app needs a running backend at http://127.0.0.1:8000");
-                }
-            } else {
-                eprintln!("[AutoDub] Backend script not found. Looked in:");
-                for c in &backend_candidates {
-                    eprintln!("  - {}", c.display());
-                }
+            if !started {
+                eprintln!("[AutoDub] WARNING: Could not start Python backend.");
             }
 
             Ok(())

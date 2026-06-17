@@ -3,6 +3,7 @@ import { useSettings, Language } from '../store';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fetch } from '@tauri-apps/plugin-http';
 import { notifyToast } from '../lib/toast';
+import { useModelStatus, ALL_MODELS } from '../hooks/useModelStatus';
 
 type SettingsTab = 'general' | 'models' | 'keys' | 'about';
 
@@ -59,11 +60,12 @@ function Settings() {
   });
 
   const { setApiKeys, apiKeys: storedKeys } = useSettings();
+  const { modelStatus, isLoading, startDownload } = useModelStatus();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   type KeyStatus = 'idle' | 'testing' | 'success' | 'error';
   const [keyStatus, setKeyStatus] = useState<Record<string, KeyStatus>>({});
-  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [_showKeys, _setShowKeys] = useState<Record<string, boolean>>({});
 
   // Sync keys from Tauri Store when it finishes loading
   useEffect(() => {
@@ -77,7 +79,7 @@ function Settings() {
   const debouncedSave = useCallback((newKeys: ApiKeys) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      setApiKeys(newKeys);
+      setApiKeys(newKeys as unknown as Record<string, string>);
     }, 500);
   }, [setApiKeys]);
 
@@ -104,7 +106,7 @@ function Settings() {
 
   const renderStatus = (id: string) => {
     const status = keyStatus[id];
-    if (status === 'testing') return <span className="status-dot yellow" title="Testing..." style={{ marginLeft: 8 }} />;
+    if (status === 'testing') return <span className="status-dot yellow" title={t("settings.keys.testing")} style={{ marginLeft: 8 }} />;
     if (status === 'success') return <span style={{ marginLeft: 8, color: 'var(--success)' }}>✅</span>;
     if (status === 'error') return <span style={{ marginLeft: 8, color: 'var(--error)' }}>❌</span>;
     return null;
@@ -369,26 +371,55 @@ function Settings() {
         </div>
 
         <div className="flex-col gap-3" style={{ display: 'flex' }}>
-          {[
-            'Whisper large-v3',
-            'Demucs htdemucs',
-            'Pyannote Diarization',
-            'Qwen3-TTS',
-            'XTTSv2',
-            'F5-TTS'
-          ].map((modelName, index, arr) => (
-            <React.Fragment key={modelName}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm">{modelName}</span>
+          {ALL_MODELS.map((model, index, arr) => {
+            const st = modelStatus[model.id];
+            const isDone = st?.done;
+            const isDownloading = !isDone && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0 && st?.progress < 100));
+            const hasProgress = st?.progress >= 5;
+
+            return (
+              <React.Fragment key={model.id}>
+                <div className="flex items-center justify-between">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span className="text-sm" style={{ fontWeight: 500 }}>
+                      {model.name}
+                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
+                    </span>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 2 }}>{t(model.descDetailKey as any)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
+                    {isDownloading && hasProgress && (
+                      <>
+                        <div className="progress-bar" style={{ width: 100 }}>
+                          <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
+                        </div>
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{st.progress}%</span>
+                      </>
+                    )}
+                    {isDownloading && !hasProgress && (
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)' }}>⏳ {t('dl.downloading_short')}</span>
+                    )}
+                    {isDone ? (
+                      <span className="badge badge-success">{t('settings.installed')}</span>
+                    ) : isDownloading ? (
+                      <span className="badge badge-info" style={{ fontSize: 'var(--text-xs)' }}>⏳</span>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => startDownload(model.id)}
+                        disabled={isLoading}
+                      >
+                        ⬇ {t('dl.btn_download')}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span className="badge badge-success">{t('settings.installed')}</span>
-              </div>
-              {index < arr.length - 1 && (
-                <div style={{ height: 1, background: 'var(--border-subtle)' }} />
-              )}
-            </React.Fragment>
-          ))}
+                {index < arr.length - 1 && (
+                  <div style={{ height: 1, background: 'var(--border-subtle)' }} />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -508,7 +539,7 @@ function Settings() {
             type="password"
             value={keys.azure}
             onChange={(e) => updateKey('azure', e.target.value)}
-            placeholder="Azure Subscription Key"
+            placeholder={t('settings.keys.azure_placeholder')}
           />
         </div>
 
@@ -538,7 +569,7 @@ function Settings() {
               {renderStatus('huggingface')}
             </label>
             <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              Get HF Token ↗
+              {t('settings.keys.hf_get')}
             </a>
           </div>
           <div className="text-sm text-muted mb-2">

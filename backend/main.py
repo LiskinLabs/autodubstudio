@@ -9,6 +9,22 @@ import asyncio
 import secrets
 import httpx
 from queue import Queue, Empty
+import psutil
+
+# ── Clean up old zombie backend instances ──
+try:
+    current_pid = os.getpid()
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            cmdline = proc.info.get('cmdline', [])
+            if cmdline and 'uvicorn' in cmdline and 'backend.main:app' in cmdline and proc.info['pid'] != current_pid:
+                print(f"[CLEANUP] Killing old zombie uvicorn process {proc.info['pid']}...")
+                proc.terminate()
+                proc.wait(timeout=3)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+except Exception as e:
+    print(f"[CLEANUP] Error during zombie cleanup: {e}")
 
 # Add parent directory to path to import engine.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,6 +43,7 @@ app.add_middleware(
         "http://localhost:1420",
         "tauri://localhost",
         "https://tauri.localhost",
+        "http://tauri.localhost"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
@@ -61,6 +78,36 @@ async def get_ws_token():
     """Frontend fetches this token once to authenticate the WebSocket connection."""
     return {"token": WS_AUTH_TOKEN}
 
+@app.post("/api/ollama/start")
+async def start_ollama():
+    try:
+        import subprocess
+        # Try to start ollama serve detached
+        subprocess.Popen(
+            ["ollama", "serve"],
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return {"status": "ok", "message": "Ollama started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ollama/stop")
+async def stop_ollama():
+    try:
+        import psutil
+        for proc in psutil.process_iter(['name']):
+            if proc.info.get('name') in ['ollama.exe', 'ollama']:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=3)
+                except:
+                    pass
+        return {"status": "ok", "message": "Ollama stopped"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 active_worker = None
 
 @app.websocket("/ws/pipeline")
@@ -91,8 +138,10 @@ async def websocket_pipeline(websocket: WebSocket):
         event_queue.put({"type": "log", "data": text})
     def on_finished(success, msg):
         event_queue.put({"type": "finished", "success": success, "message": msg})
-    def on_translation_ready(orig, translated, text_segments):
-        event_queue.put({"type": "review_ready", "original": orig, "translated": translated, "segments": text_segments})
+    def on_manual_edit(manual_subs):
+        orig = [s["orig"] for s in manual_subs]
+        trans = [s["trans"] for s in manual_subs]
+        event_queue.put({"type": "review_ready", "original": orig, "translated": trans, "segments": manual_subs})
         
     try:
         while True:
@@ -110,16 +159,25 @@ async def websocket_pipeline(websocket: WebSocket):
                     active_worker.progress_signal.connect(on_progress)
                     active_worker.log_signal.connect(on_log)
                     active_worker.finished_signal.connect(on_finished)
-                    active_worker.translation_ready_signal.connect(on_translation_ready)
+                    active_worker.manual_edit_signal.connect(on_manual_edit)
                     
                     active_worker.start()
                     await websocket.send_json({"type": "info", "message": "Pipeline started"})
                     
                 elif data.get("action") == "resume":
-                    edited_segments = data.get("segments", [])
-                    if active_worker:
-                        active_worker.resume_with_translations(edited_segments)
-                        await websocket.send_json({"type": "info", "message": "Resuming pipeline..."})
+                    if PIPELINE_BUSY and active_worker:
+                        if "segments" in data:
+                            edited = []
+                            for s in data["segments"]:
+                                edited.append({
+                                    "start": s.get("start", 0),
+                                    "end": s.get("end", 0),
+                                    "text": s.get("trans", s.get("text", "")),
+                                    "speaker": s.get("speaker", "SPEAKER_00")
+                                })
+                            active_worker.edited_segments = edited
+                        active_worker.pause_event.set()
+                        await websocket.send_json({"type": "info", "message": "Pipeline resumed"})
                         
                 elif data.get("action") == "stop":
                     if active_worker:
@@ -155,8 +213,10 @@ _MODEL_SIZES = {
     "base": 290_000_000,
     "small": 483_000_000,
     "medium": 1_500_000_000,
+    "large-v2": 3_100_000_000,
     "large-v3": 3_100_000_000,
-    "large": 3_100_000_000,
+    "xttsv2": 1_900_000_000,
+    "gemma4": 9_600_000_000,
 }
 
 def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, stop_event: threading.Event):
@@ -175,10 +235,13 @@ async def get_model_status():
     """Check which models are cached locally."""
     models_status = {}
 
-    # Check Whisper cache
-    whisper_cache = os.path.expanduser("~/.cache/whisper")
-    models_status["whisper-large-v3"] = os.path.exists(os.path.join(whisper_cache, "large-v3.pt"))
-    models_status["whisper-base"] = os.path.exists(os.path.join(whisper_cache, "base.pt"))
+    # Check Faster-Whisper cache
+    hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+    
+    whisper_ids = ["tiny", "base", "small", "medium", "large-v2", "large-v3"]
+    for w_id in whisper_ids:
+        cache_path = os.path.join(hf_cache, f"models--Systran--faster-whisper-{w_id}")
+        models_status[f"whisper-{w_id}"] = os.path.exists(cache_path)
 
     # Check Pyannote cache
     hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
@@ -210,6 +273,23 @@ async def get_model_status():
                 models_status["f5-tts"] = True
                 break
 
+    # Check Demucs (htdemucs model)
+    demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
+    models_status["htdemucs"] = False
+    if os.path.exists(demucs_cache):
+        for f in os.listdir(demucs_cache):
+            if "htdemucs" in f.lower() or "demucs" in f.lower():
+                models_status["htdemucs"] = True
+                break
+    # Also check if demucs package is installed (model auto-downloads on first use)
+    if not models_status["htdemucs"]:
+        try:
+            result = subprocess.run([sys.executable, "-m", "demucs", "--version"], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                models_status["htdemucs"] = True  # Package installed = model available
+        except Exception:
+            pass
+
     # Check Gemma 4 via Ollama
     try:
         result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
@@ -233,26 +313,15 @@ async def preload_model(model_id: str):
     def _download():
         try:
             if model_id.startswith("whisper"):
-                import whisper
+                from faster_whisper import WhisperModel
                 size = model_id.replace("whisper-", "")
-                expected = _MODEL_SIZES.get(size, 3_100_000_000)
-                cache_path = os.path.expanduser(f"~/.cache/whisper/{size}.pt")
-
-                # Start file size monitor
-                stop_monitor = threading.Event()
-                monitor = threading.Thread(
-                    target=_monitor_file_progress,
-                    args=(model_id, cache_path, expected, stop_monitor),
-                    daemon=True
-                )
-                monitor.start()
 
                 try:
                     with _model_download_lock:
                         _model_download_status[model_id]["progress"] = 1
-                    whisper.load_model(size)
+                    WhisperModel(size, device="cpu", compute_type="int8")
                 finally:
-                    stop_monitor.set()
+                    pass
 
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
@@ -267,30 +336,83 @@ async def preload_model(model_id: str):
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
             elif model_id == "xttsv2":
-                from TTS.api import TTS
+                # XTTS must run in its own venv (TTS package not in main venv)
+                xtts_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-xtts", "Scripts", "python.exe")
+                if not os.path.exists(xtts_venv):
+                    xtts_venv = sys.executable  # fallback
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False)
-                with _model_download_lock:
-                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                result = subprocess.run(
+                    [xtts_venv, "-c", "from TTS.api import TTS; TTS(model_name='tts_models/multilingual/multi-dataset/xtts_v2', progress_bar=False)"],
+                    capture_output=True, text=True, timeout=1800,
+                    env={**os.environ, "COQUI_TOS_AGREED": "1"}
+                )
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "XTTS download failed")
 
             elif model_id == "qwen3-tts":
+                # Qwen3-TTS must run in its own venv
+                qwen3_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-qwen3-tts", "Scripts", "python.exe")
+                if not os.path.exists(qwen3_venv):
+                    qwen3_venv = sys.executable
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                from qwen3_worker import Qwen3TTSWorker
-                worker = Qwen3TTSWorker()
-                worker.load_model()
-                with _model_download_lock:
-                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                result = subprocess.run(
+                    [qwen3_venv, "-c", "from qwen3_worker import Qwen3TTSWorker; w = Qwen3TTSWorker(); w.load_model()"],
+                    capture_output=True, text=True, timeout=1800,
+                    env={**os.environ, "PYTHONPATH": os.path.dirname(os.path.dirname(__file__))}
+                )
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "Qwen3-TTS download failed")
 
             elif model_id == "f5-tts":
+                # F5-TTS must run in its own venv
+                f5_venv = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv-f5", "Scripts", "python.exe")
+                if not os.path.exists(f5_venv):
+                    f5_venv = sys.executable
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                from f5_worker import F5TTSWorker
-                worker = F5TTSWorker()
-                worker.load_model()
+                result = subprocess.run(
+                    [f5_venv, "-c", "from f5_worker import F5TTSWorker; w = F5TTSWorker(); w.load_model()"],
+                    capture_output=True, text=True, timeout=1800,
+                    env={**os.environ, "PYTHONPATH": os.path.dirname(os.path.dirname(__file__))}
+                )
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    raise RuntimeError(result.stderr[:200] or result.stdout[:200] or "F5-TTS download failed")
+
+            elif model_id == "htdemucs":
+                # Demucs downloads automatically on first use
                 with _model_download_lock:
-                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                    _model_download_status[model_id]["progress"] = 5
+                result = subprocess.run(
+                    [sys.executable, "-m", "demucs", "--version"],
+                    capture_output=True, text=True, timeout=30
+                )
+                # Just verifying demucs is installed triggers model availability check
+                # The actual model downloads on first separation run
+                if result.returncode == 0:
+                    with _model_download_lock:
+                        _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                else:
+                    # Demucs not installed in main venv either, try pip install
+                    result2 = subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "demucs"],
+                        capture_output=True, text=True, timeout=300
+                    )
+                    if result2.returncode == 0:
+                        with _model_download_lock:
+                            _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+                    else:
+                        raise RuntimeError(f"Demucs install failed: {result2.stderr[:200]}")
 
             elif model_id == "gemma4":
                 with _model_download_lock:
@@ -346,6 +468,7 @@ class ErrorReport(BaseModel):
 async def report_error(report: ErrorReport, authorization: str = Header("")):
     """Send error report to GitHub Issues. Requires same auth token as WebSocket."""
     global _error_report_count
+    global GITHUB_TOKEN
 
     # Auth check — must present valid Bearer token
     if not verify_error_report_token(authorization):

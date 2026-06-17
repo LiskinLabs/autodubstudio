@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { notifyToast } from '../lib/toast';
 
 export interface PipelineEvent {
   type: 'progress' | 'log' | 'review_ready' | 'finished' | 'error' | 'info';
@@ -24,10 +25,10 @@ export function usePipelineWebSocket(
 
     try {
       // Fetch WebSocket auth token from backend
-      const tokenResp = await fetch('http://localhost:8000/api/token');
+      const tokenResp = await fetch('http://127.0.0.1:8000/api/token');
       const { token } = await tokenResp.json();
 
-      const ws = new WebSocket('ws://localhost:8000/ws/pipeline');
+      const ws = new WebSocket('ws://127.0.0.1:8000/ws/pipeline');
 
       ws.onopen = () => {
         // Authenticate immediately
@@ -80,6 +81,11 @@ export function usePipelineWebSocket(
         console.log('Disconnected from Pipeline WebSocket');
         setIsConnected(false);
         wsRef.current = null;
+        if ((window as any).__pipelineToast) {
+          notifyToast.dismiss((window as any).__pipelineToast);
+          notifyToast.error('Соединение с бекендом разорвано');
+          (window as any).__pipelineToast = undefined;
+        }
         // Auto-reconnect after 3s
         setTimeout(() => connect(), 3000);
       };

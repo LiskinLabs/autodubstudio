@@ -55,7 +55,7 @@
 |------|----------|
 | **Tauri v2 + React 19** | Нативный десктоп (Windows), 8 MB инсталлятор |
 | **3 языка UI** | English, Русский, Türkçe — ПОЛНЫЙ перевод |
-| **Тёмная/светлая тема** | CSS variables, мгновенное переключение |
+| **Темы оформления (DaisyUI)** | Поддержка множества цветовых схем (CSS variables), переключение "на лету" |
 | **Адаптивный дизайн** | @media для 900px и 600px |
 | **Command Palette** | Ctrl+K — поиск по командам, навигация |
 | **Клавиатурные сокращения** | Ctrl+1/2/3/, — вкладки, подсказки в сайдбаре |
@@ -64,6 +64,7 @@
 | **Виртуальный лог-вьювер** | 60fps при любом количестве записей |
 | **ARIA accessibility** | Клавиатурная навигация, screen reader support |
 | **YouTube URL** | Вставь ссылку → авто-загрузка и дубляж |
+| **Manual Mode** | Ручная корректировка субтитров перед озвучкой с авто-синхронизацией |
 
 ### 🎤 Live Subtitles
 
@@ -89,8 +90,9 @@
 ### 🐛 Авто-репорты ошибок
 
 - Глобальный перехват ошибок (ErrorBoundary + window.onerror)
-- Авто-отправка в бэкенд → GitHub Issues
-- Стек-трейс + логи + версия + платформа
+- Авто-отправка логов и стектрейсов напрямую в бэкенд (FastAPI)
+- Бэкенд создает Issue в `LiskinLabs/autodubstudio` через GitHub PAT
+- Стек-трейс + логи терминала + версия ОС
 - **Ноль действий от пользователя**
 
 ### 📥 Model Downloader
@@ -269,9 +271,9 @@ TAURI_SIGNING_PRIVATE_KEY # Подпись кода (для авто-апдей�
 
 ## 🤝 Автор
 
-**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer  
+**Silvestr Liskin** — Industrial Robot & Software Programmer (Full-stack Developer)  
 Teknorob Robot ve Otomasyon — Bursa, TR  
-[GitHub](https://github.com/LiskinLabs) · [LiskinLabs.com](https://liskinlabs.com)
+[GitHub](https://github.com/LiskinLabs) · [LinkedIn](https://www.linkedin.com/in/silvestr-liskin-ab712920b)
 
 ---
 

@@ -317,7 +317,7 @@ class Translator:
         if self.device == "cuda":
             torch.cuda.empty_cache()
 
-    def smart_translate_segments(self, segments, target_lang, log_callback=None):
+    def smart_translate_segments(self, segments, target_lang, log_callback=None, check_cancelled=None):
         is_ollama = "ollama" in self.engine_name.lower()
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
                                       ("deepseek" in self.engine_name.lower() and self.deepseek_key))
@@ -325,8 +325,9 @@ class Translator:
         # ── Step 1: ALWAYS get a fast base translation ──
         # Google Translate is free, fast, and supports all 14 languages.
         # AI refinement (Gemma4/Gemini/DeepSeek) happens in Step 2 below.
-        if log_callback: log_callback("⚡ Google Translate — быстрый базовый перевод...")
+        if log_callback: log_callback(f"🌍 Google Translate - быстрый базовый перевод...")
         for seg in segments:
+            if check_cancelled: check_cancelled()
             orig_text = seg["text"].strip()
             if orig_text:
                 # Always use Google Translate for base — fast and free

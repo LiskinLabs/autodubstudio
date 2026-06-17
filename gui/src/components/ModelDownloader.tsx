@@ -1,25 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSettings } from '../store';
+import { ALL_MODELS } from '../hooks/useModelStatus';
 
-interface ModelInfo {
-  id: string;
-  name: string;
-  size: string;
-  description: string;
-}
-
-const MODELS: ModelInfo[] = [
-  { id: 'whisper-large-v3', name: 'Whisper large-v3', size: '~3.1 GB', description: 'Распознавание речи — лучшая точность' },
-  { id: 'whisper-base', name: 'Whisper base', size: '~290 MB', description: 'Распознавание речи — быстро, ниже точность' },
-  { id: 'pyannote-segmentation', name: 'Pyannote Segmentation', size: '~500 MB', description: 'Диаризация — определяет кто говорит' },
-  { id: 'xttsv2', name: 'XTTSv2', size: '~1.9 GB', description: 'Синтез речи — турецкий, русский, английский' },
-  { id: 'qwen3-tts', name: 'Qwen3-TTS', size: '~1.5 GB', description: 'Синтез речи — русский, английский, китайский (local)' },
-  { id: 'f5-tts', name: 'F5-TTS', size: '~1.2 GB', description: 'Синтез речи — мультиязычный zero-shot, клонирование голоса' },
-  { id: 'gemma4', name: 'Gemma 4 (e4b)', size: '~4.6 GB', description: 'AI чат — локальная языковая модель для перевода и общения' },
-];
+const MODELS = ALL_MODELS;
 
 const BACKEND = 'http://127.0.0.1:8000';
 
 export default function ModelDownloader() {
+  const { t } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modelStatus, setModelStatus] = useState<Record<string, { done: boolean; progress: number; error?: string }>>({});
@@ -30,7 +18,7 @@ export default function ModelDownloader() {
     const hasRun = localStorage.getItem('autodub_first_launch_v2');
     if (!hasRun) {
       setIsOpen(true);
-      setSelected(new Set(['whisper-large-v3', 'pyannote-segmentation']));
+      setSelected(new Set(['whisper-large-v3', 'pyannote-segmentation', 'xttsv2', 'gemma4']));
     }
     fetchModelStatus();
   }, []);
@@ -50,6 +38,14 @@ export default function ModelDownloader() {
           };
         }
         setModelStatus(status);
+        // Remove already-installed models from the download selection
+        setSelected(prev => {
+          const cleaned = new Set(prev);
+          for (const m of MODELS) {
+            if (status[m.id]?.done) cleaned.delete(m.id);
+          }
+          return cleaned;
+        });
         return status;
       }
     } catch { /* backend offline */ }
@@ -80,7 +76,7 @@ export default function ModelDownloader() {
     const toDownload = MODELS.filter(m => selected.has(m.id) && !modelStatus[m.id]?.done);
 
     for (const model of toDownload) {
-      // Show "downloading" state — backend will update real status via polling
+      // Show "downloading" state - backend will update real status via polling
       setModelStatus(prev => ({ ...prev, [model.id]: { done: false, progress: -1 } }));
       try {
         await fetch(`${BACKEND}/api/models/preload/${model.id}`, { method: 'POST' });
@@ -88,6 +84,7 @@ export default function ModelDownloader() {
     }
     // Start polling
     fetchModelStatus();
+    setIsOpen(false);
   }, [selected, modelStatus, fetchModelStatus]);
 
   const skipAll = useCallback(() => {
@@ -108,15 +105,17 @@ export default function ModelDownloader() {
     return null;
   }
 
+  // Count only models that are selected AND not already installed
+  const pendingDownloadCount = MODELS.filter(m => selected.has(m.id) && !modelStatus[m.id]?.done).length;
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
       <div style={{ width: 600, maxHeight: '85vh', overflow: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', padding: 'var(--space-8)' }}>
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>🤖</div>
-          <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: 0 }}>Добро пожаловать в AutoDub Studio!</h2>
+          <img src="/logo-icon.png" alt="AutoDub Studio" style={{ width: 80, height: 80, marginBottom: 'var(--space-4)', objectFit: 'contain' }} />
+          <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: 0 }}>{t('dl.title')}</h2>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-2)', lineHeight: 1.6 }}>
-            AI модели скачиваются через Python бэкенд один раз и кэшируются локально.
-            Можно пропустить — модели загрузятся автоматически при первом использовании.
+            {t('dl.desc')}
           </p>
         </div>
 
@@ -136,7 +135,8 @@ export default function ModelDownloader() {
                     {model.name}
                     <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
                   </div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{model.description}</div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{t(model.descKey as any)}</div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 1 }}>{t(model.descDetailKey as any)}</div>
                   {isDownloading && hasRealProgress && (
                     <div className="progress-bar" style={{ marginTop: 'var(--space-2)' }}>
                       <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
@@ -144,7 +144,7 @@ export default function ModelDownloader() {
                   )}
                   {isDownloading && !hasRealProgress && (
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 4 }}>
-                      ⏳ Загрузка... (может занять 10-30 мин для больших моделей)
+                      {t('dl.downloading')}
                     </div>
                   )}
                   {st?.error && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>{st.error}</div>}
@@ -159,13 +159,13 @@ export default function ModelDownloader() {
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={downloadSelected} disabled={selected.size === 0}>
-            ⬇️ Установить ({selected.size})
+          <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={downloadSelected} disabled={pendingDownloadCount === 0}>
+            {t('dl.btn_download')} ({pendingDownloadCount})
           </button>
-          <button className="btn btn-secondary btn-lg" onClick={skipAll}>Пропустить</button>
+          <button className="btn btn-secondary btn-lg" onClick={skipAll}>{t('dl.btn_skip')}</button>
         </div>
         <div style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
-          Модели авто-загрузятся при первом использовании даже если пропустить
+          {t('dl.note')}
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ interface CommandPaletteProps {
   isPipelineRunning?: boolean;
 }
 
-export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPipeline, isPipelineRunning }: CommandPaletteProps) {
+export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPipeline, isPipelineRunning: _isPipelineRunning }: CommandPaletteProps) {
   const { t } = useSettings();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -119,7 +119,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
             value={query}
             onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a command or search..."
+            placeholder={t('cmd.placeholder')}
             style={{
               width: '100%',
               background: 'transparent',
@@ -136,7 +136,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
         <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-2)' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-              No results found.
+              {t('cmd.no_results')}
             </div>
           ) : (
             groups.map(group => (
@@ -144,7 +144,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
                 <div style={{ padding: 'var(--space-3) var(--space-3) var(--space-1)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {group}
                 </div>
-                {filtered.filter(c => c.group === group).map((cmd, i) => {
+                {filtered.filter(c => c.group === group).map((cmd, _i) => {
                   const globalIdx = filtered.indexOf(cmd);
                   const isSelected = globalIdx === selectedIndex;
                   return (
@@ -182,9 +182,9 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
 
         {/* Footer */}
         <div style={{ padding: 'var(--space-2) var(--space-4)', borderTop: '1px solid var(--border-subtle)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'flex', gap: 'var(--space-4)' }}>
-          <span>↑↓ Navigate</span>
-          <span>↵ Select</span>
-          <span>Esc Close</span>
+          <span>{t('cmd.navigate')}</span>
+          <span>{t('cmd.select')}</span>
+          <span>{t('cmd.close')}</span>
         </div>
       </div>
     </div>

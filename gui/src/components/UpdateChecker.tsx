@@ -12,7 +12,7 @@ interface UpdateInfo {
 }
 
 export default function UpdateChecker() {
-  const { t } = useSettings();
+  const { t: _t } = useSettings();
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
