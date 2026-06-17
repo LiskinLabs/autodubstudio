@@ -254,7 +254,9 @@ def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, st
         time.sleep(2)
 
 @app.get("/api/logs")
-async def get_logs(lines: int = 200):
+async def get_logs(lines: int = 200, authorization: str = Header("")):
+    if not verify_error_report_token(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     """Return recent backend log lines."""
     try:
         if os.path.exists(LOG_FILE):
@@ -355,7 +357,7 @@ async def cancel_download(model_id: str):
 
     return {"status": "cancelled", "model": model_id}
 
-@app.post("/api/models/delete/{model_id}")
+@app.delete("/api/models/delete/{model_id}")
 async def delete_model(model_id: str):
     """Delete a downloaded model."""
     if model_id not in VALID_MODEL_IDS:
@@ -486,7 +488,8 @@ async def preload_model(model_id: str, hf_token: str = ""):
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 result = subprocess.run(
-                [sys.executable, "-c", """import sys, types
+                    [sys.executable, "-c", """import sys, types
+import torchvision
 # Fix speechbrain broken lazy imports
 import speechbrain.utils.importutils as sb_imports
 _orig_getattr = sb_imports.LazyModule.__getattr__
@@ -500,9 +503,9 @@ import os
 Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.environ['HF_TOKEN'])
 print('PYANNOTE_OK')
 """],
-                capture_output=True, text=True, timeout=1800,
-                env={**os.environ, "HF_TOKEN": token}
-            )
+                    capture_output=True, text=True, timeout=1800,
+                    env={**os.environ, "HF_TOKEN": token}
+                )
                 if result.returncode == 0:
                     with _model_download_lock:
                         _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
@@ -626,8 +629,10 @@ GITHUB_REPO = "LiskinLabs/autodubstudio"
 
 
 @app.post("/api/config/github-token")
-async def set_github_token(data: dict):
+async def set_github_token(data: dict, authorization: str = Header("")):
     """Receive GitHub token from frontend settings for crash reporting."""
+    if not verify_error_report_token(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     global GITHUB_TOKEN
     token = data.get("token", "")
     if token:
