@@ -347,24 +347,77 @@ async def cancel_download(model_id: str):
         _model_cancel_flags[model_id] = True
         _model_download_status[model_id] = {"done": False, "progress": 0, "error": "Cancelled"}
 
-    # Clean up partial files
-    import shutil
-    if model_id.startswith("whisper"):
-        size = model_id.replace("whisper-", "")
-        cache_dir = os.path.expanduser(f"~/.cache/huggingface/hub/models--Systran--faster-whisper-{size}")
-        if os.path.exists(cache_dir):
-            shutil.rmtree(cache_dir, ignore_errors=True)
-    elif model_id == "pyannote-segmentation":
-        torch_pyannote = os.path.expanduser("~/.cache/torch/pyannote")
-        if os.path.exists(torch_pyannote):
-            shutil.rmtree(torch_pyannote, ignore_errors=True)
-
-    else:
-        return {"status": "error", "message": f"Unknown model: {model_id}"}
+    await delete_model(model_id)
 
     # Clear download status so model shows as not installed
     with _model_download_lock:
         _model_download_status.pop(model_id, None)
+
+    return {"status": "cancelled", "model": model_id}
+
+@app.post("/api/models/delete/{model_id}")
+async def delete_model(model_id: str):
+    """Delete a downloaded model."""
+    if model_id not in VALID_MODEL_IDS:
+        raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
+        
+    import shutil
+    deleted_paths = []
+    errors = []
+    
+    def try_remove_dir(path):
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path, ignore_errors=True)
+                deleted_paths.append(path)
+            except Exception as e:
+                errors.append(f"Failed to delete {path}: {str(e)}")
+                
+    def try_remove_file(path):
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                deleted_paths.append(path)
+            except Exception as e:
+                errors.append(f"Failed to delete {path}: {str(e)}")
+
+    if model_id.startswith("whisper"):
+        size = model_id.replace("whisper-", "")
+        cache_dir = os.path.expanduser(f"~/.cache/huggingface/hub/models--Systran--faster-whisper-{size}")
+        try_remove_dir(cache_dir)
+
+    elif model_id == "pyannote-segmentation":
+        torch_pyannote = os.path.expanduser("~/.cache/torch/pyannote")
+        try_remove_dir(torch_pyannote)
+
+    elif model_id == "xttsv2":
+        xtts_cache = os.environ.get("LOCALAPPDATA", os.path.expanduser("~/.local/share"))
+        xtts_dir = os.path.join(xtts_cache, "tts", "tts_models--multilingual--multi-dataset--xtts_v2")
+        try_remove_dir(xtts_dir)
+
+    elif model_id == "qwen3-tts":
+        hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+        try_remove_dir(os.path.join(hf_cache, "models--Qwen--Qwen3-TTS-12Hz-0.6B-CustomVoice"))
+        try_remove_dir(os.path.join(hf_cache, "models--Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice"))
+
+    elif model_id == "f5-tts":
+        hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+        try_remove_dir(os.path.join(hf_cache, "models--SWivid--F5-TTS"))
+
+    elif model_id == "htdemucs":
+        demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
+        if os.path.exists(demucs_cache):
+            for f in os.listdir(demucs_cache):
+                if f.startswith("htdemucs") and f.endswith(".th"):
+                    try_remove_file(os.path.join(demucs_cache, f))
+
+    elif model_id == "gemma4":
+        try:
+            import subprocess
+            subprocess.run(["ollama", "rm", "gemma4:e4b"], capture_output=True)
+            deleted_paths.append("ollama: gemma4:e4b")
+        except Exception as e:
+            errors.append(str(e))
 
     if errors:
         return {"status": "partial", "deleted": deleted_paths, "errors": errors}
@@ -535,8 +588,9 @@ print('PYANNOTE_OK')
             # Try sending now (backend is still alive)
             try:
                 if GITHUB_TOKEN:
+                    safe_error = str(e)[:300].replace(os.path.expanduser("~"), "~")
                     title = f"[Bug] Model download failed: {model_id}"
-                    body = f"**Model:** {model_id}\n**Error:** {e}\n**Time:** {time.strftime('%Y-%m-%dT%H:%M:%S')}"
+                    body = f"**Model:** {model_id}\n**Error:** {safe_error}\n**Time:** {time.strftime('%Y-%m-%dT%H:%M:%S')}"
                     resp = httpx.post(
                         f"https://api.github.com/repos/{GITHUB_REPO}/issues",
                         json={"title": title, "body": body, "labels": ["bug", "auto-reported"]},
