@@ -179,6 +179,22 @@ WS_AUTH_TOKEN = secrets.token_urlsafe(32)
 print(f"[SECURITY] WebSocket auth token generated (len={len(WS_AUTH_TOKEN)} chars)")
 print(f"[SECURITY] Backend bound to 127.0.0.1:8000 — no external network access")
 
+# ── Pipeline model status (updated by engine.py, read by StatusBar) ──
+pipeline_status = {
+    "active": False,
+    "step": "",
+    "step_index": 0,
+    "total_steps": 6,
+    "models": {
+        "demucs": "idle",      # idle | running | done | error
+        "whisper": "idle",
+        "pyannote": "idle",
+        "translate": "idle",
+        "tts": "idle",
+        "mux": "idle",
+    }
+}
+
 class StatusResponse(BaseModel):
     status: str
     message: str
@@ -225,6 +241,22 @@ async def get_gpu_status():
         "vram_used_gb": vram_used_gb,
         "vram_total_gb": vram_total_gb,
     }
+
+@app.get("/api/pipeline/status")
+async def get_pipeline_status():
+    """Live model status during dubbing — polled by StatusBar every 2s."""
+    # Merge with live VRAM
+    try:
+        import torch
+        if torch.cuda.is_available():
+            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+            pipeline_status["vram_used_gb"] = round((total_bytes - free_bytes) / (1024**3), 2)
+            pipeline_status["vram_total_gb"] = round(total_bytes / (1024**3), 2)
+            pipeline_status["gpu_name"] = torch.cuda.get_device_name(0)
+    except Exception:
+        pipeline_status["vram_used_gb"] = 0
+        pipeline_status["vram_total_gb"] = 0
+    return pipeline_status
 
 @app.get("/api/token")
 async def get_ws_token(request: Request):

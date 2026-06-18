@@ -115,9 +115,6 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(item.id)}>
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{t(item.labelKey as any)}</span>
-              {item.kbShortcut && (
-                <span className="nav-shortcut ml-auto" style={{ fontSize: 11, color: "var(--colorNeutralForeground4)", fontFamily: "'JetBrains Mono', monospace" }}>{item.kbShortcut}</span>
-              )}
             </button>
           ))}
 

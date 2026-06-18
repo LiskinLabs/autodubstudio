@@ -1,193 +1,150 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Badge } from "@fluentui/react-components";
 import { useSettings } from "../store";
-import { useOllama } from "../hooks/useOllama";
 import UpdateChecker from "./UpdateChecker";
 import ModelDownloader from "./ModelDownloader";
 import pkg from "../../package.json";
 
-interface SystemStatus {
-  gpu: "gpu" | "cpu";
-  gpuName: string;
-  vramUsed: number;
-  vramTotal: number;
-  ramUsed: number;
-  ramTotal: number;
-}
-
 const BACKEND = "http://127.0.0.1:8000";
 
-/** Format bytes to human-readable */
+interface GpuInfo { cuda_available: boolean; gpu_name: string; vram_used_gb: number; vram_total_gb: number; }
+interface PipelineStatus {
+  active: boolean; step: string; step_index: number; total_steps: number;
+  vram_used_gb: number; vram_total_gb: number; gpu_name: string;
+  models: Record<string, "idle" | "running" | "done" | "error">;
+}
+
+type ModelDef = { key: string; label: string; type: "local" | "internet" | "paid" };
+
+const MODEL_LIST: ModelDef[] = [
+  { key: "demucs",    label: "Demucs",    type: "local" },
+  { key: "whisper",   label: "Whisper",   type: "local" },
+  { key: "pyannote",  label: "Pyannote",  type: "local" },
+  { key: "translate", label: "Translate", type: "paid" },
+  { key: "tts",       label: "TTS",       type: "local" },
+  { key: "mux",       label: "Mux",       type: "local" },
+];
+
+const TYPE_ICON: Record<string, string> = {
+  local: "⬇",      // локальная модель
+  internet: "🌐",  // нужен интернет
+  paid: "💲",      // платный API
+};
+
 function fmt(n: number): string {
   if (n <= 0) return "—";
   if (n >= 10) return `${n.toFixed(0)} GB`;
   return `${n.toFixed(1)} GB`;
 }
 
-/** Mini progress bar (compact, GPU-style) */
-function MiniBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+function ModelDot({ state, label, modelType }: { state: string; label: string; modelType: string }) {
+  const dotColor =
+    state === "running" ? "var(--colorPaletteGreenForeground1)" :
+    state === "done"    ? "var(--colorPaletteGreenForeground1)" :
+    state === "error"   ? "var(--colorPaletteRedForeground1)" :
+    "var(--colorNeutralForeground4)";
+
+  const anim = state === "running" ? "animate-pulse" : "";
+  const opacity = state === "idle" ? 0.35 : 1;
+
   return (
-    <span style={{
-      display: "inline-block", width: 40, height: 4,
-      background: "var(--colorNeutralBackground3)", borderRadius: 2,
-      verticalAlign: "middle", margin: "0 4px",
-    }}>
-      <span style={{
-        display: "block", height: "100%", width: `${pct}%`,
-        background: color, borderRadius: 2,
-        transition: "width 800ms ease",
+    <span title={`${label} [${modelType}] — ${state}`} style={{ display: "flex", alignItems: "center", gap: 3, opacity, transition: "opacity 300ms" }}>
+      <span className={anim} style={{
+        width: 6, height: 6, borderRadius: "50%", background: dotColor,
+        display: "inline-block", flexShrink: 0,
       }} />
+      <span style={{ fontSize: 9, fontWeight: 500, whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ fontSize: 8, opacity: 0.5 }}>{TYPE_ICON[modelType] || ""}</span>
     </span>
   );
 }
 
 const StatusBar: React.FC = () => {
   const { t } = useSettings();
-  const { isConnected, checkConnection } = useOllama();
-  const [status, setStatus] = useState<SystemStatus>({
-    gpu: "gpu", gpuName: "", vramUsed: 0, vramTotal: 0, ramUsed: 0, ramTotal: 0,
+  const [gpu, setGpu] = useState<GpuInfo>({ cuda_available: false, gpu_name: "", vram_used_gb: 0, vram_total_gb: 0 });
+  const [pipeline, setPipeline] = useState<PipelineStatus>({
+    active: false, step: "", step_index: 0, total_steps: 6,
+    vram_used_gb: 0, vram_total_gb: 0, gpu_name: "",
+    models: { demucs: "idle", whisper: "idle", pyannote: "idle", translate: "idle", tts: "idle", mux: "idle" },
   });
-  const [backendOnline, setBackendOnline] = useState(false);
 
-  const fetchSystemStatus = useCallback(async () => {
-    // Try backend GPU endpoint
+  const fetchStatus = useCallback(async () => {
     try {
-      const resp = await fetch(`${BACKEND}/api/system/gpu`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setBackendOnline(true);
-        setStatus(s => ({
-          ...s,
-          gpu: data.cuda_available ? "gpu" : "cpu",
-          gpuName: data.gpu_name || "",
-          vramUsed: data.vram_used_gb ?? data.vram_used ?? 0,
-          vramTotal: data.vram_total_gb ?? data.vram_total ?? 0,
-        }));
-      }
-    } catch { setBackendOnline(false); }
-
-    // RAM from browser (approximate)
-    if ("memory" in performance) {
-      const mem = (performance as any).memory;
-      setStatus(s => ({
-        ...s,
-        ramUsed: mem.usedJSHeapSize / 1e9,
-        ramTotal: mem.jsHeapSizeLimit / 1e9,
-      }));
-    } else {
-      // Fallback: estimate from navigator.deviceMemory
-      const dm = (navigator as any).deviceMemory;
-      if (dm) setStatus(s => ({ ...s, ramTotal: dm }));
-    }
+      const [gpuResp, pipeResp] = await Promise.all([
+        fetch(`${BACKEND}/api/system/gpu`),
+        fetch(`${BACKEND}/api/pipeline/status`),
+      ]);
+      if (gpuResp.ok) setGpu(await gpuResp.json());
+      if (pipeResp.ok) setPipeline(await pipeResp.json());
+    } catch {}
   }, []);
 
   useEffect(() => {
-    checkConnection();
-    fetchSystemStatus();
-    const interval = setInterval(() => {
-      checkConnection();
-      fetchSystemStatus();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [checkConnection, fetchSystemStatus]);
+    fetchStatus();
+    const iv = setInterval(fetchStatus, 2000);
+    return () => clearInterval(iv);
+  }, [fetchStatus]);
 
-  const hasVram = status.vramTotal > 0;
-  const hasRam = status.ramTotal > 0;
-
-  const vramColor = useMemo(() => {
-    if (!hasVram) return "var(--colorNeutralForeground3)";
-    const pct = status.vramUsed / status.vramTotal;
-    if (pct > 0.9) return "var(--colorPaletteRedForeground1)";
-    if (pct > 0.7) return "var(--colorPaletteYellowForeground1)";
-    return "var(--colorPaletteGreenForeground1)";
-  }, [status.vramUsed, status.vramTotal, hasVram]);
-
-  const ramColor = useMemo(() => {
-    if (!hasRam) return "var(--colorNeutralForeground3)";
-    const pct = status.ramUsed / status.ramTotal;
-    if (pct > 0.9) return "var(--colorPaletteRedForeground1)";
-    if (pct > 0.7) return "var(--colorPaletteYellowForeground1)";
-    return "var(--colorPaletteGreenForeground1)";
-  }, [status.ramUsed, status.ramTotal, hasRam]);
-
-  const chipStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", gap: 5,
-    height: "100%", padding: "0 8px",
-    borderRadius: 6, cursor: "default",
-  };
+  const hasVram = gpu.vram_total_gb > 0;
+  const vramPct = hasVram ? gpu.vram_used_gb / gpu.vram_total_gb : 0;
+  const vramColor = vramPct > 0.9 ? "var(--colorPaletteRedForeground1)" : vramPct > 0.7 ? "var(--colorPaletteYellowForeground1)" : "var(--colorPaletteGreenForeground1)";
 
   return (
     <div className="flex items-center shrink-0 select-none z-50" style={{
-      height: 34, padding: "0 10px", fontSize: 11, fontWeight: 500,
+      height: 34, padding: "0 8px", fontSize: 11, fontWeight: 500,
       background: "var(--colorNeutralBackground2)",
       color: "var(--colorNeutralForeground3)",
       borderTop: "1px solid var(--colorNeutralStroke2)",
+      gap: 0,
     }}>
-      {/* Backend status */}
-      <div style={chipStyle} title={backendOnline ? "Backend connected" : "Backend offline"}>
-        <span className={`status-dot ${backendOnline ? "green" : "red"}`} />
-        <span style={{ opacity: 0.7 }}>{backendOnline ? "API" : "Off"}</span>
-      </div>
-      <div className="status-separator" />
-
-      {/* GPU */}
-      <div style={chipStyle} title={status.gpuName || t("status.gpu")}>
-        <span className={`status-dot ${status.gpu === "gpu" ? "green" : "yellow"}`} />
-        <span style={{ opacity: status.gpu === "gpu" ? 1 : 0.6 }}>
-          {status.gpu === "gpu"
-            ? (status.gpuName
-              ? status.gpuName.replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "")
-              : "GPU")
-            : "CPU"}
+      {/* GPU / VRAM */}
+      <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", whiteSpace: "nowrap" }}>
+        <span className={`status-dot ${gpu.cuda_available ? "green" : "yellow"}`} />
+        <span style={{ opacity: 0.7, fontSize: 10 }}>
+          {gpu.cuda_available ? (gpu.gpu_name?.replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "") || "GPU") : "CPU"}
         </span>
-      </div>
-
-      {/* VRAM */}
-      {hasVram && (
-        <>
-          <div className="status-separator" />
-          <div style={chipStyle} title={`VRAM: ${fmt(status.vramUsed)} / ${fmt(status.vramTotal)}`}>
-            <span style={{ opacity: 0.5, marginRight: 1 }}>VRAM</span>
-            <MiniBar value={status.vramUsed} max={status.vramTotal} color={vramColor} />
-            <span style={{ color: vramColor, fontWeight: 600, minWidth: 56, textAlign: "right" }}>
-              {fmt(status.vramUsed)}/{fmt(status.vramTotal)}
+        {hasVram && (
+          <>
+            <span style={{ opacity: 0.3, margin: "0 2px" }}>|</span>
+            <span style={{ fontWeight: 600, color: vramColor, fontSize: 10 }}>
+              {fmt(gpu.vram_used_gb)}/{fmt(gpu.vram_total_gb)}
             </span>
-          </div>
+          </>
+        )}
+      </span>
+
+      <span className="status-separator" style={{ margin: "0 4px" }} />
+
+      {/* Pipeline step info when active */}
+      {pipeline.active && (
+        <>
+          <span style={{ fontSize: 10, opacity: 0.6, whiteSpace: "nowrap", padding: "0 4px" }}>
+            {pipeline.step_index}/{pipeline.total_steps}
+          </span>
+          <span className="status-separator" style={{ margin: "0 4px" }} />
         </>
       )}
 
-      {/* RAM */}
-      {hasRam && status.ramTotal > 0.5 && (
-        <>
-          <div className="status-separator" />
-          <div style={chipStyle} title={`RAM: ${fmt(status.ramUsed)} / ${fmt(status.ramTotal)}`}>
-            <span style={{ opacity: 0.5, marginRight: 1 }}>RAM</span>
-            <MiniBar value={status.ramUsed} max={status.ramTotal} color={ramColor} />
-            <span style={{ color: ramColor, fontWeight: 600, minWidth: 56, textAlign: "right" }}>
-              {fmt(status.ramUsed)}/{fmt(status.ramTotal)}
-            </span>
-          </div>
-        </>
-      )}
-
-      {/* Ollama */}
-      <div className="status-separator" />
-      <div style={chipStyle} title={isConnected ? t("status.ollama") : t("status.ollama_off")}>
-        <span className={`status-dot ${isConnected ? "green" : "red"}`} />
-        <span style={{ opacity: 0.6 }}>Ollama</span>
+      {/* Model indicators */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {MODEL_LIST.map(m => (
+          <ModelDot key={m.key} state={pipeline.models[m.key] || "idle"} label={m.label} modelType={m.type} />
+        ))}
       </div>
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Update + Models */}
+      {/* Ollama status — simple dot */}
+      <span style={{ display: "flex", alignItems: "center", gap: 3, opacity: 0.5, fontSize: 9, padding: "0 4px" }}>
+        <span className="status-dot red" style={{ width: 5, height: 5 }} />
+        Ollama
+      </span>
+
       <UpdateChecker />
       <ModelDownloader />
 
-      {/* Version */}
-      <div style={{ ...chipStyle, opacity: 0.3, marginLeft: 4 }}>
-        <span>v{pkg.version}</span>
-      </div>
+      <span style={{ opacity: 0.25, marginLeft: 4, fontSize: 9 }}>v{pkg.version}</span>
     </div>
   );
 };

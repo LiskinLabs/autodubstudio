@@ -52,6 +52,23 @@ class EventSignal:
 PIPELINE_BUSY = False
 PIPELINE_LOCK = threading.Lock()
 
+def _set_model_status(model: str, state: str):
+    """Update global pipeline_status dict for the StatusBar."""
+    try:
+        from main import pipeline_status
+        pipeline_status["models"][model] = state
+        pipeline_status["active"] = True
+    except Exception:
+        pass
+
+def _set_pipeline_step(step_name: str, step_index: int):
+    try:
+        from main import pipeline_status
+        pipeline_status["step"] = step_name
+        pipeline_status["step_index"] = step_index
+    except Exception:
+        pass
+
 class InterruptedError(Exception):
     """Raised when user cancels pipeline — triggers clean finally-block cleanup."""
     pass
@@ -337,6 +354,8 @@ class AutoDubWorker(threading.Thread):
             # 1. Изоляция вокала (Demucs)
             self._check_cancelled()
             self.progress_signal.emit(5)
+            _set_pipeline_step("demucs", 1)
+            _set_model_status("demucs", "running")
             self.log_signal.emit("🎵 Изоляция вокала (Demucs) - извлекаем чистый голос...")
             demucs_out_dir = os.path.join(self.out_dir, "demucs_out")
             os.makedirs(demucs_out_dir, exist_ok=True)
@@ -350,6 +369,7 @@ class AutoDubWorker(threading.Thread):
             else:
                 self.log_signal.emit("✅ Чистый голос найден (пропуск Demucs)")
 
+            _set_model_status("demucs", "done")
             self.progress_signal.emit(15)
 
             transcribe_path = vocals_path if os.path.exists(vocals_path) else self.video_path
@@ -366,6 +386,8 @@ class AutoDubWorker(threading.Thread):
 
             # 2. Транскрибация (Whisper) — или загрузка из чекпойнта
             self._check_cancelled()
+            _set_pipeline_step("whisper", 2)
+            _set_model_status("whisper", "running")
             segments = _load_checkpoint("segments")
             if segments:
                 self.log_signal.emit(f"✅ Сегменты загружены из кэша ({len(segments)} шт., пропуск Whisper)")
@@ -402,10 +424,12 @@ class AutoDubWorker(threading.Thread):
                 self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
                 _save_checkpoint("segments", segments)
 
+            _set_model_status("whisper", "done")
             self.progress_signal.emit(30)
 
             # 3. Диаризация (определение спикеров) — опционально, если есть HF токен
             if self.hf_key:
+                _set_model_status("pyannote", "running")
                 self.log_signal.emit("👥 Диаризация (Pyannote) — определение спикеров...")
                 diar_json = os.path.join(self.out_dir, f"{base_name}_diarization.json")
                 try:
@@ -432,6 +456,7 @@ class AutoDubWorker(threading.Thread):
                 except Exception as e:
                     self.log_signal.emit(f"⚠ Диаризация не удалась: {e}. Использую SPEAKER_00.")
 
+            _set_model_status("pyannote", "done")
             self.progress_signal.emit(35)
 
             # 3.5 — Save original English subtitles
@@ -456,6 +481,8 @@ class AutoDubWorker(threading.Thread):
 
             for i, (lang, _) in enumerate(self.langs.items()):
                 self._check_cancelled()
+                _set_pipeline_step("translate", 3)
+                _set_model_status("translate", "running")
                 self.log_signal.emit(f"▶ Обработка языка: {lang}...")
                 srt_path = os.path.join(self.out_dir, f"{base_name}_{lang}.srt")
                 all_created_files.append(srt_path)
@@ -499,6 +526,9 @@ class AutoDubWorker(threading.Thread):
                         f.write(f"{idx+1}\n{self.format_timestamp(tseg['start'])} --> {self.format_timestamp(tseg['end'])}\n{tseg['text'].strip()}\n\n")
 
                 # --- TTS Logic ---
+                _set_model_status("translate", "done")
+                _set_pipeline_step("tts", 4)
+                _set_model_status("tts", "running")
                 use_f5 = "f5-tts" in engine_id
                 use_xtts = "xttsv2" in engine_id
                 use_qwen = "qwen3-tts" in engine_id
@@ -739,11 +769,15 @@ class AutoDubWorker(threading.Thread):
                 self.progress_signal.emit(35 + (i + 1) * 50 // max(num_langs, 1))
 
 
+            _set_model_status("tts", "done")
+            _set_pipeline_step("mux", 5)
+            _set_model_status("mux", "running")
             tag_str = f"_{self.tag}" if hasattr(self, 'tag') and self.tag else ""
             self.progress_signal.emit(90)
             final_mkv = os.path.join(self.out_dir, f"{base_name}{tag_str}_Final.mkv")
             self._run_subprocess(["ffmpeg", "-y"] + ffmpeg_inputs + ["-c:v", "copy", "-c:a", "aac", "-c:s", "srt"] + ffmpeg_maps + metadata + [final_mkv], check=True)
             self.progress_signal.emit(100)
+            _set_model_status("mux", "done")
             
             # --- Lip-Sync Logic ---
             if getattr(self, "lip_sync", False):
