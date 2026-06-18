@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi", "nsis"],
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -52,13 +52,7 @@
       }
     },
     "resources": [
-      "config.json",
-      "../../backend/main.py",
-      "../../backend/translator.py",
-      "../../backend/vram_manager.py",
-      "../../backend/workers.py",
-      "../../pyproject.toml",
-      "../../uv.lock",
+      "../../backend/*.py",
       "../../engine.py",
       "../../live_engine.py",
       "../../f5_worker.py",
@@ -67,8 +61,7 @@
       "../../lip_sync_worker.py",
       "../../diarization_worker.py",
       "../../cli_run.py",
-      "../../download_models.bat",
-      "../../start_ollama.bat",
+      "../../*.bat",
       "../../teknorob.png"
     ]
   },

@@ -1,6 +1,5 @@
 import os
 import re
-import ast
 import json
 import torch
 from deep_translator import GoogleTranslator
@@ -164,19 +163,32 @@ class Translator:
             import urllib.request
             import urllib.error
             import json
-            url = "http://localhost:11434/api/generate"
-            # NOTE: Do NOT use "format": "json" — it breaks Cyrillic in Ollama.
-            # Instead we extract JSON from the free-text response below.
+            url = "http://localhost:11434/api/chat"  # Use chat API — proper template formatting for Gemma4
 
-            # Try larger model first for better translation, fall back to smaller
+            # Dynamically scale num_predict + num_gpu based on available VRAM
+            try:
+                vram_free_mb = torch.cuda.mem_get_info()[0] // (1024 * 1024) if torch.cuda.is_available() else 0
+            except Exception:
+                vram_free_mb = 0
+            num_predict = 2048 if vram_free_mb > 6000 else (1024 if vram_free_mb > 4000 else 512)
+            # Limit GPU layers for low-VRAM cards (leaves room for KV cache + PyTorch residue)
+            num_gpu = 99 if vram_free_mb > 6000 else (30 if vram_free_mb > 4000 else 18)
+
+            # Build system prompt for JSON output (no "format": "json" — breaks Cyrillic)
+            system_msg = "You are a professional subtitle translator. Always output valid JSON exactly as requested. Never add explanations outside the JSON."
+            messages = [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": prompt},
+            ]
+
             models_to_try = ["gemma4:e4b"]
             for model_name in models_to_try:
                 payload = json.dumps({
                     "model": model_name,
-                    "prompt": prompt,
+                    "messages": messages,
                     "stream": False,
-                    "keep_alive": 300,  # Keep model in GPU for 5 min between requests
-                    "options": {"temperature": 0.1, "num_predict": 2048}
+                    "keep_alive": 300,
+                    "options": {"temperature": 0.1, "num_predict": num_predict, "num_gpu": num_gpu}
                 }).encode('utf-8')
                 headers = {'Content-Type': 'application/json'}
                 req = urllib.request.Request(url, data=payload, headers=headers)
@@ -184,12 +196,10 @@ class Translator:
                     with urllib.request.urlopen(req, timeout=300) as resp:
                         if resp.status == 200:
                             result = json.loads(resp.read().decode())
-                            text = result.get("response", "")
-                            # Extract JSON from response (strip markdown fences if any)
+                            text = result.get("message", {}).get("content", "")
                             json_text = self._extract_json(text)
                             if json_text:
                                 return json_text
-                            # If no JSON found, return raw text for non-JSON calls
                             if not is_json:
                                 return text.strip()
                 except Exception as e:
@@ -268,18 +278,17 @@ class Translator:
             )
             return response.choices[0].message.content
         else:
-            # Fallback to Ollama
+            # Fallback to Ollama via /api/chat (proper template formatting for Gemma4)
             import urllib.request
             import urllib.error
             import json
-            url = "http://localhost:11434/api/generate"
-            # No "format": "json" — it breaks Cyrillic (use _extract_json instead)
+            url = "http://localhost:11434/api/chat"
             for model_name in ["gemma4:e4b"]:
                 payload = json.dumps({
                     "model": model_name,
-                    "prompt": prompt,
+                    "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
-                    "keep_alive": 300,  # Keep model in GPU for 5 min between requests
+                    "keep_alive": 300,
                     "options": {"temperature": 0.1, "num_predict": 2048}
                 }).encode('utf-8')
                 headers = {'Content-Type': 'application/json'}
@@ -288,7 +297,7 @@ class Translator:
                     with urllib.request.urlopen(req, timeout=60) as response:
                         if response.status == 200:
                             result = json.loads(response.read().decode())
-                            return result.get("response", "")
+                            return result.get("message", {}).get("content", "")
                 except Exception as e:
                     continue
             raise RuntimeError("All LLM fallbacks failed for smart JSON translation.")
@@ -299,7 +308,8 @@ class Translator:
             import urllib.request
             import json
             url = "http://localhost:11434/api/generate"
-            for model_name in ["gemma2:2b", "gemma2"]:
+            # Release the actual models used: gemma4:e4b (primary) + gemma2 fallbacks
+            for model_name in ["gemma4:e4b", "gemma2:2b", "gemma2"]:
                 try:
                     payload = json.dumps({"model": model_name, "prompt": "", "keep_alive": 0}).encode('utf-8')
                     urllib.request.urlopen(urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}), timeout=2)
@@ -346,18 +356,30 @@ class Translator:
             if log_callback:
                 log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
 
-            # ── VRAM cleanup: free GPU memory before loading Gemma4 ──
+            # ── VRAM cleanup: aggressively free GPU memory before loading Gemma4 ──
             try:
                 import gc, torch
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     torch.cuda.synchronize()
+                    torch.cuda.reset_peak_memory_stats()
                     free_mb = torch.cuda.mem_get_info()[0] / 1024**2
                     if log_callback:
                         log_callback(f"  🧹 VRAM очищена, свободно: {free_mb:.0f} MB")
             except Exception:
                 pass
+
+            # ── Force-stop ALL running Ollama models to free CUDA memory ──
+            try:
+                import subprocess as _sp
+                _sp.run(["ollama", "stop", "gemma4:e4b"],
+                    capture_output=True, timeout=10,
+                    env=os.environ.copy())
+            except Exception:
+                pass
+            import time as _time
+            _time.sleep(1.5)  # Let CUDA fully release
 
             # ── Warmup: load Gemma4 into GPU once (60-120s), then stay via keep_alive ──
             if log_callback:

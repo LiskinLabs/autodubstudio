@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Store } from '@tauri-apps/plugin-store';
+import { isThemeDark } from './theme';
 
 export type Language = 'en' | 'ru' | 'tr';
 
@@ -99,6 +100,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.hf_key': 'HuggingFace Token (Pyannote)',
     'settings.hf_desc': 'Required for Speaker Diarization (identifying who is speaking)',
     'settings.hf_terms': 'You must accept the terms for these models',
+    'settings.hf_agree': 'On each page, click "Agree and access repository" — otherwise the token will not work.',
     'settings.deepl_key': 'DeepL API Key',
     'settings.deepl_desc': 'Used for high-quality machine translation',
     'settings.gemini_key': 'Gemini API Key',
@@ -113,6 +115,12 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.clone_desc': 'Analyze the original speaker\'s voice and clone it for the dubbed audio instead of using a generic TTS voice',
     'dubbing.adv.demucs': 'Isolate Vocals with Demucs',
     'dubbing.adv.demucs_desc': 'Use Demucs AI to separate vocals from background music/noise before transcribing, improving accuracy',
+    'dubbing.adv.export_srt': 'Export SRT Separately',
+    'dubbing.adv.export_srt_desc': 'Save subtitle files (.srt) as separate output alongside the video',
+    'dubbing.adv.keep_temp': 'Keep Intermediate Files',
+    'dubbing.adv.keep_temp_desc': 'Keep WAV, raw text and other temporary files after pipeline finishes',
+    'dubbing.adv.auto_open': 'Auto-Open Output Folder',
+    'dubbing.adv.auto_open_desc': 'Open the output folder automatically when pipeline completes',
     'dubbing.status.done': 'Process completed',
     'dubbing.status.processing': 'Processing step',
     'dubbing.badge.running': 'Running',
@@ -136,7 +144,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.browse': 'Browse',
     'settings.model_status': 'Model Status',
     'settings.model_status_desc': 'Installed models and their current download status.',
-    'settings.installed': '✅ Installed',
+    'settings.installed': 'Installed',
     
     // Model Downloader
     'dl.title': 'Welcome to AutoDub Studio!',
@@ -150,6 +158,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.select_all': 'Select All',
     'dl.btn_delete': 'Delete',
     'dl.deleting': 'Deleting...',
+    'dl.delete_confirm_title': 'Delete Model?',
+    'dl.delete_confirm_desc': 'This will permanently delete the model from your disk. You will need to download it again (10-30 minutes) to use its features.',
     'dl.models.demucs': 'AI vocal isolation & audio separation',
     'dl.models.whisper': 'Local AI speech recognition',
     'dl.models.pyannote': 'Speaker separation',
@@ -195,6 +205,14 @@ const translations: Record<Language, Record<string, string>> = {
     'chat.new_chat': 'New Chat',
     'chat.no_models': 'No models downloaded (use ollama pull)',
     'chat.send_title': 'Send message',
+    'chat.ollama_off_title': 'AI Is Off',
+    'chat.ollama_off_desc': 'The local AI engine (Ollama) is turned off to save memory.',
+    'chat.start_ollama': 'Start Ollama',
+    'chat.stop_ollama': 'Stop',
+    'chat.refresh_models': 'Refresh model list',
+    'chat.disclaimer': 'AI can make mistakes. Consider verifying important information.',
+    'chat.model_selector': 'Select AI model',
+    'chat.connection_status': 'Connection status',
     'settings.gpu_limit': 'GPU Memory Limit',
     'settings.gpu.auto': 'Auto (Recommended)',
     'settings.gpu_desc': 'Limits VRAM usage for local AI models. "Auto" detects available memory.',
@@ -253,9 +271,14 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.ollama_url': 'Ollama Server URL',
     'settings.performance': 'Performance',
     'settings.theme': 'Theme',
-    'settings.theme.dark': 'Dark',
     'settings.theme.light': 'Light',
-    'settings.theme.system': 'System',
+    'settings.theme.dim': 'Dim',
+    'settings.theme.night': 'Night',
+    'settings.theme.sunset': 'Sunset',
+    'settings.theme.forest': 'Forest',
+    'settings.theme.nord': 'Nord',
+    'settings.theme.dracula': 'Dracula',
+    'settings.theme.caramellatte': 'Caramel Latte',
     'settings.whisper.base': 'Fast, low accuracy',
     'settings.whisper.large': 'Best accuracy (recommended)',
     'settings.whisper.medium': 'Good accuracy',
@@ -291,6 +314,84 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Branding
     'brand.powered_by': 'Powered by LiskinLabs',
+
+    // App shell
+    'app.skip_to_content': 'Skip to main content',
+    'app.search_commands': 'Search commands (Ctrl+K)',
+    'app.toggle_theme': 'Toggle theme',
+
+    // Breadcrumbs
+    'breadcrumb.dubbing': 'Dubbing Studio',
+    'breadcrumb.live': 'Live Subtitles',
+    'breadcrumb.chat': 'AI Chat',
+    'breadcrumb.settings': 'Settings',
+    'breadcrumb.settings_models': 'Settings · AI Models',
+    'breadcrumb.settings_keys': 'Settings · API Keys',
+    'breadcrumb.settings_about': 'Settings · About',
+
+    // Error boundary
+    'error.title': 'Something went wrong',
+    'error.default_message': 'An unexpected error occurred.',
+    'error.reported': 'Error report sent automatically. Our team will investigate.',
+    'error.sending': 'Sending error report automatically...',
+    'error.reload': 'Reload Component',
+
+    // Update checker
+    'update.available_title': 'Update v{version} available!',
+    'update.available_desc': 'A new version is ready. Starting background download...',
+    'update.downloading': 'Downloading update ({size}MB)...',
+    'update.notify_ready': "We'll notify you when it's ready.",
+    'update.downloaded': 'Update downloaded!',
+    'update.restart_prompt': 'Restart now to apply the update?',
+    'update.failed': 'Update download failed',
+    'update.retry_later': 'Will retry on next launch.',
+    'update.installing': 'Installing update...',
+    'update.restart_auto': 'App will restart automatically.',
+    'update.install_failed': 'Failed to install update',
+    'update.restart_manual': 'Please restart manually.',
+    'update.ready_label': 'v{version} ready',
+    'update.click_to_install': 'Click to install and restart',
+    'update.downloading_label': 'Downloading update...',
+    'update.available_label': 'Update available',
+    'update.checking': 'Checking...',
+
+    // GPU options
+    'settings.gpu_4gb': '4 GB',
+    'settings.gpu_6gb': '6 GB',
+    'settings.gpu_8gb': '8 GB',
+    'settings.gpu_12gb': '12 GB',
+
+    // Keys test
+    'settings.keys_all_valid': 'All keys valid!',
+
+    // About
+    'settings.about.app_name': 'AutoDubStudio',
+    'settings.about.version_badge': 'v0.0.1',
+    'settings.about.tech_badge': 'Tauri v2 + React 19 + Fluent UI v9',
+    'settings.about.author_name': 'Silvestr Liskin',
+    'settings.about.company': 'Teknorob Robot ve Otomasyon — Bursa, TR',
+
+    // Command palette
+    'cmd.group_navigation': 'Navigation',
+    'cmd.group_actions': 'Actions',
+    'cmd.search_commands': 'Search commands',
+
+    // Dubbing
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
+
+    // Theme labels
+    'theme.light': 'Light',
+    'theme.dark': 'Dark',
+    'theme.dim': 'Dim',
+
+    // Models display
+    'models.count': '{count} model(s)',
+    'models.whisper_tiny': 'tiny',
+    'models.whisper_base': 'base',
+    'models.whisper_small': 'small',
+    'models.whisper_medium': 'medium',
+    'models.whisper_large_v2': 'large-v2',
+    'models.whisper_large_v3': 'large-v3',
   },
   ru: {
     // Navigation
@@ -312,9 +413,14 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.language': 'Язык',
     'settings.theme': 'Тема',
     'settings.performance': 'Производительность',
-    'settings.theme.dark': 'Тёмная',
     'settings.theme.light': 'Светлая',
-    'settings.theme.system': 'Системная',
+    'settings.theme.dim': 'Тусклая',
+    'settings.theme.night': 'Ночная',
+    'settings.theme.sunset': 'Закат',
+    'settings.theme.forest': 'Лес',
+    'settings.theme.nord': 'Норд',
+    'settings.theme.dracula': 'Дракула',
+    'settings.theme.caramellatte': 'Карамельный Латте',
     'settings.lang.en_label': 'Английский',
     'settings.lang.ru_label': 'Русский (Russian)',
     'settings.lang.tr_label': 'Турецкий (Türkçe)',
@@ -382,6 +488,14 @@ const translations: Record<Language, Record<string, string>> = {
     'chat.new_chat': 'Новый чат',
     'chat.no_models': 'Нет загруженных моделей (используйте ollama pull)',
     'chat.send_title': 'Отправить',
+    'chat.ollama_off_title': 'ИИ выключен',
+    'chat.ollama_off_desc': 'Локальный ИИ движок (Ollama) отключен для экономии памяти.',
+    'chat.start_ollama': 'Запустить Ollama',
+    'chat.stop_ollama': 'Выключить',
+    'chat.refresh_models': 'Обновить список моделей',
+    'chat.disclaimer': 'ИИ может ошибаться. Рекомендуется проверять важную информацию.',
+    'chat.model_selector': 'Выбрать ИИ модель',
+    'chat.connection_status': 'Статус подключения',
 
     // Status bar
     'status.gpu': 'GPU Готов',
@@ -420,9 +534,9 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.keys.google_get': 'Получить ключ GCP ↗',
     'settings.keys.testing': 'Проверка...',
     'settings.keys.test_all': 'Проверить все подключения',
-    'settings.keys.no_keys': '⚠️ Введите хотя бы один API ключ для проверки.',
-    'settings.keys.all_ok': '✅ Все ключи валидны!',
-    'settings.keys.failed': '❌ Ошибка проверки подключений',
+    'settings.keys.no_keys': 'Enter at least one API key to test.',
+    'settings.keys.all_ok': 'All keys are valid!',
+    'settings.keys.failed': 'Connection test failed',
 
     // Live Status
     'live.audio_status': 'Аудио статус',
@@ -483,6 +597,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.hf_key': 'HuggingFace Token (Pyannote)',
     'settings.hf_desc': 'Необходим для диаризации (определения кто говорит)',
     'settings.hf_terms': 'Также необходимо принять условия использования моделей',
+    'settings.hf_agree': 'На каждой странице нажмите "Agree and access repository" — иначе токен не заработает.',
     'settings.deepl_key': 'API Ключ DeepL',
     'settings.deepl_desc': 'Используется для высококачественного машинного перевода',
 
@@ -493,6 +608,12 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.clone_desc': 'Анализировать голос оригинального диктора и клонировать его для дубляжа вместо стандартного TTS-голоса',
     'dubbing.adv.demucs': 'Изоляция голоса через Demucs',
     'dubbing.adv.demucs_desc': 'Использовать Demucs AI для отделения голоса от фоновой музыки/шума перед расшифровкой, улучшая точность',
+    'dubbing.adv.export_srt': 'Экспорт SRT отдельно',
+    'dubbing.adv.export_srt_desc': 'Сохранить файлы субтитров (.srt) отдельно вместе с видео',
+    'dubbing.adv.keep_temp': 'Сохранять промежуточные файлы',
+    'dubbing.adv.keep_temp_desc': 'Не удалять WAV, сырой текст и другие временные файлы после пайплайна',
+    'dubbing.adv.auto_open': 'Авто-открытие папки',
+    'dubbing.adv.auto_open_desc': 'Открыть папку с результатом автоматически после завершения',
     'dubbing.status.done': 'Пайплайн завершен',
     'dubbing.status.processing': 'Выполнение шага',
     'dubbing.badge.running': 'В процессе',
@@ -516,7 +637,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.browse': 'Обзор',
     'settings.model_status': 'Статус моделей',
     'settings.model_status_desc': 'Установленные модели и их статус загрузки.',
-    'settings.installed': '✓ Установлено',
+    'settings.installed': 'Установлено',
     
     // Model Downloader
     'dl.title': 'Добро пожаловать в AutoDub Studio!',
@@ -530,6 +651,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.select_all': 'Выбрать все',
     'dl.btn_delete': 'Удалить',
     'dl.deleting': 'Удаление...',
+    'dl.delete_confirm_title': 'Удалить модель?',
+    'dl.delete_confirm_desc': 'Модель будет безвозвратно удалена с диска. Для использования функций потребуется повторная загрузка (10-30 минут).',
     'dl.models.demucs': 'ИИ изоляция вокала и разделение аудио',
     'dl.models.whisper': 'Локальное распознавание речи',
     'dl.models.pyannote': 'Разделение спикеров',
@@ -588,6 +711,84 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Branding
     'brand.powered_by': 'При поддержке LiskinLabs',
+
+    // App shell
+    'app.skip_to_content': 'Пропустить',
+    'app.search_commands': 'Поиск команд (Ctrl+K)',
+    'app.toggle_theme': 'Сменить тему',
+
+    // Breadcrumbs
+    'breadcrumb.dubbing': 'Студия Дубляжа',
+    'breadcrumb.live': 'Лайв Субтитры',
+    'breadcrumb.chat': 'ИИ Чат',
+    'breadcrumb.settings': 'Настройки',
+    'breadcrumb.settings_models': 'Настройки · ИИ Модели',
+    'breadcrumb.settings_keys': 'Настройки · Ключи API',
+    'breadcrumb.settings_about': 'Настройки · О программе',
+
+    // Error boundary
+    'error.title': 'Что-то пошло не так',
+    'error.default_message': 'Произошла непредвиденная ошибка.',
+    'error.reported': 'Отчёт об ошибке отправлен автоматически. Мы разберёмся.',
+    'error.sending': 'Отправка отчёта об ошибке...',
+    'error.reload': 'Перезагрузить',
+
+    // Update checker
+    'update.available_title': 'Доступна версия v{version}!',
+    'update.available_desc': 'Начинаем фоновую загрузку...',
+    'update.downloading': 'Загрузка обновления ({size}MB)...',
+    'update.notify_ready': 'Сообщим, когда будет готово.',
+    'update.downloaded': 'Обновление загружено!',
+    'update.restart_prompt': 'Перезапустить сейчас?',
+    'update.failed': 'Ошибка загрузки обновления',
+    'update.retry_later': 'Повторим при следующем запуске.',
+    'update.installing': 'Установка обновления...',
+    'update.restart_auto': 'Приложение перезапустится автоматически.',
+    'update.install_failed': 'Ошибка установки',
+    'update.restart_manual': 'Пожалуйста, перезапустите вручную.',
+    'update.ready_label': 'v{version} готово',
+    'update.click_to_install': 'Нажмите для установки',
+    'update.downloading_label': 'Загрузка обновления...',
+    'update.available_label': 'Доступно обновление',
+    'update.checking': 'Проверка...',
+
+    // GPU options
+    'settings.gpu_4gb': '4 ГБ',
+    'settings.gpu_6gb': '6 ГБ',
+    'settings.gpu_8gb': '8 ГБ',
+    'settings.gpu_12gb': '12 ГБ',
+
+    // Keys test
+    'settings.keys_all_valid': 'Все ключи валидны!',
+
+    // About
+    'settings.about.app_name': 'AutoDubStudio',
+    'settings.about.version_badge': 'v0.0.1',
+    'settings.about.tech_badge': 'Tauri v2 + React 19 + Fluent UI v9',
+    'settings.about.author_name': 'Сильвестр Лискин',
+    'settings.about.company': 'Teknorob Robot ve Otomasyon — Бурса, Турция',
+
+    // Command palette
+    'cmd.group_navigation': 'Навигация',
+    'cmd.group_actions': 'Действия',
+    'cmd.search_commands': 'Поиск команд',
+
+    // Dubbing
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
+
+    // Theme labels
+    'theme.light': 'Светлая',
+    'theme.dark': 'Тёмная',
+    'theme.dim': 'Тусклая',
+
+    // Models display
+    'models.count': '{count} моделей',
+    'models.whisper_tiny': 'tiny',
+    'models.whisper_base': 'base',
+    'models.whisper_small': 'small',
+    'models.whisper_medium': 'medium',
+    'models.whisper_large_v2': 'large-v2',
+    'models.whisper_large_v3': 'large-v3',
   },
   tr: {
     // Navigation
@@ -609,9 +810,14 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.language': 'Dil',
     'settings.theme': 'Tema',
     'settings.performance': 'Performans',
-    'settings.theme.dark': 'Koyu',
     'settings.theme.light': 'Açık',
-    'settings.theme.system': 'Sistem',
+    'settings.theme.dim': 'Loş',
+    'settings.theme.night': 'Gece',
+    'settings.theme.sunset': 'Gün Batımı',
+    'settings.theme.forest': 'Orman',
+    'settings.theme.nord': 'Kuzey',
+    'settings.theme.dracula': 'Drakula',
+    'settings.theme.caramellatte': 'Karamel Latte',
     'settings.lang.en_label': 'İngilizce',
     'settings.lang.ru_label': 'Rusça (Russian)',
     'settings.lang.tr_label': 'Türkçe (Turkish)',
@@ -679,6 +885,14 @@ const translations: Record<Language, Record<string, string>> = {
     'chat.new_chat': 'Yeni Sohbet',
     'chat.no_models': 'İndirilmiş model yok (ollama pull kullanın)',
     'chat.send_title': 'Mesaj gönder',
+    'chat.ollama_off_title': 'Yapay Zeka Kapalı',
+    'chat.ollama_off_desc': 'Yerel yapay zeka motoru (Ollama) bellek tasarrufu için kapatıldı.',
+    'chat.start_ollama': 'Ollama\'yı Başlat',
+    'chat.stop_ollama': 'Kapat',
+    'chat.refresh_models': 'Model listesini yenile',
+    'chat.disclaimer': 'Yapay zeka hata yapabilir. Önemli bilgileri doğrulamanız önerilir.',
+    'chat.model_selector': 'YZ modeli seç',
+    'chat.connection_status': 'Bağlantı durumu',
 
     // Status bar
     'status.gpu': 'GPU Hazır',
@@ -717,9 +931,9 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.keys.google_get': 'GCP Anahtarı Al ↗',
     'settings.keys.testing': 'Test ediliyor...',
     'settings.keys.test_all': 'Tüm Bağlantıları Test Et',
-    'settings.keys.no_keys': '⚠️ Test etmek için en az bir API anahtarı girin.',
-    'settings.keys.all_ok': '✅ Tüm anahtarlar geçerli!',
-    'settings.keys.failed': '❌ Bağlantı testi başarısız',
+    'settings.keys.no_keys': 'Test etmek için en az bir API anahtarı girin.',
+    'settings.keys.all_ok': 'Tüm anahtarlar geçerli!',
+    'settings.keys.failed': 'Bağlantı testi başarısız',
 
     // Live Status
     'live.audio_status': 'Ses Durumu',
@@ -780,6 +994,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.hf_key': 'HuggingFace Token (Pyannote)',
     'settings.hf_desc': 'Konuşmacı ayrımı için gereklidir (kimin konuştuğunu belirler)',
     'settings.hf_terms': 'Ayrıca bu modellerin kullanım koşullarını kabul etmelisiniz',
+    'settings.hf_agree': 'Her sayfada "Agree and access repository" butonuna tıklayın — aksi takdirde token çalışmaz.',
     'settings.deepl_key': 'DeepL API Anahtarı',
     'settings.deepl_desc': 'Yüksek kaliteli makine çevirisi için kullanılır',
 
@@ -790,6 +1005,12 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.clone_desc': 'Orijinal konuşmacının sesini analiz et ve dublajlı ses için genel bir TTS sesi yerine klonla',
     'dubbing.adv.demucs': 'Demucs ile Sesi Ayrıştır',
     'dubbing.adv.demucs_desc': 'Yazıya dökmeden önce sesi arka plan müzik/gürültüden ayırmak için Demucs AI kullan, doğruluğu artır',
+    'dubbing.adv.export_srt': 'SRT\'yi Ayrı Kaydet',
+    'dubbing.adv.export_srt_desc': 'Altyazı dosyalarını (.srt) video ile birlikte ayrı çıktı olarak kaydet',
+    'dubbing.adv.keep_temp': 'Ara Dosyaları Sakla',
+    'dubbing.adv.keep_temp_desc': 'WAV, ham metin ve diğer geçici dosyaları işlem tamamlandıktan sonra silme',
+    'dubbing.adv.auto_open': 'Klasörü Otomatik Aç',
+    'dubbing.adv.auto_open_desc': 'İşlem tamamlandığında çıktı klasörünü otomatik olarak aç',
     'dubbing.status.done': 'İşlem tamamlandı',
     'dubbing.status.processing': 'Adım işleniyor',
     'dubbing.badge.running': 'Çalışıyor',
@@ -813,7 +1034,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.browse': 'Göz At',
     'settings.model_status': 'Model Durumu',
     'settings.model_status_desc': 'Yüklü modeller ve indirme durumları.',
-    'settings.installed': '✓ Yüklendi',
+    'settings.installed': 'Yüklendi',
     
     // Model Downloader
     'dl.title': 'AutoDub Studio\'ya Hoş Geldiniz!',
@@ -827,6 +1048,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dl.select_all': 'Tümünü Seç',
     'dl.btn_delete': 'Sil',
     'dl.deleting': 'Siliniyor...',
+    'dl.delete_confirm_title': 'Model silinsin mi?',
+    'dl.delete_confirm_desc': 'Model diskten kalıcı olarak silinecek. Özellikleri kullanmak için tekrar indirmeniz gerekecek (10-30 dakika).',
     'dl.models.demucs': 'YZ vokal izolasyonu ve ses ayrıştırma',
     'dl.models.whisper': 'Yerel yapay zeka ses tanıma',
     'dl.models.pyannote': 'Konuşmacı ayrıştırma',
@@ -887,12 +1110,92 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Branding
     'brand.powered_by': 'LiskinLabs Tarafından Desteklenmektedir',
+
+    // App shell
+    'app.skip_to_content': 'Ana içeriğe geç',
+    'app.search_commands': 'Komut ara (Ctrl+K)',
+    'app.toggle_theme': 'Tema değiştir',
+
+    // Breadcrumbs
+    'breadcrumb.dubbing': 'Dublaj Stüdyosu',
+    'breadcrumb.live': 'Canlı Altyazı',
+    'breadcrumb.chat': 'YZ Sohbet',
+    'breadcrumb.settings': 'Ayarlar',
+    'breadcrumb.settings_models': 'Ayarlar · YZ Modelleri',
+    'breadcrumb.settings_keys': 'Ayarlar · API Anahtarları',
+    'breadcrumb.settings_about': 'Ayarlar · Hakkında',
+
+    // Error boundary
+    'error.title': 'Bir şeyler yanlış gitti',
+    'error.default_message': 'Beklenmeyen bir hata oluştu.',
+    'error.reported': 'Hata raporu otomatik gönderildi. Ekibimiz inceleyecek.',
+    'error.sending': 'Hata raporu gönderiliyor...',
+    'error.reload': 'Yeniden Yükle',
+
+    // Update checker
+    'update.available_title': 'v{version} güncellemesi mevcut!',
+    'update.available_desc': 'Arka planda indiriliyor...',
+    'update.downloading': 'Güncelleme indiriliyor ({size}MB)...',
+    'update.notify_ready': 'Hazır olduğunda bildireceğiz.',
+    'update.downloaded': 'Güncelleme indirildi!',
+    'update.restart_prompt': 'Şimdi yeniden başlatılsın mı?',
+    'update.failed': 'Güncelleme indirilemedi',
+    'update.retry_later': 'Sonraki başlatmada tekrar denenecek.',
+    'update.installing': 'Güncelleme kuruluyor...',
+    'update.restart_auto': 'Uygulama otomatik yeniden başlayacak.',
+    'update.install_failed': 'Güncelleme kurulamadı',
+    'update.restart_manual': 'Lütfen manuel olarak yeniden başlatın.',
+    'update.ready_label': 'v{version} hazır',
+    'update.click_to_install': 'Kurmak için tıklayın',
+    'update.downloading_label': 'Güncelleme indiriliyor...',
+    'update.available_label': 'Güncelleme mevcut',
+    'update.checking': 'Kontrol ediliyor...',
+
+    // GPU options
+    'settings.gpu_4gb': '4 GB',
+    'settings.gpu_6gb': '6 GB',
+    'settings.gpu_8gb': '8 GB',
+    'settings.gpu_12gb': '12 GB',
+
+    // Keys test
+    'settings.keys_all_valid': 'Tüm anahtarlar geçerli!',
+
+    // About
+    'settings.about.app_name': 'AutoDubStudio',
+    'settings.about.version_badge': 'v0.0.1',
+    'settings.about.tech_badge': 'Tauri v2 + React 19 + Fluent UI v9',
+    'settings.about.author_name': 'Silvestr Liskin',
+    'settings.about.company': 'Teknorob Robot ve Otomasyon — Bursa, TR',
+
+    // Command palette
+    'cmd.group_navigation': 'Navigasyon',
+    'cmd.group_actions': 'Eylemler',
+    'cmd.search_commands': 'Komut ara',
+
+    // Dubbing
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
+
+    // Theme labels
+    'theme.light': 'Açık',
+    'theme.dark': 'Koyu',
+    'theme.dim': 'Loş',
+
+    // Models display
+    'models.count': '{count} model',
+    'models.whisper_tiny': 'tiny',
+    'models.whisper_base': 'base',
+    'models.whisper_small': 'small',
+    'models.whisper_medium': 'medium',
+    'models.whisper_large_v2': 'large-v2',
+    'models.whisper_large_v3': 'large-v3',
   }
 };
 
 class SettingsStore {
   language: Language = 'en';
-  theme: string = 'dark';
+  theme: string = 'dim';        // dim (teamsDarkTheme) — best Win11 default
+  themeLight: string = 'light'; // webLightTheme
+  themeDark: string = 'dim';    // teamsDarkTheme
   apiKeys: Record<string, string> = {};
   listeners: Set<() => void> = new Set();
   private _store: Store | null = null;
@@ -919,12 +1222,13 @@ class SettingsStore {
     try {
       this._store = await Store.load('autodub-settings.json');
       const storedTheme = await this._store.get<string>('theme');
-      if (storedTheme) {
-        this.theme = storedTheme;
-        document.documentElement.setAttribute('data-theme', storedTheme === 'dark' ? 'dim' : storedTheme);
-      } else {
-        document.documentElement.setAttribute('data-theme', this.theme === 'dark' ? 'dim' : this.theme);
-      }
+      const storedLight = await this._store.get<string>('themeLight');
+      const storedDark = await this._store.get<string>('themeDark');
+      if (storedTheme) this.theme = storedTheme;
+      else this.theme = 'dim';
+      if (storedLight) this.themeLight = storedLight;
+      if (storedDark) this.themeDark = storedDark;
+      // Theme is handled by FluentProvider in main.tsx — no data-theme attribute needed
       const stored = await this._store.get<Record<string, string>>('apiKeys');
 
       if (stored && typeof stored === 'object') {
@@ -960,10 +1264,9 @@ class SettingsStore {
     if (this._store) {
       await this._store.set('apiKeys', this.apiKeys);
       await this._store.save();
-    } else {
-      // Fallback for non-Tauri environments
-      localStorage.setItem('autodub_api_keys', JSON.stringify(this.apiKeys));
     }
+    // SECURITY: Never fall back to localStorage for API keys.
+    // If Tauri Store is unavailable, keys are kept in memory only for this session.
   }
 
   setLanguage(lang: Language) {
@@ -973,12 +1276,24 @@ class SettingsStore {
 
   async setTheme(theme: string) {
     this.theme = theme;
-    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dim' : theme);
+    // Remember light/dark preference
+    if (isThemeDark(theme)) {
+      this.themeDark = theme;
+    } else {
+      this.themeLight = theme;
+    }
     if (this._store) {
       await this._store.set('theme', theme);
+      await this._store.set('themeLight', this.themeLight);
+      await this._store.set('themeDark', this.themeDark);
       await this._store.save();
     }
     this.notify();
+  }
+
+  async toggleTheme() {
+    const next = isThemeDark(this.theme) ? this.themeLight : this.themeDark;
+    await this.setTheme(next);
   }
 
   async setApiKeys(keys: Record<string, string>) {
@@ -1015,7 +1330,10 @@ export function useSettings() {
     lang: settingsStore.language,
     theme: settingsStore.theme,
     setLanguage: (l: Language) => settingsStore.setLanguage(l),
+    themeLight: settingsStore.themeLight,
+    themeDark: settingsStore.themeDark,
     setTheme: (t: string) => settingsStore.setTheme(t),
+    toggleTheme: () => settingsStore.toggleTheme(),
     setApiKeys: (keys: Record<string, string>) => settingsStore.setApiKeys(keys),
     settings: {
       geminiKey: settingsStore.apiKeys.gemini || '',

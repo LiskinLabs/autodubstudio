@@ -1,5 +1,13 @@
-import React from 'react';
-import { reportErrorToGitHub } from '../lib/errorReporter';
+import React from "react";
+import { Button } from "@fluentui/react-components";
+import {
+  WarningRegular as AlertTriangle,
+  CheckmarkRegular as Check,
+  SendRegular as Send,
+  ArrowSyncRegular as RefreshCw,
+} from "@fluentui/react-icons";
+import { reportErrorToGitHub } from "../lib/errorReporter";
+import { settingsStore } from "../store";
 
 interface Props {
   children: React.ReactNode;
@@ -22,11 +30,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Caught:', error.message);
-    // Auto-send to backend → GitHub. Zero user interaction.
+    console.error("[ErrorBoundary] Caught:", error.message);
     reportErrorToGitHub(error, info.componentStack || undefined).then((url) => {
       this.setState({ reported: true });
-      if (url) console.log('[ErrorBoundary] Report URL:', url);
+      if (url) console.log("[ErrorBoundary] Report URL:", url);
     });
   }
 
@@ -37,36 +44,40 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-          <div className="text-5xl mb-2">💥</div>
-          <h2 className="text-xl font-semibold text-base-content">
-            Something went wrong
-          </h2>
-          <p className="text-sm text-base-content/70 max-w-[400px] leading-relaxed">
-            {this.state.error?.message || 'An unexpected error occurred.'}
+        <div className="flex flex-col items-center justify-center h-full gap-5 p-8 text-center">
+          <div style={{
+            padding: 20, borderRadius: 16,
+            background: "var(--colorPaletteRedBackground1)",
+            border: "1px solid var(--colorPaletteRedBorder1)",
+          }}>
+            <AlertTriangle style={{ fontSize: 48, color: "var(--colorPaletteRedForeground1)" }} />
+          </div>
+          <h2 className="text-xl font-semibold">{settingsStore.t("error.title")}</h2>
+          <p className="text-sm max-w-md leading-relaxed" style={{ color: "var(--colorNeutralForeground2)" }}>
+            {this.state.error?.message || settingsStore.t("error.default_message")}
           </p>
 
-          {this.state.reported && (
-            <div className="alert alert-success shadow-sm max-w-[380px] text-left text-xs">
-              <span>✅</span>
-              <span>Error report sent automatically. Our team will investigate.</span>
+          {this.state.reported ? (
+            <div className="flex gap-3 p-4 rounded-xl shadow-sm max-w-md text-left" style={{
+              background: "var(--colorPaletteGreenBackground2)",
+              border: "1px solid var(--colorPaletteGreenBorder1)",
+            }}>
+              <Check style={{ fontSize: 18, color: "var(--colorPaletteGreenForeground1)" }} />
+              <span className="text-sm">{settingsStore.t("error.reported")}</span>
+            </div>
+          ) : (
+            <div className="flex gap-3 p-4 rounded-xl shadow-sm max-w-md text-left" style={{
+              background: "var(--colorPaletteBlueBackground2)",
+              border: "1px solid var(--colorPaletteBlueBorder1)",
+            }}>
+              <Send style={{ fontSize: 18, color: "var(--colorPaletteBlueForeground1)" }} />
+              <span className="text-sm">{settingsStore.t("error.sending")}</span>
             </div>
           )}
 
-          {!this.state.reported && (
-            <div className="alert alert-info shadow-sm max-w-[380px] text-left text-xs">
-              <span>📤</span>
-              <span>Sending error report automatically...</span>
-            </div>
-          )}
-
-          <button className="btn btn-primary mt-4" onClick={this.handleReload}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
-            Reload Component
-          </button>
+          <Button appearance="primary" icon={<RefreshCw style={{ fontSize: 16 }} />} onClick={this.handleReload}>
+            {settingsStore.t("error.reload")}
+          </Button>
         </div>
       );
     }

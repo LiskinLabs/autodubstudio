@@ -46,7 +46,17 @@ crash_report.json
 CLAUDE.md
 GEMINI.md
 MEMORY.md
+JOURNAL.md
 .claude/
+.gemini/
+.agent/
+.agents/
 *.md.tmp
 _*.py
 _backend_crashed.flag
+crash_report.json
+*.json.report
+**/MEMORY.md
+**/GEMINI.md
+**/CLAUDE.md
+**/JOURNAL.md

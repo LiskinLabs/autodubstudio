@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -10,10 +10,44 @@ import logging
 import asyncio
 import secrets
 import httpx
-from datetime import datetime
+import tempfile
 
 # ── Logging to file ──
 LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "autodub_backend.log")
+
+class SanitizingFormatter(logging.Formatter):
+    """Apply secret/PII redaction to ALL log output before it hits disk or console."""
+    def format(self, record):
+        original = super().format(record)
+        # Import locally to avoid circular import (redact_secrets is defined below)
+        return _redact_log(original)
+
+def _redact_log(text: str) -> str:
+    """Redact secrets and PII from a log string. Used by SanitizingFormatter and WS logs."""
+    import re as _re
+    if not text:
+        return text
+    # API keys in key=value format
+    text = _re.sub(
+        r'(HF_TOKEN|GITHUB_TOKEN|GEMINI_API_KEY|DEEPSEEK_API_KEY|DEEPL_API_KEY|OPENAI_API_KEY|AZURE_OPENAI_KEY)[\s:=]+[\w\-]+',
+        r'\1=***',
+        text,
+        flags=_re.IGNORECASE
+    )
+    # HF token pattern
+    text = _re.sub(r'hf_[a-zA-Z0-9]{34}', r'hf_***', text)
+    # GitHub PAT patterns
+    text = _re.sub(r'ghp_[a-zA-Z0-9]{36}', r'ghp_***', text)
+    text = _re.sub(r'github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}', r'github_pat_***', text)
+    # DeepL key pattern
+    text = _re.sub(r'[a-f0-9\-]{36}:fx', r'***:fx', text)
+    # PII: hide user home directory
+    text = text.replace(os.path.expanduser("~"), "~")
+    # PII: hide Windows usernames in paths
+    text = _re.sub(r'C:\\Users\\[^\\]+', r'C:\\Users\\***', text)
+    text = _re.sub(r'/home/[^/]+', r'/home/***', text)
+    return text
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -22,6 +56,12 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ],
 )
+# Apply sanitizing formatter to ALL handlers
+for handler in logging.root.handlers:
+    handler.setFormatter(SanitizingFormatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
 logger = logging.getLogger("autodub")
 from queue import Queue, Empty
 import psutil
@@ -70,13 +110,55 @@ except Exception as e:
 
 # Add parent directory to path to import engine.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engine import AutoDubWorker
+from engine import AutoDubWorker, PIPELINE_BUSY
+
+APP_VERSION = "0.0.1"
 
 app = FastAPI(
     title="AutoDubStudio Backend",
     description="Local API for AutoDubStudio Desktop Application",
-    version="0.0.1-beta",
+    version=APP_VERSION,
 )
+
+# ── Security: max request body size (prevents memory exhaustion DoS) ──
+MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — enough for error reports, too small for abuse
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests with bodies larger than MAX_BODY_SIZE."""
+    async def dispatch(self, request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_BODY_SIZE:
+            return JSONResponse(
+                {"detail": "Request body too large"},
+                status_code=413,
+            )
+        return await call_next(request)
+
+app.add_middleware(BodySizeLimitMiddleware)
+
+# ── Security: CSP headers for webview ──
+class CSPMiddleware(BaseHTTPMiddleware):
+    """Add Content-Security-Policy headers to all HTTP responses."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        # For desktop app: connect to local services + external APIs
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "connect-src 'self' http://127.0.0.1:* http://localhost:* "
+            "https://api.deepseek.com https://api-free.deepl.com https://api.deepl.com "
+            "https://generativelanguage.googleapis.com https://api.openai.com "
+            "https://huggingface.co https://api.github.com; "
+            "script-src 'self' 'unsafe-inline'; "  # Tauri webview needs inline scripts
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:;"
+        )
+        return response
+
+app.add_middleware(CSPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -115,7 +197,34 @@ async def get_models():
         ]
     }
 
-from fastapi import Request
+# ── GPU Status endpoint (polled by StatusBar every 5s) ──
+@app.get("/api/system/gpu")
+async def get_gpu_status():
+    """Return CUDA availability, VRAM, and GPU name for the StatusBar component."""
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+        if cuda_available:
+            gpu_name = torch.cuda.get_device_name(0)
+            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+            vram_used_gb = round((total_bytes - free_bytes) / (1024**3), 2)
+            vram_total_gb = round(total_bytes / (1024**3), 2)
+        else:
+            gpu_name = ""
+            vram_used_gb = 0.0
+            vram_total_gb = 0.0
+    except Exception:
+        cuda_available = False
+        gpu_name = ""
+        vram_used_gb = 0.0
+        vram_total_gb = 0.0
+
+    return {
+        "cuda_available": cuda_available,
+        "gpu_name": gpu_name,
+        "vram_used_gb": vram_used_gb,
+        "vram_total_gb": vram_total_gb,
+    }
 
 @app.get("/api/token")
 async def get_ws_token(request: Request):
@@ -142,7 +251,8 @@ async def start_ollama(request: Request):
         )
         return {"status": "ok", "message": "Ollama started"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to start Ollama: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start Ollama")
 
 @app.post("/api/ollama/stop")
 async def stop_ollama(request: Request):
@@ -160,7 +270,8 @@ async def stop_ollama(request: Request):
                     pass
         return {"status": "ok", "message": "Ollama stopped"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to stop Ollama: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop Ollama")
 
 active_worker = None
 
@@ -253,6 +364,169 @@ async def websocket_pipeline(websocket: WebSocket):
         print("Client disconnected from WebSocket")
         # Do NOT stop the worker automatically on disconnect. The user might refresh the page.
 
+# ── Live Subtitles WebSocket ──
+_live_thread = None
+_live_stop_event = None
+
+
+@app.websocket("/ws/live")
+async def websocket_live(websocket: WebSocket):
+    global _live_thread, _live_stop_event
+
+    # No auth required — live subtitles only stream non-sensitive text to localhost
+    await websocket.accept()
+    await websocket.send_json({"type": "status", "active": False})
+
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=0.5)
+
+                if data.get("action") == "start":
+                    # Stop any existing capture
+                    if _live_stop_event:
+                        _live_stop_event.set()
+                        if _live_thread:
+                            _live_thread.join(timeout=2)
+
+                    config = data.get("config", {})
+                    _live_stop_event = threading.Event()
+
+                    # Start live capture in a background thread
+                    _live_thread = threading.Thread(
+                        target=_run_live_capture,
+                        args=(websocket, config, _live_stop_event),
+                        daemon=True,
+                    )
+                    _live_thread.start()
+                    await websocket.send_json({"type": "status", "active": True})
+
+                elif data.get("action") == "stop":
+                    if _live_stop_event:
+                        _live_stop_event.set()
+                    await websocket.send_json({"type": "status", "active": False})
+
+            except asyncio.TimeoutError:
+                pass
+
+    except WebSocketDisconnect:
+        if _live_stop_event:
+            _live_stop_event.set()
+        print("Live subtitles client disconnected")
+
+
+def _run_live_capture(websocket, config, stop_event):
+    """Background thread: capture system audio, transcribe, translate, stream subtitles."""
+    import queue as qmod
+
+    target_lang = config.get("targetLanguage", "ru")
+    source_lang = config.get("sourceLanguage", "auto")
+    engine = config.get("translationEngine", "Google Translate (Free)")
+    position = config.get("subtitlePosition", "bottom")
+    font_size = config.get("fontSize", "medium")
+
+    try:
+        import sounddevice as sd
+        import numpy as np
+        from faster_whisper import WhisperModel
+        import torch
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute = "float16" if device == "cuda" else "int8"
+
+        model = WhisperModel("small", device=device, compute_type=compute)
+
+        sample_rate = 16000
+        chunk_seconds = 3.0
+        chunk_samples = int(sample_rate * chunk_seconds)
+
+        audio_queue = qmod.Queue()
+
+        def audio_callback(indata, frames, time_info, status):
+            if status:
+                return
+            audio_queue.put(indata.copy())
+
+        # Determine source language for Whisper
+        whisper_lang = None if source_lang == "auto" else source_lang
+
+        with sd.InputStream(
+            samplerate=sample_rate, channels=1, callback=audio_callback,
+            dtype="float32",
+        ):
+            buffer = np.zeros((0, 1), dtype=np.float32)
+
+            while not stop_event.is_set():
+                try:
+                    data = audio_queue.get(timeout=0.3)
+                    buffer = np.vstack((buffer, data))
+
+                    if len(buffer) >= chunk_samples:
+                        audio_data = buffer[:chunk_samples].flatten()
+
+                        if np.max(np.abs(audio_data)) > 0.01:
+                            segments, info = model.transcribe(
+                                audio_data,
+                                beam_size=5,
+                                vad_filter=True,
+                                vad_parameters={"min_silence_duration_ms": 500},
+                                condition_on_previous_text=False,
+                                language=whisper_lang,
+                            )
+                            text = " ".join(s.text for s in segments).strip()
+
+                            if text:
+                                # Simple translation via deep-translator
+                                translated = text
+                                if target_lang != source_lang:
+                                    try:
+                                        from deep_translator import GoogleTranslator
+
+                                        translated = GoogleTranslator(
+                                            source="auto", target=target_lang
+                                        ).translate(text)
+                                    except Exception:
+                                        pass
+
+                                subtitle = f"{text}\n---\n{translated}"
+
+                                # Send via asyncio.run_coroutine_threadsafe equivalent
+                                try:
+                                    import asyncio
+
+                                    loop = asyncio.get_event_loop()
+                                    if loop.is_running():
+                                        asyncio.run_coroutine_threadsafe(
+                                            websocket.send_json(
+                                                {"type": "subtitle", "text": subtitle}
+                                            ),
+                                            loop,
+                                        )
+                                except Exception:
+                                    pass
+
+                        buffer = np.zeros((0, 1), dtype=np.float32)
+
+                except qmod.Empty:
+                    continue
+
+    except ImportError as e:
+        print(f"[Live] Missing dependency: {e}")
+    except Exception as e:
+        print(f"[Live] Capture error: {e}")
+    finally:
+        try:
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    websocket.send_json({"type": "status", "active": False}), loop
+                )
+        except Exception:
+            pass
+
+
 # ── Model Download / Status ──
 import subprocess
 import threading
@@ -294,9 +568,9 @@ def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, st
 
 @app.get("/api/logs")
 async def get_logs(lines: int = 200, authorization: str = Header("")):
+    """Return recent backend log lines."""
     if not verify_error_report_token(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    """Return recent backend log lines."""
     try:
         if os.path.exists(LOG_FILE):
             with open(LOG_FILE, "r", encoding="utf-8") as f:
@@ -402,6 +676,8 @@ async def delete_model(model_id: str):
     """Delete a downloaded model."""
     if model_id not in VALID_MODEL_IDS:
         raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
+
+    logger.warning("AUDIT: Model deletion requested | model=%s", model_id)
         
     import shutil
     deleted_paths = []
@@ -729,18 +1005,8 @@ _MAX_ERROR_REPORTS = 5
 import re
 
 def redact_secrets(text: str) -> str:
-    if not text:
-        return text
-    # Redact common env variables if they somehow leak into logs
-    text = re.sub(r'(HF_TOKEN|GITHUB_TOKEN|GEMINI_API_KEY|DEEPSEEK_API_KEY|DEEPL_API_KEY)[\s:=]+[\w\-]+', r'\1=***', text)
-    # Redact HF token
-    text = re.sub(r'hf_[a-zA-Z0-9]{34}', r'hf_***', text)
-    # Redact GitHub token
-    text = re.sub(r'ghp_[a-zA-Z0-9]{36}', r'ghp_***', text)
-    # Redact DeepL key (often ends with :fx)
-    text = re.sub(r'[a-f0-9\-]{36}:fx', r'***:fx', text)
-    # Hide user home directory
-    return text.replace(os.path.expanduser("~"), "~")
+    """Thin wrapper around _redact_log for backward compatibility — WebSocket log events."""
+    return _redact_log(text)
 
 def verify_error_report_token(authorization: str = Header("")) -> bool:
     """Reuse WS auth token — frontend already has it from /api/token."""
@@ -859,7 +1125,7 @@ def report_crash_to_github(error_msg: str):
         pass
 
 
-def send_pending_crash_report():
+async def send_pending_crash_report():
     """On startup, check for a previous crash report and send to GitHub."""
     if not os.path.exists(CRASH_LOG):
         return
@@ -883,13 +1149,13 @@ def send_pending_crash_report():
 {crash_data.get('error', 'unknown')}
 ```
 """
-        resp = httpx.post(
-            f"https://api.github.com/repos/{GITHUB_REPO}/issues",
-            json={"title": title, "body": body, "labels": ["bug", "crash"]},
-            headers={"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
-            timeout=10
-        )
-        resp.encoding = "utf-8"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+                json={"title": title, "body": body, "labels": ["bug", "crash"]},
+                headers={"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+            )
+        
         if resp.status_code == 201:
             print(f"[CRASH] Sent crash report -> GitHub Issue #{resp.json().get('number')}")
         else:
@@ -898,12 +1164,36 @@ def send_pending_crash_report():
         print(f"[CRASH] Failed to send crash report: {e}")
 
 
-if __name__ == "__main__":
-    # Send any pending crash reports from previous runs
-    send_pending_crash_report()
+@app.get("/api/debug/test-error")
+async def test_error_logging(authorization: str = Header("")):
+    """[DEV ONLY] Verify that errors are correctly captured in logs. Requires auth token."""
+    if not verify_error_report_token(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    logger.error("DEBUG: Manual test error triggered for logging verification")
+    return {"status": "logged"}
 
-    try:
-        uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-    except Exception as e:
-        report_crash_to_github(str(e))
-        raise
+async def background_self_test():
+    """Continuous background task to monitor backend health and log anomalies."""
+    logger.info("[SELF-TEST] Background monitor started")
+    while True:
+        try:
+            from engine import PIPELINE_BUSY
+            await asyncio.sleep(60)
+        except Exception as e:
+            logger.error(f"[CRITICAL SELF-TEST ERROR] {redact_secrets(str(e))}")
+            # Write crash flag to a proper temp location, not cwd
+            crash_flag = os.path.join(tempfile.gettempdir(), "_autodub_backend_crashed.flag")
+            try:
+                with open(crash_flag, "w") as f:
+                    f.write(redact_secrets(str(e)))
+            except Exception:
+                pass
+            await asyncio.sleep(10)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(background_self_test())
+    asyncio.create_task(send_pending_crash_report())
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")

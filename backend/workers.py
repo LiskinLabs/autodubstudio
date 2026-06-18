@@ -29,6 +29,33 @@ class YouTubeDownloadWorker(QThread):
                 pass
 
     def run(self):
+        from urllib.parse import urlparse
+        import socket
+        import ipaddress
+
+        # SSRF Protection: Validate URL scheme and domain
+        parsed = urlparse(self.url)
+        allowed_domains = ["youtube.com", "youtu.be", "www.youtube.com", "tiktok.com", "www.tiktok.com", "vimeo.com", "www.vimeo.com"]
+        if parsed.scheme not in ["http", "https"] or parsed.hostname not in allowed_domains:
+            err_msg = f"URL domain '{parsed.hostname}' is not allowed. Only YouTube, TikTok, and Vimeo are supported."
+            self.log_signal.emit(f"❌ {err_msg}")
+            self.finished_signal.emit(False, err_msg)
+            return
+
+        # DNS rebinding protection: resolve hostname and verify no private IPs
+        try:
+            addrs = socket.getaddrinfo(parsed.hostname, None)
+            for addr in addrs:
+                ip_str = addr[4][0]
+                ip = ipaddress.ip_address(ip_str)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    err_msg = f"URL '{parsed.hostname}' resolves to private IP ({ip_str}). Blocked."
+                    self.log_signal.emit(f"❌ {err_msg}")
+                    self.finished_signal.emit(False, err_msg)
+                    return
+        except Exception:
+            pass  # DNS resolution failed — let yt-dlp handle the error naturally
+
         self.log_signal.emit(f"⏳ Скачивание: {self.url}")
         ydl_opts = {
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',

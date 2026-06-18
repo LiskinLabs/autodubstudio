@@ -1,6 +1,35 @@
 use std::process::{Command as StdCommand, Stdio};
+use std::net::TcpStream;
+use std::time::Duration;
 use tauri::Manager;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
+
+/// Check if backend is already alive on port 8000
+fn is_backend_alive() -> bool {
+    TcpStream::connect_timeout(
+        &"127.0.0.1:8000".parse().unwrap(),
+        Duration::from_millis(500),
+    ).is_ok()
+}
+
+/// Kill any process holding port 8000 (best-effort, Windows only)
+#[cfg(target_os = "windows")]
+fn kill_port_8000() {
+    let _ = StdCommand::new("cmd")
+        .args(["/c", "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :8000.*LISTENING') do @taskkill /F /PID %a 2>nul"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+#[cfg(not(target_os = "windows"))]
+fn kill_port_8000() {
+    let _ = StdCommand::new("sh")
+        .args(["-c", "lsof -ti:8000 | xargs kill -9 2>/dev/null; true"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,7 +51,7 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
 
-            // Windows 11 Mica / Windows 10 Acrylic effect
+            // Windows 11 Mica effect
             #[cfg(target_os = "windows")]
             {
                 let effects = EffectsBuilder::new()
@@ -38,81 +67,98 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-            // Find backend command
-            let (backend_program, backend_args, backend_dir): (String, Vec<&str>, std::path::PathBuf) = {
-                let desktop_project = std::path::PathBuf::from(
+            let backend_dir = {
+                let desktop = std::path::PathBuf::from(
                     std::env::var("USERPROFILE").unwrap_or_default()
                 ).join("Desktop").join("AutoDubStudio");
-
-                let uvicorn_path = desktop_project.join(".venv").join("Scripts").join("uvicorn.exe");
-                if uvicorn_path.exists() {
-                    (uvicorn_path.to_string_lossy().to_string(),
-                     vec!["backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
-                     desktop_project)
+                if desktop.join("backend").join("main.py").exists() {
+                    desktop
                 } else {
-                    let resource_dir = app.path().resource_dir()
-                        .unwrap_or_else(|_| std::env::current_dir().unwrap());
-                    let candidates = vec![
-                        resource_dir.join("backend").join("main.py"),
-                        resource_dir.join("_up_").join("_up_").join("backend").join("main.py"),
-                        resource_dir.join("_up_").join("backend").join("main.py"),
-                        std::env::current_dir().unwrap().join("backend").join("main.py"),
-                    ];
-                    let script = candidates.iter().find(|p| p.exists())
-                        .map(|p| p.to_string_lossy().to_string())
-                        .unwrap_or_default();
-                    let dir = candidates.iter().find(|p| p.exists())
-                        .and_then(|p| p.parent().and_then(|pp| pp.parent()))
-                        .map(|d| d.to_path_buf())
-                        .unwrap_or_else(|| std::env::current_dir().unwrap());
-                    if script.is_empty() {
-                        eprintln!("[AutoDub] Backend script not found!");
-                        return Ok(());
-                    }
-                    ("uv".to_string(),
-                     vec!["run", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
-                     dir)
+                    std::env::current_dir().unwrap_or_default()
                 }
             };
 
-            // Auto-restart backend on crash
             std::thread::spawn(move || {
+                // ── Check if backend is already running ──
+                if is_backend_alive() {
+                    println!("[AutoDub] Backend already running on port 8000 — monitoring");
+                    // Just monitor: keep checking if it's alive
+                    loop {
+                        std::thread::sleep(Duration::from_secs(10));
+                        if !is_backend_alive() {
+                            println!("[AutoDub] Backend died — will restart");
+                            break;
+                        }
+                    }
+                }
+
                 let mut restart_count = 0u32;
+                const MAX_RESTARTS: u32 = 20;
+
                 loop {
-                    if restart_count > 0 {
-                        println!("[AutoDub] Backend crashed — restarting in 2s (attempt {})...", restart_count);
-                        std::thread::sleep(std::time::Duration::from_secs(2));
+                    if restart_count >= MAX_RESTARTS {
+                        eprintln!("[AutoDub] Backend crashed {} times — giving up", restart_count);
+                        break;
                     }
 
+                    if restart_count > 0 {
+                        let delay_secs = (2u64.saturating_pow(restart_count)).min(60);
+                        println!("[AutoDub] Restarting backend in {}s (attempt {}/{})", delay_secs, restart_count, MAX_RESTARTS);
+                        std::thread::sleep(Duration::from_secs(delay_secs));
+
+                        // Kill stale processes on port 8000 before restart
+                        kill_port_8000();
+                        std::thread::sleep(Duration::from_millis(500));
+                    }
+
+                    // Skip if already alive
+                    if is_backend_alive() {
+                        println!("[AutoDub] Backend already alive — waiting for it to exit");
+                        loop {
+                            std::thread::sleep(Duration::from_secs(10));
+                            if !is_backend_alive() {
+                                println!("[AutoDub] Backend exited — will restart");
+                                restart_count += 1;
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Find Python command
+                    let python_exe = backend_dir.join(".venv").join("Scripts").join("python.exe");
+                    let (program, args): (String, Vec<String>) = if python_exe.exists() {
+                        (python_exe.to_string_lossy().to_string(),
+                         vec!["backend/main.py".to_string()])
+                    } else {
+                        ("uv".to_string(),
+                         vec!["run".to_string(), "python".to_string(), "backend/main.py".to_string()])
+                    };
+
+                    // Log file
                     let log_file = backend_dir.join("autodub_backend.log");
-                    // Rotate if > 5MB
                     if let Ok(meta) = std::fs::metadata(&log_file) {
                         if meta.len() > 5_000_000 {
                             let _ = std::fs::rename(&log_file, backend_dir.join("autodub_backend.old.log"));
                         }
                     }
                     let log_fd = std::fs::OpenOptions::new()
-                        .create(true).append(true).open(&log_file)
-                        .ok();
+                        .create(true).append(true).open(&log_file).ok();
 
-                    let mut cmd = StdCommand::new(&backend_program);
-                    cmd.args(&backend_args)
-                       .current_dir(&backend_dir);
+                    let mut cmd = StdCommand::new(&program);
+                    cmd.args(&args).current_dir(&backend_dir);
+
                     if let Some(f) = log_fd {
                         let f2 = f.try_clone().unwrap();
                         cmd.stdout(Stdio::from(f)).stderr(Stdio::from(f2));
                     }
 
-                    // Pass GitHub token from config.json for crash reporting
-                    // In production, place config.json next to the .exe or in the project dir
-                    for config_dir in &[backend_dir.clone(), std::env::current_dir().unwrap_or_default()] {
-                        let config_path = config_dir.join("config.json");
-                        if let Ok(config_str) = std::fs::read_to_string(&config_path) {
-                            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_str) {
-                                if let Some(token) = config.get("github_token").and_then(|v| v.as_str()) {
-                                    cmd.env("GITHUB_TOKEN", token);
-                                    break;
-                                }
+                    // Pass GitHub token
+                    let config_path = backend_dir.join("config.json");
+                    if let Ok(config_str) = std::fs::read_to_string(&config_path) {
+                        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_str) {
+                            if let Some(token) = config.get("github_token").and_then(|v| v.as_str()) {
+                                cmd.env("GITHUB_TOKEN", token);
                             }
                         }
                     }
@@ -123,18 +169,12 @@ pub fn run() {
                     match cmd.spawn() {
                         Ok(mut child) => {
                             println!("[AutoDub] Backend started (PID: {}, restarts: {})", child.id(), restart_count);
-                            let _ = child.wait();
-                            // Child process died — write crash marker
-                            if let Ok(mut f) = std::fs::File::create(
-                                backend_dir.join("_backend_crashed.flag")
-                            ) {
-                                use std::io::Write;
-                                let _ = writeln!(f, "backend_crashed");
-                            }
+                            let status = child.wait();
+                            println!("[AutoDub] Backend exited: {:?}", status);
                         }
                         Err(e) => {
                             eprintln!("[AutoDub] Failed to start backend: {}", e);
-                            std::thread::sleep(std::time::Duration::from_secs(5));
+                            std::thread::sleep(Duration::from_secs(5));
                         }
                     }
                     restart_count += 1;

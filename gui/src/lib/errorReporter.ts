@@ -109,7 +109,7 @@ export async function sendErrorReport(error: Error, componentStack?: string): Pr
 
 // ─── Public API: auto-send + show toast ───
 export async function reportErrorToGitHub(error: Error, componentStack?: string): Promise<string | null> {
-  notifyToast.loading('📤 Sending error report...', {
+  notifyToast.loading('Sending error report...', {
     id: 'error-report',
     description: 'Submitting to GitHub automatically',
   });
@@ -117,14 +117,14 @@ export async function reportErrorToGitHub(error: Error, componentStack?: string)
   const url = await sendErrorReport(error, componentStack);
 
   if (url) {
-    notifyToast.success('✅ Error reported!', {
+    notifyToast.success('Error reported!', {
       id: 'error-report',
       description: 'Thanks! We\'ll look into it.',
       duration: 4000,
     });
     captureLog('[REPORT] Error sent to GitHub successfully');
   } else {
-    notifyToast.error('⚠️ Could not send report', {
+    notifyToast.error('Could not send report', {
       id: 'error-report',
       description: 'Backend may be offline. Error saved locally.',
       duration: 5000,

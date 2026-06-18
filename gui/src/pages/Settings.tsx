@@ -1,829 +1,454 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSettings, Language } from '../store';
-import { open } from '@tauri-apps/plugin-dialog';
-import { fetch } from '@tauri-apps/plugin-http';
-import { notifyToast } from '../lib/toast';
-import { useModelStatus, ALL_MODELS } from '../hooks/useModelStatus';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Button, Select, Input, Switch, Badge, Dialog, DialogSurface, DialogBody, DialogTitle, DialogActions } from "@fluentui/react-components";
+import {
+  InfoRegular as Info, ArrowDownloadRegular as Download, DeleteRegular as Trash,
+  DismissRegular as X, CheckmarkRegular as Check, SpinnerIosRegular as LoaderCircle,
+  OpenRegular as ExternalLink, PersonRegular as User, GlobeRegular as Globe,
+} from "@fluentui/react-icons";
+import { useSettings, Language } from "../store";
+import { open } from "@tauri-apps/plugin-dialog";
+import { fetch } from "@tauri-apps/plugin-http";
+import { notifyToast } from "../lib/toast";
+import { useModelStatus, ALL_MODELS } from "../hooks/useModelStatus";
+import { THEME_OPTIONS } from "../theme";
 
-type SettingsTab = 'general' | 'models' | 'keys' | 'about';
-
-interface ModelSettings {
-  whisperModel: string;
-  ollamaUrl: string;
-  ttsCacheDir: string;
-}
+type SettingsTab = "general" | "models" | "keys" | "about";
 
 interface ApiKeys {
-  deepseek: string;
-  openai: string;
-  azure: string;
-  google: string;
-  gemini: string;
-  huggingface: string;
-  deepl: string;
+  deepseek: string; openai: string; azure: string; google: string;
+  gemini: string; huggingface: string; deepl: string;
 }
 
-function Settings() {
+function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
   const { lang, theme, setLanguage, setTheme, t } = useSettings();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const currentTab: SettingsTab = (activeTab.startsWith("settings-") ? activeTab.replace("settings-", "") : "general") as SettingsTab;
   const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
-  const [general, setGeneral] = useState({
-    gpuMemory: 'auto',
-    autoUpdate: true,
-  });
-
-  // Apply theme and language dynamically
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.lang = lang;
-  }, [theme, lang]);
-
-  const [models, setModels] = useState<ModelSettings>({
-    whisperModel: 'large-v3',
-    ollamaUrl: 'http://localhost:11434',
-    ttsCacheDir: '',
-  });
-
-  const [keys, setKeys] = useState<ApiKeys>(() => {
-    // Default empty — the Tauri Store will load & migrate data in store.ts
-    return {
-      deepseek: '',
-      openai: '',
-      azure: '',
-      google: '',
-      gemini: '',
-      huggingface: '',
-      deepl: '',
-    };
-  });
+  const [general, setGeneral] = useState({ gpuMemory: "auto", autoUpdate: true });
+  const [models, setModels] = useState({ whisperModel: "large-v3", ollamaUrl: "http://localhost:11434", ttsCacheDir: "" });
+  const [keys, setKeys] = useState<ApiKeys>(() => ({
+    deepseek: "", openai: "", azure: "", google: "", gemini: "", huggingface: "", deepl: "",
+  }));
 
   const { setApiKeys, apiKeys: storedKeys } = useSettings();
   const { modelStatus, isLoading, startDownload, cancelDownload, deleteModel } = useModelStatus(keys.huggingface);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
-
-  type KeyStatus = 'idle' | 'testing' | 'success' | 'error';
+  const [deleteConfirmModel, setDeleteConfirmModel] = useState<string | null>(null);
+  type KeyStatus = "idle" | "testing" | "success" | "error";
   const [keyStatus, setKeyStatus] = useState<Record<string, KeyStatus>>({});
-  const [_showKeys, _setShowKeys] = useState<Record<string, boolean>>({});
 
-  // Sync keys from Tauri Store when it finishes loading
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+
   useEffect(() => {
     const nonEmpty = Object.entries(storedKeys).filter(([_, v]) => v).length > 0;
-    if (nonEmpty) {
-      setKeys(prev => ({ ...prev, ...storedKeys }));
-    }
-  }, [storedKeys]); // Re-sync whenever the store updates
+    if (nonEmpty) setKeys(prev => ({ ...prev, ...storedKeys }));
+  }, [storedKeys]);
 
-  // Debounced save: persist to store 500ms after last keystroke
   const debouncedSave = useCallback((newKeys: ApiKeys) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      setApiKeys(newKeys as unknown as Record<string, string>);
-    }, 500);
+    saveTimer.current = setTimeout(() => setApiKeys(newKeys as unknown as Record<string, string>), 500);
   }, [setApiKeys]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, []);
+  useEffect(() => { return () => { if (saveTimer.current) clearTimeout(saveTimer.current); }; }, []);
 
-  // Replace immediate save with debounced
   const updateKey = (id: keyof ApiKeys, value: string) => {
-    setKeys(prev => {
-      const next = { ...prev, [id]: value };
-      debouncedSave(next);
-      return next;
-    });
+    setKeys(prev => { const next = { ...prev, [id]: value }; debouncedSave(next); return next; });
   };
 
-  const tabs: { id: SettingsTab; label: string }[] = [
-    { id: 'general', label: t('settings.general') },
-    { id: 'models', label: t('settings.models') },
-    { id: 'keys', label: t('settings.keys') },
-    { id: 'about', label: t('settings.about') },
-  ];
-
   const renderStatus = (id: string) => {
-    const status = keyStatus[id];
-    if (status === 'testing') return <span className="w-2 h-2 rounded-full bg-warning shadow-[0_0_6px_var(--color-warning)]" title={t("settings.keys.testing")} style={{ marginLeft: 8 }} />;
-    if (status === 'success') return <span style={{ marginLeft: 8, color: 'var(--success)' }}>✅</span>;
-    if (status === 'error') return <span style={{ marginLeft: 8, color: 'var(--error)' }}>❌</span>;
+    const s = keyStatus[id];
+    if (s === "testing") return <LoaderCircle style={{ fontSize: 14, marginLeft: 8, animation: "spin 1s linear infinite", color: "var(--colorPaletteYellowForeground1)" }} />;
+    if (s === "success") return <span className="status-dot green" style={{ marginLeft: 8 }} />;
+    if (s === "error") return <span className="status-dot red" style={{ marginLeft: 8 }} />;
     return null;
   };
 
   const handleTestConnection = async () => {
-    setIsTesting(true);
-    setTestResult(null);
-    setKeyStatus({});
-    let successCount = 0;
-    let failCount = 0;
-    let errors: string[] = [];
-
-    const testApi = async (id: keyof ApiKeys, name: string, url: string, options: RequestInit) => {
-      setKeyStatus(prev => ({ ...prev, [id]: 'testing' }));
+    setIsTesting(true); setTestResult(null); setKeyStatus({});
+    const testApi = async (id: keyof ApiKeys, _name: string, url: string, options: RequestInit) => {
+      setKeyStatus(prev => ({ ...prev, [id]: "testing" }));
       try {
         const res = await fetch(url, options);
-        if (res.ok) {
-          successCount++;
-          setKeyStatus(prev => ({ ...prev, [id]: 'success' }));
-        } else {
-          failCount++;
-          let detail = `HTTP ${res.status}`;
-          try {
-            const body = await res.text();
-            const snippet = body.slice(0, 120);
-            if (snippet) detail += ` — ${snippet}`;
-          } catch {}
-          errors.push(`${name}: ${detail}`);
-          setKeyStatus(prev => ({ ...prev, [id]: 'error' }));
-        }
-      } catch (err: any) {
-        failCount++;
-        errors.push(`${name}: ${err?.message || err?.toString?.() || 'Network Error'}`);
-        setKeyStatus(prev => ({ ...prev, [id]: 'error' }));
-      }
+        setKeyStatus(prev => ({ ...prev, [id]: res.ok ? "success" : "error" }));
+      } catch { setKeyStatus(prev => ({ ...prev, [id]: "error" })); }
     };
-
     const promises = [];
-
-    if (keys.deepl) {
-      const isFree = keys.deepl.endsWith(':fx');
-      const baseUrl = isFree ? 'https://api-free.deepl.com' : 'https://api.deepl.com';
-      promises.push(testApi('deepl', 'DeepL', `${baseUrl}/v2/usage`, {
-        headers: { 'Authorization': `DeepL-Auth-Key ${keys.deepl}` }
-      }));
-    }
-
-    if (keys.deepseek) {
-      promises.push(testApi('deepseek', 'DeepSeek', 'https://api.deepseek.com/models', {
-        headers: { 'Authorization': `Bearer ${keys.deepseek}` }
-      }));
-    }
-    if (keys.openai) {
-      promises.push(testApi('openai', 'OpenAI', 'https://api.openai.com/v1/models', {
-        headers: { 'Authorization': `Bearer ${keys.openai}` }
-      }));
-    }
-    if (keys.huggingface) {
-      promises.push(testApi('huggingface', 'HuggingFace', 'https://huggingface.co/api/whoami-v2', {
-        headers: { 'Authorization': `Bearer ${keys.huggingface}` }
-      }));
-    }
-    // Note: Gemini and Azure require specific payload structures or endpoints, skipping strict test if not easy, 
-    // but Gemini models list is easy:
+    if (keys.deepl) promises.push(testApi("deepl", "DeepL", `${keys.deepl.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com"}/v2/usage`, { headers: { Authorization: `DeepL-Auth-Key ${keys.deepl}` } }));
+    if (keys.deepseek) promises.push(testApi("deepseek", "DeepSeek", "https://api.deepseek.com/models", { headers: { Authorization: `Bearer ${keys.deepseek}` } }));
+    if (keys.openai) promises.push(testApi("openai", "OpenAI", "https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${keys.openai}` } }));
+    if (keys.huggingface) promises.push(testApi("huggingface", "HuggingFace", "https://huggingface.co/api/whoami-v2", { headers: { Authorization: `Bearer ${keys.huggingface}` } }));
     if (keys.gemini || keys.google) {
       const gkey = keys.gemini || keys.google;
-      const targetId = keys.gemini ? 'gemini' : 'google';
-      promises.push(testApi(targetId, 'Google/Gemini', `https://generativelanguage.googleapis.com/v1beta/models?key=${gkey}`, {}));
+      promises.push(testApi(keys.gemini ? "gemini" : "google", "Google", `https://generativelanguage.googleapis.com/v1beta/models?key=${gkey}`, {}));
     }
-
-    if (promises.length === 0) {
-      setIsTesting(false);
-      setTestResult(t('settings.keys.no_keys'));
-      return;
-    }
-
+    if (promises.length === 0) { setIsTesting(false); setTestResult(t("settings.keys.no_keys")); return; }
     await Promise.all(promises);
-    setIsTesting(false);
-
-    if (failCount === 0) {
-      setTestResult(t('settings.keys.all_ok'));
-      notifyToast.success(t('settings.keys.all_ok'));
-    } else {
-      setTestResult(t('settings.keys.failed'));
-      notifyToast.error(`${failCount} key(s) failed`, { description: errors.join(', ') });
-    }
+    setIsTesting(false); setTestResult("success");
+    notifyToast.success(t("settings.keys.all_ok"));
   };
 
+  // ═══ General ═══
   const renderGeneral = () => (
-    <div className="flex-col gap-4" style={{ display: 'flex' }}>
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.appearance')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.language')}</label>
-          <select
-            className="select select-bordered w-full"
-            value={lang}
-            onChange={(e) => setLanguage(e.target.value as Language)}
-          >
-            <option value="en">{t('settings.lang.en_label')}</option>
-            <option value="ru">{t('settings.lang.ru_label')}</option>
-            <option value="tr">{t('settings.lang.tr_label')}</option>
-          </select>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.theme')}</label>
-          <select
-            className="select select-bordered w-full"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-          >
-            <option value="dark">{t('settings.theme.dark')}</option>
-            <option value="light">{t('settings.theme.light')}</option>
-            <option value="system">{t('settings.theme.system')}</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.performance')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.gpu_limit')}</label>
-          <select
-            className="select select-bordered w-full"
-            value={general.gpuMemory}
-            onChange={(e) => setGeneral({ ...general, gpuMemory: e.target.value })}
-          >
-            <option value="auto">{t('settings.gpu.auto')}</option>
-            <option value="4">4 GB</option>
-            <option value="6">6 GB</option>
-            <option value="8">8 GB</option>
-            <option value="12">12 GB</option>
-          </select>
-          <div className="text-sm text-muted mt-2">
-            {t('settings.gpu_desc')}
-          </div>
-        </div>
-
-        <div className="form-control w-full mb-4" style={{ marginBottom: 0 }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="label" style={{ marginBottom: 'var(--space-1)' }}>
-                {t('settings.auto_update')}
-              </label>
-              <div className="text-sm text-muted">
-                {t('settings.auto_update_desc')}
-              </div>
+    <>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.appearance")}</div>
+        <div className="win11-card-body">
+          <div className="win11-form-row">
+            <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.language")}</div>
             </div>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={general.autoUpdate}
-                onChange={(e) =>
-                  setGeneral({ ...general, autoUpdate: e.target.checked })
-                }
-              />
-              <span className="switch-slider" />
-            </label>
+            <div className="win11-form-control" style={{ width: 200 }}>
+              <Select value={lang} onChange={(e) => setLanguage(e.target.value as Language)}>
+                <option value="en">{t("settings.lang.en_label")}</option>
+                <option value="ru">{t("settings.lang.ru_label")}</option>
+                <option value="tr">{t("settings.lang.tr_label")}</option>
+              </Select>
+            </div>
+          </div>
+          <div className="win11-form-row">
+            <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.theme")}</div>
+            </div>
+            <div className="win11-form-control" style={{ width: 200 }}>
+              <Select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                {THEME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
+              </Select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.performance")}</div>
+        <div className="win11-card-body">
+          <div className="win11-form-row">
+            <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.gpu_limit")}</div>
+              <div className="win11-form-label-desc">{t("settings.gpu_desc")}</div>
+            </div>
+            <div className="win11-form-control" style={{ width: 200 }}>
+              <Select value={general.gpuMemory} onChange={(e) => setGeneral({ ...general, gpuMemory: e.target.value })}>
+                <option value="auto">{t("settings.gpu.auto")}</option>
+                <option value="4">{t("settings.gpu_4gb")}</option><option value="6">{t("settings.gpu_6gb")}</option>
+                <option value="8">{t("settings.gpu_8gb")}</option><option value="12">{t("settings.gpu_12gb")}</option>
+              </Select>
+            </div>
+          </div>
+          <div className="win11-form-row">
+            <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.auto_update")}</div>
+              <div className="win11-form-label-desc">{t("settings.auto_update_desc")}</div>
+            </div>
+            <div className="win11-form-control">
+              <Switch checked={general.autoUpdate} onChange={(_, data) => setGeneral({ ...general, autoUpdate: data.checked })} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 
+  // ═══ Models ═══
   const renderModels = () => (
-    <div className="flex-col gap-4" style={{ display: 'flex' }}>
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.speech_rec')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.whisper_model')}</label>
-          <select
-            className="select select-bordered w-full"
-            value={models.whisperModel}
-            onChange={(e) =>
-              setModels({ ...models, whisperModel: e.target.value })
-            }
-          >
-            <option value="tiny">tiny — {t('settings.whisper.tiny')}</option>
-            <option value="base">base — {t('settings.whisper.base')}</option>
-            <option value="small">small — {t('settings.whisper.small')}</option>
-            <option value="medium">medium — {t('settings.whisper.medium')}</option>
-            <option value="large-v2">large-v2 — {t('settings.whisper.large')}</option>
-            <option value="large-v3">large-v3 — {t('settings.whisper.large')}</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.ollama_config')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.ollama_url')}</label>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="text"
-            value={models.ollamaUrl}
-            onChange={(e) => setModels({ ...models, ollamaUrl: e.target.value })}
-            placeholder="http://localhost:11434"
-          />
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.tts_audio')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <label className="label">{t('settings.tts_cache')}</label>
-          <div className="flex gap-2">
-            <input
-              className="form-input flex-1"
-              type="text"
-              value={models.ttsCacheDir}
-              onChange={(e) =>
-                setModels({ ...models, ttsCacheDir: e.target.value })
-              }
-              placeholder="C:\Users\...\tts_cache"
-            />
-            <button
-              className="btn btn-secondary"
-              style={{ flexShrink: 0 }}
-              onClick={async () => {
-                try {
-                  const selected = await open({ directory: true, multiple: false });
-                  if (selected) {
-                    setModels({ ...models, ttsCacheDir: selected as string });
-                  }
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 13h12M6 8l2-2 2 2M8 6v7" />
-                <path d="M13 3H3a1 1 0 0 0-1 1v8M14 4v8a1 1 0 0 1-1 1" />
-              </svg>
-              {t('settings.browse')}
-            </button>
+    <>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.speech_rec")}</div>
+        <div className="win11-card-body">
+          <div className="win11-form-row">
+            <div className="win11-form-label"><div className="win11-form-label-text">{t("settings.whisper_model")}</div></div>
+            <div className="win11-form-control" style={{ width: 220 }}>
+              <Select value={models.whisperModel} onChange={(e) => setModels({ ...models, whisperModel: e.target.value })}>
+                <option value="tiny">{t("models.whisper_tiny")} — {t("settings.whisper.tiny")}</option>
+                <option value="base">{t("models.whisper_base")} — {t("settings.whisper.base")}</option>
+                <option value="small">{t("models.whisper_small")} — {t("settings.whisper.small")}</option>
+                <option value="medium">{t("models.whisper_medium")} — {t("settings.whisper.medium")}</option>
+                <option value="large-v2">{t("models.whisper_large_v2")} — {t("settings.whisper.large")}</option>
+                <option value="large-v3">{t("models.whisper_large_v3")} — {t("settings.whisper.large")}</option>
+              </Select>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.model_status')}</span>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.ollama_config")}</div>
+        <div className="win11-card-body">
+          <div className="win11-form-row">
+            <div className="win11-form-label"><div className="win11-form-label-text">{t("settings.ollama_url")}</div></div>
+            <div className="win11-form-control" style={{ width: 280 }}>
+              <Input className="font-mono" value={models.ollamaUrl} onChange={(e) => setModels({ ...models, ollamaUrl: e.target.value })} placeholder="http://localhost:11434" />
+            </div>
+          </div>
         </div>
-        <div className="card-description mb-4">
-          {t('settings.model_status_desc')}
-        </div>
+      </div>
 
-        {/* Bulk actions */}
-        <div className="flex items-center gap-3 mb-4">
-          <label className="flex items-center gap-2" style={{ cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
-            <input type="checkbox" checked={ALL_MODELS.length > 0 && ALL_MODELS.every(m => selectedModels.has(m.id))} onChange={(e) => { if (e.target.checked) { setSelectedModels(new Set(ALL_MODELS.map(m => m.id))); } else { setSelectedModels(new Set()); } }} />
-            {t('dl.select_all')}
-          </label>
-          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{selectedModels.size} / {ALL_MODELS.length}</span>
-          <button className="btn btn-sm btn-primary" disabled={isLoading || selectedModels.size === 0} onClick={() => { selectedModels.forEach(id => { if (!modelStatus[id]?.done) startDownload(id); }); }}>
-            ⬇ {t('dl.btn_download')} ({selectedModels.size})
-          </button>
-          <button className="btn btn-sm btn-danger" disabled={isLoading || selectedModels.size === 0} onClick={() => { selectedModels.forEach(id => { if (modelStatus[id]?.done) deleteModel(id); }); }}>
-            🗑 {t('dl.btn_delete')}
-          </button>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.tts_audio")}</div>
+        <div className="win11-card-body">
+          <div className="win11-form-row">
+            <div className="win11-form-label"><div className="win11-form-label-text">{t("settings.tts_cache")}</div></div>
+            <div className="win11-form-control flex items-center gap-2">
+              <Input style={{ width: 260 }} value={models.ttsCacheDir} onChange={(e) => setModels({ ...models, ttsCacheDir: e.target.value })} />
+              <Button size="small" onClick={async () => {
+                try { const s = await open({ directory: true, multiple: false }); if (s) setModels({ ...models, ttsCacheDir: s as string }); } catch {}
+              }}>{t("settings.browse")}</Button>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div className="flex-col gap-2" style={{ display: 'flex' }}>
-          {ALL_MODELS.map((model, index, arr) => {
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.model_status")}</div>
+        <div className="win11-card-body">
+          <p className="text-xs mb-4" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.model_status_desc")}</p>
+
+          <div className="flex items-center gap-4 mb-4 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer text-xs">
+              <input type="checkbox" checked={ALL_MODELS.length > 0 && ALL_MODELS.every(m => selectedModels.has(m.id))}
+                onChange={(e) => setSelectedModels(e.target.checked ? new Set(ALL_MODELS.map(m => m.id)) : new Set())} />
+              {t("dl.select_all")}
+            </label>
+            <span className="text-xs" style={{ color: "var(--colorNeutralForeground3)" }}>{selectedModels.size}/{ALL_MODELS.length}</span>
+            <Button size="small" appearance="primary" disabled={isLoading || selectedModels.size === 0}
+              icon={<Download style={{ fontSize: 14 }} />}
+              onClick={() => selectedModels.forEach(id => { if (!modelStatus[id]?.done) startDownload(id); })}>
+              {t("dl.btn_download")}
+            </Button>
+            <Button size="small" appearance="outline" disabled={isLoading || selectedModels.size === 0}
+              style={{ color: "var(--colorPaletteRedForeground1)" }}
+              icon={<Trash style={{ fontSize: 14 }} />}
+              onClick={() => { const f = [...selectedModels].find(id => modelStatus[id]?.done); if (f) setDeleteConfirmModel(f); }}>
+              {t("dl.btn_delete")}
+            </Button>
+          </div>
+
+          {ALL_MODELS.map((model, i, arr) => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
-            const isDeleting = st?.progress === -2;
-            const isDownloading = !isDone && !isDeleting && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0 && st?.progress < 100));
+            const isDownloading = !isDone && st?.progress !== undefined && st.progress > 0 && st.progress < 100;
             const hasProgress = (st?.progress ?? 0) >= 5;
-            const isChecked = selectedModels.has(model.id);
-
             return (
               <React.Fragment key={model.id}>
-                <div className="flex items-center gap-3" style={{ padding: 'var(--space-2) 0' }}>
-                  <input type="checkbox" checked={isChecked} onChange={() => { setSelectedModels(prev => { const next = new Set(prev); if (next.has(model.id)) next.delete(model.id); else next.add(model.id); return next; }); }} style={{ flexShrink: 0, width: 18, height: 18, cursor: 'pointer' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span className="text-sm" style={{ fontWeight: 500 }}>
-                      {model.name}
-                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginLeft: 8 }}>{model.size}</span>
+                <div className="flex items-center gap-3 py-3">
+                  <input type="checkbox" checked={selectedModels.has(model.id)}
+                    onChange={() => setSelectedModels(prev => { const n = new Set(prev); n.has(model.id) ? n.delete(model.id) : n.add(model.id); return n; })} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium">{model.name}
+                      <span className="font-normal text-xs ml-2" style={{ color: "var(--colorNeutralForeground3)" }}>{model.size}</span>
                     </span>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', marginTop: 2 }}>{t(model.descDetailKey as any)}</div>
-                    {isDownloading && hasProgress && (
-                      <div className="progress-bar" style={{ marginTop: 4, maxWidth: 200 }}>
-                        <div className="progress-bar-fill" style={{ width: `${st.progress}%` }} />
-                      </div>
-                    )}
-                    {st?.error && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 2 }}>{st.error}</div>}
+                    <div className="text-xs mt-0.5" style={{ color: "var(--colorBrandForeground1)" }}>{t(model.descDetailKey as any)}</div>
+                    {isDownloading && hasProgress && <progress value={st.progress} max="100" style={{ width: "100%", maxWidth: 200, height: 4, marginTop: 8 }} />}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-                    {isDownloading && hasProgress && (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{st.progress}%</span>
-                    )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isDownloading && hasProgress && <span className="text-xs font-semibold font-mono" style={{ color: "var(--colorBrandForeground1)", minWidth: 36, textAlign: "right" }}>{st.progress}%</span>}
                     {isDownloading && !hasProgress && (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent)', whiteSpace: 'nowrap' }}>
-                        ⏳ {st?.progress === 1 ? t('dl.queued') : t('dl.downloading_short')}
+                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--colorBrandForeground1)" }}>
+                        <LoaderCircle style={{ fontSize: 12, animation: "spin 1s linear infinite" }} />{t("dl.downloading_short")}
                       </span>
                     )}
-                    {isDownloading && (
-                      <button className="btn btn-sm" onClick={() => cancelDownload(model.id)} title={t('dubbing.btn.cancel')} style={{ color: 'var(--error)', border: '1px solid var(--error)', background: 'transparent', fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        ✕
-                      </button>
-                    )}
-                    {isDeleting ? (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', whiteSpace: 'nowrap' }}>🗑 {t('dl.deleting')}</span>
-                    ) : isDone ? (
-                      <button className="btn btn-sm" onClick={() => deleteModel(model.id)} title={t('dl.btn_delete')} style={{ color: 'var(--error)', border: '1px solid var(--error)', background: 'transparent', fontSize: 'var(--text-sm)', padding: '4px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
-                        🗑 {t('dl.btn_delete')}
-                      </button>
-                    ) : isDownloading ? (
-                      <span className="badge badge-info" style={{ fontSize: 'var(--text-xs)' }}>⏳</span>
-                    ) : (
-                      <button className="btn btn-sm btn-primary" onClick={() => startDownload(model.id)} disabled={isLoading}>
-                        ⬇ {t('dl.btn_download')}
-                      </button>
-                    )}
+                    {isDownloading && <Button size="small" appearance="outline" icon={<X style={{ fontSize: 12 }} />} style={{ color: "var(--colorPaletteRedForeground1)" }} onClick={() => cancelDownload(model.id)} />}
+                    {isDone && <Button size="small" appearance="outline" icon={<Trash style={{ fontSize: 12 }} />} style={{ color: "var(--colorPaletteRedForeground1)" }} onClick={() => setDeleteConfirmModel(model.id)} />}
+                    {!isDone && !isDownloading && <Button size="small" appearance="primary" icon={<Download style={{ fontSize: 12 }} />} onClick={() => startDownload(model.id)} disabled={isLoading} />}
                   </div>
                 </div>
-                {index < arr.length - 1 && (
-                  <div style={{ height: 1, background: 'var(--border-subtle)' }} />
-                )}
+                {i < arr.length - 1 && <div style={{ height: 1, background: "var(--colorNeutralStroke2)" }} />}
               </React.Fragment>
             );
           })}
         </div>
       </div>
-    </div>
+    </>
   );
 
+  // ═══ Keys ═══
   const renderKeys = () => (
-    <div className="flex-col gap-4" style={{ display: 'flex' }}>
-      <div className="callout callout-info">
-        <span>ℹ️</span>
-        <span>
-          {t('settings.keys.notice')}
-        </span>
+    <>
+      <div className="flex gap-3 p-4 rounded-lg mb-4" style={{ background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)" }}>
+        <Info style={{ fontSize: 18, flexShrink: 0 }} />
+        <span className="text-sm">{t("settings.keys.notice")}</span>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.keys.translation_apis')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.keys.gemini_label')}
-              {renderStatus('gemini')}
-            </label>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.gemini_get')}
-            </a>
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.gemini}
-            onChange={(e) => updateKey('gemini', e.target.value)}
-            placeholder="AIzaSy..."
-          />
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.deepl_key')}
-              {renderStatus('deepl')}
-            </label>
-            <a href="https://www.deepl.com/pro-api" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.deepl_key')} ↗
-            </a>
-          </div>
-          <div className="text-sm text-muted mb-2">
-            {t('settings.deepl_desc')}
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.deepl}
-            onChange={(e) => updateKey('deepl', e.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
-          />
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.keys.deepseek_label')}
-              {renderStatus('deepseek')}
-            </label>
-            <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.deepseek_get')}
-            </a>
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.deepseek}
-            onChange={(e) => updateKey('deepseek', e.target.value)}
-            placeholder="sk-..."
-          />
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.keys.openai_label')}
-              {renderStatus('openai')}
-            </label>
-            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.openai_get')}
-            </a>
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.openai}
-            onChange={(e) => updateKey('openai', e.target.value)}
-            placeholder="sk-proj-..."
-          />
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.keys.translation_apis")}</div>
+        <div className="win11-card-body">
+          {([
+            { id: "gemini" as keyof ApiKeys, label: t("settings.keys.gemini_label"), link: "https://aistudio.google.com/app/apikey", linkLabel: t("settings.keys.gemini_get"), ph: "AIzaSy..." },
+            { id: "deepl" as keyof ApiKeys, label: t("settings.deepl_key"), desc: t("settings.deepl_desc"), link: "https://www.deepl.com/pro-api", linkLabel: `${t("settings.deepl_key")} ↗`, ph: "xxx:fx" },
+            { id: "deepseek" as keyof ApiKeys, label: t("settings.keys.deepseek_label"), link: "https://platform.deepseek.com/api_keys", linkLabel: t("settings.keys.deepseek_get"), ph: "sk-..." },
+            { id: "openai" as keyof ApiKeys, label: t("settings.keys.openai_label"), link: "https://platform.openai.com/api-keys", linkLabel: t("settings.keys.openai_get"), ph: "sk-proj-..." },
+          ]).map(({ id, label, desc, link, linkLabel, ph }) => (
+            <div key={id} className="win11-form-row">
+              <div className="win11-form-label">
+                <div className="win11-form-label-text">{label} {renderStatus(id)}</div>
+                {desc && <div className="win11-form-label-desc">{desc}</div>}
+                <a href={link} target="_blank" rel="noreferrer" className="text-xs flex items-center gap-1 mt-1" style={{ color: "var(--colorBrandForeground1)" }}>
+                  {linkLabel}<ExternalLink style={{ fontSize: 10 }} />
+                </a>
+              </div>
+              <div className="win11-form-control" style={{ width: 300 }}>
+                <Input className="font-mono" type="password" value={keys[id]} onChange={(e) => updateKey(id, e.target.value)} placeholder={ph} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.keys.speech_apis')}</span>
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.keys.azure_label')}
-              {renderStatus('azure')}
-            </label>
-            <a href="https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.azure_get')}
-            </a>
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.azure}
-            onChange={(e) => updateKey('azure', e.target.value)}
-            placeholder={t('settings.keys.azure_placeholder')}
-          />
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.keys.google_label')}
-              {renderStatus('google')}
-            </label>
-            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.google_get')}
-            </a>
-          </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.google}
-            onChange={(e) => updateKey('google', e.target.value)}
-            placeholder="AIzaSy..."
-          />
-        </div>
-
-        <div className="form-control w-full mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="label" style={{ marginBottom: 0 }}>
-              {t('settings.hf_key')}
-              {renderStatus('huggingface')}
-            </label>
-            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-sm text-muted" style={{ textDecoration: 'none' }}>
-              {t('settings.keys.hf_get')}
-            </a>
-          </div>
-          <div className="text-sm text-muted mb-2">
-            {t('settings.hf_desc')}
-            <div style={{ marginTop: '4px' }}>
-              {t('settings.hf_terms')}:{' '}
-              <a href="https://huggingface.co/pyannote/speaker-diarization-3.1" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Diarization 3.1</a>
-              {' '}&amp;{' '}
-              <a href="https://huggingface.co/pyannote/segmentation-3.0" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Segmentation 3.0</a>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.keys.speech_apis")}</div>
+        <div className="win11-card-body">
+          {[
+            { id: "azure" as keyof ApiKeys, label: t("settings.keys.azure_label"), link: "https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices", linkLabel: t("settings.keys.azure_get"), ph: t("settings.keys.azure_placeholder") },
+            { id: "google" as keyof ApiKeys, label: t("settings.keys.google_label"), link: "https://console.cloud.google.com/apis/credentials", linkLabel: t("settings.keys.google_get"), ph: "AIzaSy..." },
+          ].map(({ id, label, link, linkLabel, ph }) => (
+            <div key={id} className="win11-form-row">
+              <div className="win11-form-label">
+                <div className="win11-form-label-text">{label} {renderStatus(id)}</div>
+                <a href={link} target="_blank" rel="noreferrer" className="text-xs flex items-center gap-1 mt-1" style={{ color: "var(--colorBrandForeground1)" }}>
+                  {linkLabel}<ExternalLink style={{ fontSize: 10 }} />
+                </a>
+              </div>
+              <div className="win11-form-control" style={{ width: 300 }}>
+                <Input className="font-mono" type="password" value={keys[id]} onChange={(e) => updateKey(id, e.target.value)} placeholder={ph} />
+              </div>
+            </div>
+          ))}
+          <div className="win11-form-row">
+            <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.hf_key")} {renderStatus("huggingface")}</div>
+              <div className="win11-form-label-desc">
+                {t("settings.hf_desc")} ·{" "}
+                <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" style={{ color: "var(--colorBrandForeground1)" }}>
+                  {t("settings.keys.hf_get")}
+                </a>
+              </div>
+              <div style={{
+                marginTop: 12, padding: 12, borderRadius: 8,
+                background: "var(--colorPaletteYellowBackground2)",
+                border: "1px solid var(--colorPaletteYellowBorder1)",
+                fontSize: 12, lineHeight: 1.6,
+              }}>
+                <strong style={{ color: "var(--colorPaletteYellowForeground1)" }}>⚠ {t("settings.hf_terms")}:</strong>
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <a href="https://huggingface.co/pyannote/speaker-diarization-3.1" target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1"
+                    style={{ color: "var(--colorBrandForeground1)", fontWeight: 500 }}>
+                    pyannote/speaker-diarization-3.1 <ExternalLink style={{ fontSize: 10 }} />
+                  </a>
+                  <a href="https://huggingface.co/pyannote/segmentation-3.0" target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1"
+                    style={{ color: "var(--colorBrandForeground1)", fontWeight: 500 }}>
+                    pyannote/segmentation-3.0 <ExternalLink style={{ fontSize: 10 }} />
+                  </a>
+                </div>
+                <div style={{ marginTop: 6, color: "var(--colorNeutralForeground2)" }}>
+                  {t("settings.hf_agree")}
+                </div>
+              </div>
+            </div>
+            <div className="win11-form-control" style={{ width: 300 }}>
+              <Input className="font-mono" type="password" value={keys.huggingface} onChange={(e) => updateKey("huggingface", e.target.value)} placeholder="hf_..." />
             </div>
           </div>
-          <input
-            className="input input-bordered w-full font-mono text-sm"
-            type="password"
-            value={keys.huggingface}
-            onChange={(e) => updateKey('huggingface', e.target.value)}
-            placeholder="hf_..."
-          />
         </div>
       </div>
 
-      <div className="flex gap-3 items-center">
-        <button
-          className="btn btn-primary"
-          onClick={handleTestConnection}
-          disabled={isTesting}
-        >
-          {isTesting ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}>
-                <path d="M8 1a7 7 0 1 0 7 7" />
-              </svg>
-              {t('settings.keys.testing')}
-            </>
-          ) : (
-            <>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 3L6 10l-3-3" />
-              </svg>
-              {t('settings.keys.test_all')}
-            </>
-          )}
-        </button>
-
-        {testResult && (
-          <span
-            className="text-sm"
-            style={{ color: testResult.includes('❌') ? 'var(--danger)' : testResult.includes('⚠️') ? 'var(--warning)' : 'var(--success)' }}
-          >
-            {testResult}
-          </span>
-        )}
+      <div className="flex gap-4 items-center mt-4">
+        <Button appearance="primary" onClick={handleTestConnection} disabled={isTesting}
+          icon={isTesting ? <LoaderCircle style={{ fontSize: 16, animation: "spin 1s linear infinite" }} /> : <Check style={{ fontSize: 16 }} />}>
+          {isTesting ? t("settings.keys.testing") : t("settings.keys.test_all")}
+        </Button>
+        {testResult === "success" && <span className="text-sm font-medium" style={{ color: "var(--colorPaletteGreenForeground1)" }}>{t("settings.keys_all_valid")}</span>}
+        {testResult && testResult !== "success" && <span className="text-sm" style={{ color: "var(--colorPaletteYellowForeground1)" }}>{testResult}</span>}
       </div>
-    </div>
+    </>
   );
 
+  // ═══ About ═══
   const renderAbout = () => (
-    <div className="flex-col gap-4" style={{ display: 'flex' }}>
-      <div className="card">
-        <div className="about-hero">
-          <img src="/logo-icon.png" alt="AutoDub Studio" className="about-logo" />
-          <div className="about-name">AutoDubStudio</div>
-          <div className="about-role">
-            {t('settings.about.tagline')}
-          </div>
-
-          <div className="flex gap-3 items-center" style={{ justifyContent: 'center' }}>
-            <span className="badge badge-info">v0.0.1-beta</span>
-            <span className="badge badge-neutral">Build 2026.06.15</span>
-            <span className="badge badge-neutral">Tauri v2 + React 19</span>
+    <>
+      <div className="win11-card" style={{ textAlign: "center" }}>
+        <div style={{ padding: 32 }}>
+          <img src="/logo-icon.png" alt="AutoDub Studio" style={{ width: 72, height: 72, borderRadius: 16, marginBottom: 16 }} />
+          <h2 className="text-xl font-bold mb-1">{t("settings.about.app_name")}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--colorNeutralForeground2)" }}>{t("settings.about.tagline")}</p>
+          <div className="flex gap-2 justify-center flex-wrap">
+            <Badge size="small">{t("settings.about.version_badge")}</Badge>
+            <Badge size="small" appearance="outline">{t("settings.about.tech_badge")}</Badge>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.about.author')}</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 'var(--radius-lg)',
-              background: 'var(--accent-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 'var(--text-xl)',
-              flexShrink: 0,
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 16 16" fill="var(--accent)" opacity="0.8">
-              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm5 6a5 5 0 0 0-10 0h10z" />
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 'var(--text-lg)' }}>
-              Silvestr Liskin
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.about.author")}</div>
+        <div className="win11-card-body">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center shrink-0" style={{ width: 44, height: 44, borderRadius: 12, background: "var(--colorNeutralBackground3)", border: "1px solid var(--colorNeutralStroke2)" }}>
+              <User style={{ fontSize: 22, color: "var(--colorNeutralForeground3)" }} />
             </div>
-            <div className="text-sm text-muted" style={{ marginTop: 2 }}>
-              {t('settings.about.role')}
-            </div>
-            <div className="text-sm text-muted">
-              Teknorob Robot ve Otomasyon — Bursa, TR
+            <div>
+              <div className="font-semibold">{t("settings.about.author_name")}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground2)" }}>{t("settings.about.role")}</div>
+              <div className="text-xs" style={{ color: "var(--colorNeutralForeground2)" }}>{t("settings.about.company")}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="about-partner">
-          <div className="about-partner-label">{t('settings.about.partner')}</div>
-          <img
-            src="/teknorob.png"
-            alt="Teknorob Robot ve Otomasyon"
-            className="about-partner-logo"
-          />
+      <div className="win11-card" style={{ textAlign: "center" }}>
+        <div style={{ padding: 24 }}>
+          <div className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.about.partner")}</div>
+          <img src="/teknorob.png" alt="Teknorob" style={{ height: 28, opacity: 0.7 }} />
         </div>
       </div>
 
-      <div className="card">
-        <div className="mb-4">
-          <span className="card-title">{t('settings.about.links')}</span>
-        </div>
-
-        <div className="flex-col gap-2" style={{ display: 'flex' }}>
-          <a
-            href="https://github.com/liskinlabs/autodubstudio"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3"
-            style={{
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              fontSize: 'var(--text-sm)',
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              transition: 'all var(--transition-fast)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-            {t('settings.about.github')}
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto', opacity: 0.5 }}>
-              <path d="M5 3h8v8M13 3L3 13" />
-            </svg>
-          </a>
-
-          <a
-            href="https://liskinlabs.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3"
-            style={{
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              fontSize: 'var(--text-sm)',
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              transition: 'all var(--transition-fast)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="8" cy="8" r="6" />
-              <path d="M2 8h12M8 2a10 10 0 0 1 3 6 10 10 0 0 1-3 6 10 10 0 0 1-3-6 10 10 0 0 1 3-6z" />
-            </svg>
-            {t('settings.about.website')}
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto', opacity: 0.5 }}>
-              <path d="M5 3h8v8M13 3L3 13" />
-            </svg>
-          </a>
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.about.links")}</div>
+        <div className="win11-card-body">
+          {[
+            { href: "https://github.com/liskinlabs/autodubstudio", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>, label: t("settings.about.github") },
+            { href: "https://liskinlabs.com", icon: <Globe style={{ fontSize: 16 }} />, label: t("settings.about.website") },
+          ].map(({ href, icon, label }) => (
+            <a key={href} href={href} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 text-sm p-3 rounded-lg"
+              style={{ color: "var(--colorNeutralForeground2)", textDecoration: "none" }}>
+              {icon}{label}<ExternalLink style={{ fontSize: 11, marginLeft: "auto", opacity: 0.4 }} />
+            </a>
+          ))}
         </div>
       </div>
-    </div>
+    </>
   );
 
   return (
-    <div className="flex flex-col flex-1 h-full overflow-y-auto"><div className="flex flex-col h-full max-w-5xl mx-auto w-full px-4 py-8 md:px-8 pb-24">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-base-content mb-2">{t('settings.title')}</h1>
-        <p className="text-base-content/60">
-          {t('settings.subtitle')}
-        </p>
-      </div>
+    <div className="win11-page">
+      {/* Delete Dialog */}
+      <Dialog open={!!deleteConfirmModel} onOpenChange={(_, data) => { if (!data.open) setDeleteConfirmModel(null); }}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>{t("dl.delete_confirm_title")}</DialogTitle>
+            <p className="text-sm mb-4" style={{ color: "var(--colorNeutralForeground2)" }}>{t("dl.delete_confirm_desc")}</p>
+            <p className="text-sm font-mono mb-4" style={{ color: "var(--colorNeutralForeground3)" }}>{deleteConfirmModel}</p>
+          </DialogBody>
+          <DialogActions>
+            <Button appearance="subtle" onClick={() => setDeleteConfirmModel(null)}>{t("dubbing.btn.cancel")}</Button>
+            <Button appearance="primary" icon={<Trash style={{ fontSize: 16 }} />}
+              style={{ background: "var(--colorPaletteRedBackground3)", color: "var(--colorPaletteRedForeground1)" }}
+              onClick={() => { deleteModel(deleteConfirmModel!); setDeleteConfirmModel(null); }}>
+              {t("dl.btn_delete")}
+            </Button>
+          </DialogActions>
+        </DialogSurface>
+      </Dialog>
 
-      {/* Tab bar */}
-      <div className="tabs tabs-box mb-6 bg-base-200/50 p-1 w-full sm:w-auto inline-flex overflow-x-auto no-scrollbar rounded-lg border border-base-content/5">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tab gap-2 flex-1 sm:flex-none whitespace-nowrap font-medium transition-all duration-200 ${activeTab === tab.id ? 'tab-active bg-base-100 text-primary shadow-sm rounded-md' : 'text-base-content/60 hover:text-base-content hover:bg-base-content/5 rounded-md'}`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setTestResult(null);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <h1 className="win11-page-title">{t("settings.title")}</h1>
+      <p className="win11-page-subtitle">{t("settings.subtitle")}</p>
 
-      {/* Tab content */}
-      <div className={`transition-opacity duration-300 ${activeTab === 'general' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderGeneral()}</div>
-      <div className={`transition-opacity duration-300 ${activeTab === 'models' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderModels()}</div>
-      <div className={`transition-opacity duration-300 ${activeTab === 'keys' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderKeys()}</div>
-      <div className={`transition-opacity duration-300 ${activeTab === 'about' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>{renderAbout()}</div>
-      </div>
+      <div style={{ display: currentTab === "general" ? "block" : "none" }}>{renderGeneral()}</div>
+      <div style={{ display: currentTab === "models" ? "block" : "none" }}>{renderModels()}</div>
+      <div style={{ display: currentTab === "keys" ? "block" : "none" }}>{renderKeys()}</div>
+      <div style={{ display: currentTab === "about" ? "block" : "none" }}>{renderAbout()}</div>
     </div>
   );
 }

@@ -1,91 +1,25 @@
-import { useState, type ChangeEvent } from 'react';
-
-/* ─── Types ─── */
-type SubtitleState = 'idle' | 'listening';
+import { useState, type ChangeEvent } from "react";
+import { Button, Select, Field, Badge } from "@fluentui/react-components";
+import {
+  InfoRegular as Info, MicRegular as Mic,
+  Speaker0Regular as AudioLines, ClosedCaptionRegular as Captions,
+  SquareRegular as Square, PlayRegular as Play,
+} from "@fluentui/react-icons";
+import { useSettings } from "../store";
+import { useLiveWebSocket } from "../hooks/useLiveWebSocket";
 
 interface SubtitleConfig {
-  translationEngine: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-  subtitlePosition: string;
-  fontSize: string;
+  translationEngine: string; sourceLanguage: string; targetLanguage: string;
+  subtitlePosition: string; fontSize: string;
 }
 
-/* ─── SVG Icons ─── */
-function InfoIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-  );
-}
-
-function MicIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" y1="19" x2="12" y2="23" />
-      <line x1="8" y1="23" x2="16" y2="23" />
-    </svg>
-  );
-}
-
-export function AudioWaveIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12h2" />
-      <path d="M6 8v8" />
-      <path d="M10 4v16" />
-      <path d="M14 6v12" />
-      <path d="M18 9v6" />
-      <path d="M22 12h-2" />
-    </svg>
-  );
-}
-
-function SubtitleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <line x1="6" y1="14" x2="14" y2="14" />
-      <line x1="6" y1="18" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function StopIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="6" y="6" width="12" height="12" rx="1" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  );
-}
-
-import { useSettings } from '../store';
-import { useLiveWebSocket } from '../hooks/useLiveWebSocket';
-
-/* ─── Component ─── */
 export default function LiveSubtitles() {
   const { t } = useSettings();
-  const [state, setState] = useState<SubtitleState>('idle');
+  const [state, setState] = useState<"idle" | "listening">("idle");
   const { isConnected, isCapturing, subtitleText, startCapture, stopCapture } = useLiveWebSocket();
   const [config, setConfig] = useState<SubtitleConfig>({
-    translationEngine: 'deepseek',
-    sourceLanguage: 'auto',
-    targetLanguage: 'ru',
-    subtitlePosition: 'bottom',
-    fontSize: 'medium',
+    translationEngine: "deepseek", sourceLanguage: "auto", targetLanguage: "ru",
+    subtitlePosition: "bottom", fontSize: "medium",
   });
 
   const updateConfig = <K extends keyof SubtitleConfig>(key: K, value: SubtitleConfig[K]) => {
@@ -93,232 +27,105 @@ export default function LiveSubtitles() {
   };
 
   const handleToggle = () => {
-    if (state === 'idle') {
-      setState('listening');
-      startCapture(config);
-    } else {
-      setState('idle');
-      stopCapture();
-    }
+    if (state === "idle") { setState("listening"); startCapture(config); }
+    else { setState("idle"); stopCapture(); }
   };
 
+  const statusBadge = isCapturing ? { color: "success" as const, label: t("live.listening") }
+    : isConnected ? { color: "brand" as const, label: t("live.standby") }
+    : { color: "subtle" as const, label: t("status.ollama_off") };
+
   return (
-    <div className="flex flex-col flex-1 h-full overflow-y-auto">
-      <div className="flex flex-col h-full max-w-5xl mx-auto w-full px-4 py-8 md:px-8 pb-24">
-        {/* ─── Header ─── */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-base-content mb-2">{t('live.title')}</h1>
-        <p className="text-base-content/60">
-          {t('live.subtitle')}
-        </p>
+    <div className="win11-page">
+      <h1 className="win11-page-title">{t("live.title")}</h1>
+      <p className="win11-page-subtitle">{t("live.subtitle")}</p>
+
+      {/* Info Banner */}
+      <div className="flex gap-3 p-4 rounded-lg mb-4" style={{ background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)" }}>
+        <Info style={{ fontSize: 18, flexShrink: 0, color: "var(--colorNeutralForeground3)" }} />
+        <span className="text-sm" style={{ color: "var(--colorNeutralForeground2)" }}>{t("live.callout")}</span>
       </div>
 
-      {/* ─── Info Callout ─── */}
-      <div className="alert alert-info shadow-sm border border-info/20 mb-8">
-        <InfoIcon />
-        <span>{t('live.callout')}</span>
-      </div>
-
-      {/* ─── Configuration ─── */}
-      <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-8">
-        <div className="card-body p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <SubtitleIcon />
-            <h3 className="card-title text-lg m-0">{t('live.config')}</h3>
+      {/* Configuration Card */}
+      <div className="win11-card">
+        <div className="win11-card-header">{t("live.config")}</div>
+        <div className="win11-card-body">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+            <Field label={t("live.engine_label")} style={{ gridColumn: "1 / -1", padding: "8px 0" }}>
+              <Select value={config.translationEngine} onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig("translationEngine", e.target.value)}>
+                <option value="deepseek">{t("live.engine.deepseek")}</option>
+                <option value="whisper-local">{t("live.engine.whisper_local")}</option>
+              </Select>
+            </Field>
+            {[
+              { id: "sourceLanguage", label: t("live.source_lang"), opts: [{ v: "auto", l: t("live.auto") }, { v: "en", l: t("lang.en") }, { v: "tr", l: t("lang.tr") }, { v: "ar", l: t("lang.ar") }, { v: "ru", l: t("lang.ru") }] },
+              { id: "targetLanguage", label: t("live.target_lang"), opts: [{ v: "ru", l: t("lang.ru") }, { v: "tr", l: t("lang.tr") }, { v: "en", l: t("lang.en") }] },
+              { id: "subtitlePosition", label: t("live.position"), opts: [{ v: "bottom", l: t("pos.bottom") }, { v: "top", l: t("pos.top") }, { v: "center", l: t("pos.center") }] },
+              { id: "fontSize", label: t("live.fontsize"), opts: [{ v: "small", l: t("size.small") }, { v: "medium", l: t("size.medium") }, { v: "large", l: t("size.large") }] },
+            ].map(({ id, label, opts }) => (
+              <Field key={id} label={label} style={{ padding: "8px 0" }}>
+                <Select value={config[id as keyof SubtitleConfig]} onChange={(e) => updateConfig(id as keyof SubtitleConfig, e.target.value)}>
+                  {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </Select>
+              </Field>
+            ))}
           </div>
-
-          {/* Row 1: Translation Engine */}
-          <div className="form-control w-full mb-4">
-            <label className="label">
-              <span className="label-text font-medium">{t('live.engine_label')}</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-            value={config.translationEngine}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('translationEngine', e.target.value)}
-          >
-            <option value="deepseek">{t('live.engine.deepseek')}</option>
-            <option value="whisper-local">{t('live.engine.whisper_local')}</option>
-          </select>
-        </div>
-
-        {/* Row 2: Languages */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">{t('live.source_lang')}</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={config.sourceLanguage}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('sourceLanguage', e.target.value)}
-            >
-              <option value="auto">{t('live.auto')}</option>
-              <option value="en">{t('lang.en')}</option>
-              <option value="tr">{t('lang.tr')}</option>
-              <option value="ar">{t('lang.ar')}</option>
-              <option value="ru">{t('lang.ru')}</option>
-            </select>
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">{t('live.target_lang')}</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={config.targetLanguage}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('targetLanguage', e.target.value)}
-            >
-              <option value="ru">{t('lang.ru')}</option>
-              <option value="tr">{t('lang.tr')}</option>
-              <option value="en">{t('lang.en')}</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Row 3: Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">{t('live.position')}</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={config.subtitlePosition}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('subtitlePosition', e.target.value)}
-            >
-              <option value="bottom">{t('pos.bottom')}</option>
-              <option value="top">{t('pos.top')}</option>
-              <option value="center">{t('pos.center')}</option>
-            </select>
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">{t('live.fontsize')}</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={config.fontSize}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig('fontSize', e.target.value)}
-            >
-              <option value="small">{t('size.small')}</option>
-              <option value="medium">{t('size.medium')}</option>
-              <option value="large">{t('size.large')}</option>
-            </select>
-          </div>
-        </div>
         </div>
       </div>
 
-      {/* ─── Audio Status ─── */}
-      <div className="card bg-base-200 shadow-sm border border-base-content/5 mb-8">
-        <div className="card-body p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="card-title text-lg m-0">{t('live.audio_status')}</h3>
-            <div className={`badge font-medium ${isCapturing ? 'badge-success' : isConnected ? 'badge-info' : 'badge-neutral'}`}>
-              {isCapturing ? t('live.listening') : isConnected ? t('live.standby') : t('status.ollama_off')}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-6">
-          {/* Microphone */}
-          <div className="flex items-center gap-4">
-            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-warning'}`} />
-            <div className="opacity-70"><MicIcon /></div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-base-content">
-                {t('live.status_audio')}
-              </span>
-              <span className="text-xs text-base-content/60">
-                {isCapturing
-                  ? t('live.status_audio.active')
-                  : t('live.status_audio.idle')
-                }
-              </span>
-            </div>
-          </div>
-
-          {/* Translation Engine Status */}
-          <div className="flex items-center gap-4">
-            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-info'}`} />
-            <div className="opacity-70"><SubtitleIcon /></div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-base-content">
-                {t('live.status_engine')}
-              </span>
-              <span className="text-xs text-base-content/60">
-                {isCapturing
-                  ? t('live.status_engine.active')
-                  : t('live.status_engine.idle')
-                }
-              </span>
-            </div>
-          </div>
-
-          {/* Subtitle Overlay */}
-          <div className="flex items-center gap-4">
-            <div className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-warning'}`} />
-            <div className="opacity-70">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M9 21V9" />
-              </svg>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-base-content">
-                {t('live.status_overlay')}
-              </span>
-              <span className="text-xs text-base-content/60">
-                {isCapturing
-                  ? t('live.status_overlay.active')
-                  : t('live.status_overlay.idle')
-                }
-              </span>
-            </div>
-          </div>
+      {/* Status Cards */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold" style={{ fontSize: 16 }}>{t("live.audio_status")}</h2>
+          <Badge appearance="tint" color={statusBadge.color} size="small">{statusBadge.label}</Badge>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          {[
+            { icon: <Mic style={{ fontSize: 18 }} />, title: t("live.status_audio"), desc: isCapturing ? t("live.status_audio.active") : t("live.status_audio.idle") },
+            { icon: <AudioLines style={{ fontSize: 18 }} />, title: t("live.status_engine"), desc: isCapturing ? t("live.status_engine.active") : t("live.status_engine.idle") },
+            { icon: <Captions style={{ fontSize: 18 }} />, title: t("live.status_overlay"), desc: isCapturing ? t("live.status_overlay.active") : t("live.status_overlay.idle") },
+          ].map((card, i) => (
+            <div key={i} style={{
+              padding: 20, textAlign: "center", borderRadius: 8,
+              background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)",
+            }}>
+              <div className="flex items-center gap-2 justify-center mb-3">
+                <span className="status-dot" style={{ background: isCapturing ? "var(--colorPaletteGreenForeground1)" : "var(--colorNeutralForeground3)", animation: isCapturing ? "pulse 2s ease-in-out infinite" : "none" }} />
+                <span style={{ color: "var(--colorNeutralForeground3)" }}>{card.icon}</span>
+              </div>
+              <div className="text-sm font-semibold">{card.title}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground3)" }}>{card.desc}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ─── Live Subtitle Preview (when listening) ─── */}
+      {/* Live Preview */}
       {isCapturing && (
-        <div className="card bg-base-200 shadow-sm border border-success/30 mb-8">
-          <div className="card-body p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="card-title text-lg m-0">{t('live.preview')}</h3>
-              <div className="flex items-center gap-2 text-success">
-                <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                <span className="text-sm font-medium">{t('live.recording')}</span>
-              </div>
+        <div style={{
+          padding: 20, marginBottom: 24, borderRadius: 8,
+          background: "var(--colorNeutralBackground3)", border: "1px solid var(--colorNeutralStroke2)",
+        }}>
+          <div className="flex items-center justify-between mb-3 opacity-60">
+            <span className="text-xs font-bold" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("live.preview")}</span>
+            <div className="flex items-center gap-2">
+              <span className="status-dot" style={{ background: "var(--colorPaletteGreenForeground1)", animation: "pulse 2s ease-in-out infinite" }} />
+              <span className="text-xs">{t("live.recording")}</span>
             </div>
-            <div className="bg-base-300 rounded-lg p-6 font-mono text-sm leading-relaxed border border-base-content/10 text-base-content">
-              <div className={subtitleText ? '' : 'opacity-50 italic'}>
-                {subtitleText || t('live.waiting_audio')}
-              </div>
-            </div>
+          </div>
+          <div className="font-mono text-sm text-center" style={{ minHeight: "3em" }}>
+            {subtitleText || <span className="opacity-30" style={{ fontStyle: "italic" }}>{t("live.waiting_audio")}</span>}
           </div>
         </div>
       )}
 
-      {/* ─── Start / Stop Button ─── */}
-      <button
-        className={`btn btn-lg w-full ${isCapturing ? 'btn-error' : 'btn-primary'}`}
-        onClick={handleToggle}
-      >
-        {isCapturing ? (
-          <>
-            <StopIcon />
-            {t('live.stop')}
-          </>
-        ) : (
-          <>
-            <PlayIcon />
-            {t('live.start')}
-          </>
-        )}
-      </button>
-      </div>
+      <Button appearance="primary" size="large" icon={isCapturing ? <Square /> : <Play />}
+        style={{ width: "100%", height: 52, fontSize: 16, fontWeight: 600,
+          background: isCapturing ? "var(--colorPaletteRedBackground3)" : undefined,
+          color: isCapturing ? "var(--colorPaletteRedForeground1)" : undefined }}
+        onClick={handleToggle}>
+        {isCapturing ? t("live.stop") : t("live.start")}
+      </Button>
     </div>
   );
 }

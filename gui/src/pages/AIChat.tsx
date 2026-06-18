@@ -1,267 +1,158 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useOllama, type OllamaMessage } from '../hooks/useOllama';
-
-// Removed hardcoded MODELS
-
-import { useSettings } from '../store';
+import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Button, Select, Textarea } from "@fluentui/react-components";
+import {
+  ArrowSyncRegular as RefreshCw, AddRegular as Plus, SendRegular as Send,
+  WarningRegular as AlertTriangle, FlashRegular as Zap, FlashOffRegular as ZapOff,
+  BotRegular as Bot, PersonRegular as User,
+} from "@fluentui/react-icons";
+import { useOllama, type OllamaMessage } from "../hooks/useOllama";
+import { useSettings } from "../store";
 
 function AIChat() {
   const { t } = useSettings();
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage, abort, isConnected, models, checkConnection, startOllama, stopOllama } = useOllama();
 
-  // Check connection on mount and interval
   useEffect(() => {
-    const fetchModels = () => {
-      checkConnection().then(availableModels => {
-        if (availableModels.length > 0 && !selectedModel) {
-          setSelectedModel(availableModels[0]);
-        }
-      });
-    };
+    const fetchModels = () => checkConnection().then(availableModels => {
+      if (availableModels.length > 0 && !selectedModel) setSelectedModel(availableModels[0]);
+    });
     fetchModels();
-    
-    // Poll every 10 seconds to catch newly downloaded models
     const interval = setInterval(fetchModels, 10000);
     return () => clearInterval(interval);
   }, [checkConnection, selectedModel]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current;
-    if (el) {
-      el.style.height = '44px';
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-    }
+    if (el) { el.style.height = "44px"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }
   }, [input]);
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
-
     setError(null);
-
-    const userMessage: OllamaMessage = { role: 'user', content: trimmed };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput('');
-    setIsStreaming(true);
-
-    // Add empty assistant message for streaming
-    const assistantMessage: OllamaMessage = { role: 'assistant', content: '' };
-    setMessages([...newMessages, assistantMessage]);
-
-    // System prompt for agentic context
-    const systemPrompt: OllamaMessage = {
-      role: 'system',
-      content: 'You are Gemma, the intelligent AI agent of AutoDubStudio. AutoDubStudio is a professional video dubbing software using Whisper for transcription and XTTS v2 for voice cloning. Your goal is to help the user translate scripts, adapt them for lip-sync, analyze emotions, and summarize content. Always keep the conversation context in mind. Be concise and professional.'
-    };
+    const userMsg: OllamaMessage = { role: "user", content: trimmed };
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs); setInput(""); setIsStreaming(true);
+    setMessages([...newMsgs, { role: "assistant", content: "" }]);
 
     await sendMessage({
       model: selectedModel,
-      messages: [systemPrompt, ...newMessages],
-      onChunk: (chunk) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last.role === 'assistant') {
-            updated[updated.length - 1] = {
-              ...last,
-              content: last.content + chunk,
-            };
-          }
-          return updated;
-        });
-      },
-      onDone: () => {
-        setIsStreaming(false);
-      },
+      messages: [{ role: "system", content: "You are an AI assistant for AutoDubStudio, a professional video dubbing software. Help with translations, scripts, and content. Be concise and professional." }, ...newMsgs],
+      onChunk: (chunk) => setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.role === "assistant") updated[updated.length - 1] = { ...last, content: last.content + chunk };
+        return updated;
+      }),
+      onDone: () => setIsStreaming(false),
       onError: (errMsg) => {
-        setIsStreaming(false);
-        setError(errMsg || t('chat.ollama_error'));
-        // Remove the empty assistant message on error
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last.role === 'assistant' && last.content === '') {
-            return prev.slice(0, -1);
-          }
-          return prev;
-        });
+        setIsStreaming(false); setError(errMsg || t("chat.ollama_error"));
+        setMessages(prev => prev[prev.length - 1]?.role === "assistant" && prev[prev.length - 1].content === "" ? prev.slice(0, -1) : prev);
       },
     });
   }, [input, isStreaming, messages, selectedModel, sendMessage, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleNewChat = () => {
-    abort();
-    setMessages([]);
-    setError(null);
-    setIsStreaming(false);
-    setInput('');
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   return (
-    <div className="flex flex-col h-full bg-base-100">
+    <div className="flex flex-col" style={{ height: "calc(100vh - 48px - 36px)" }}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between p-4 border-b border-base-content/10 gap-4 shrink-0 bg-base-200/30">
+      <div className="flex items-center justify-between flex-wrap gap-3 shrink-0"
+        style={{ padding: "12px 48px", borderBottom: "1px solid var(--colorNeutralStroke2)", background: "var(--colorNeutralBackground1)" }}>
         <div className="flex items-center gap-3 flex-wrap">
           {isConnected && (
-            <>
-              <select
-                className="select select-bordered select-sm w-full max-w-xs"
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-              >
-                {models.length === 0 ? (
-                  <option value="">
-                    {t('chat.no_models')}
-                  </option>
-                ) : (
-                  models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))
-                )}
-              </select>
-              
-              <button 
-                className="btn btn-ghost btn-sm btn-square" 
-                onClick={() => checkConnection()}
-                title="Обновить список моделей"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 4v6h6" />
-                  <path d="M3.51 9a7 7 0 1 0-.12-4.46l-2.3 2.3" />
-                </svg>
-              </button>
-            </>
-          )}
-
-          {isConnected !== null && (
-            <div className="flex items-center gap-2 bg-base-200/50 px-3 py-1.5 rounded-lg border border-base-content/5">
-              <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-error shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-              <span className="text-sm font-medium opacity-80">
-                {isConnected ? t('status.ollama') : t('status.ollama_off')}
-              </span>
-              
-              {isConnected ? (
-                <button 
-                  onClick={stopOllama}
-                  className="btn btn-ghost btn-xs text-error ml-2" 
-                >
-                  Выключить
-                </button>
-              ) : (
-                <button 
-                  onClick={startOllama}
-                  className="btn btn-primary btn-xs ml-2" 
-                >
-                  Включить Ollama
-                </button>
-              )}
+            <div className="flex items-center gap-2" style={{ padding: "4px 8px", borderRadius: 8, background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)" }}>
+              <Select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} size="small" aria-label={t("chat.model_selector")}>
+                {models.length === 0 ? <option value="">{t("chat.no_models")}</option> : models.map(m => <option key={m} value={m}>{m}</option>)}
+              </Select>
+              <Button appearance="subtle" size="small" shape="circular" icon={<RefreshCw style={{ fontSize: 14 }} />} onClick={() => checkConnection()} />
             </div>
           )}
+          <div className="flex items-center gap-2" style={{ padding: "4px 8px", borderRadius: 8, background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)" }}>
+            <span className="status-dot" style={{ background: isConnected ? "var(--colorPaletteGreenForeground1)" : "var(--colorPaletteRedForeground1)", width: 8, height: 8 }} />
+            <span className="text-sm">{isConnected ? t("status.ollama") : t("status.ollama_off")}</span>
+            <Button appearance={isConnected ? "subtle" : "primary"} size="small"
+              icon={isConnected ? <ZapOff style={{ fontSize: 14 }} /> : <Zap style={{ fontSize: 14 }} />}
+              onClick={isConnected ? stopOllama : startOllama}
+              style={isConnected ? { color: "var(--colorPaletteRedForeground1)" } : undefined}>
+              {isConnected ? t("chat.stop_ollama") : t("chat.start_ollama")}
+            </Button>
+          </div>
         </div>
-
-        <button className="btn btn-outline btn-sm gap-2" onClick={handleNewChat}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M3 8h10M8 3v10" />
-          </svg>
-          {t('chat.new_chat')}
-        </button>
+        <Button appearance="outline" size="small" icon={<Plus style={{ fontSize: 14 }} />} onClick={() => { abort(); setMessages([]); setError(null); setIsStreaming(false); setInput(""); }}>
+          {t("chat.new_chat")}
+        </Button>
       </div>
 
-      {/* Error callout */}
+      {/* Error */}
       {error && (
-        <div className="px-6 pt-4">
-          <div className="alert alert-warning shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            <span>{error}</span>
+        <div style={{ padding: "12px 48px" }}>
+          <div className="flex gap-3 p-4 rounded-lg" style={{ background: "var(--colorPaletteYellowBackground2)", border: "1px solid var(--colorPaletteYellowBorder1)" }}>
+            <AlertTriangle style={{ fontSize: 18, color: "var(--colorPaletteYellowForeground1)" }} />
+            <span className="text-sm font-medium">{error}</span>
           </div>
         </div>
       )}
 
-      {/* Chat area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6" style={{ minHeight: 0 }}>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto" style={{ padding: "24px 48px" }}>
         {!isConnected ? (
-          <div className="flex flex-col items-center justify-center h-full text-center opacity-80 gap-4">
-            <div className="text-6xl grayscale opacity-50 mb-2">💤</div>
-            <h2 className="text-2xl font-bold">ИИ выключен</h2>
-            <p className="max-w-md text-base-content/70">
-              Локальный ИИ движок (Ollama) отключен для экономии памяти.
-            </p>
-            <button className="btn btn-primary mt-2" onClick={startOllama}>
-              Запустить Ollama
-            </button>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div style={{ padding: 20, borderRadius: 16, background: "var(--colorNeutralBackground3)" }}>
+              <ZapOff style={{ fontSize: 48, opacity: 0.3 }} />
+            </div>
+            <h2 className="text-xl font-semibold">{t("chat.ollama_off_title")}</h2>
+            <p className="text-sm" style={{ color: "var(--colorNeutralForeground2)" }}>{t("chat.ollama_off_desc")}</p>
+            <Button appearance="primary" icon={<Zap />} onClick={startOllama}>{t("chat.start_ollama")}</Button>
           </div>
         ) : messages.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center h-full text-center opacity-80 gap-4">
-            <div className="text-6xl drop-shadow-md mb-2">🤖</div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{t('chat.empty.title')}</h2>
-            <p className="max-w-md text-base-content/70">
-              {t('chat.empty.subtitle')}
-            </p>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div style={{ padding: 20, borderRadius: 16, background: "var(--colorBrandBackground2)" }}>
+              <Bot style={{ fontSize: 48, color: "var(--colorBrandForeground1)", opacity: 0.6 }} />
+            </div>
+            <h2 className="text-xl font-semibold">{t("chat.empty.title")}</h2>
+            <p className="text-sm" style={{ color: "var(--colorNeutralForeground2)" }}>{t("chat.empty.subtitle")}</p>
           </div>
         ) : (
-          /* Messages */
-          <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+          <div className="flex flex-col gap-6" style={{ maxWidth: 768, margin: "0 auto" }}>
             {messages.map((msg, i) => {
-              const isAssistant = msg.role === 'assistant';
-              const isLastAssistant =
-                isAssistant && i === messages.length - 1 && isStreaming;
-              const showTyping = isLastAssistant && msg.content === '';
-
+              const isAssistant = msg.role === "assistant";
+              const isLastAssistant = isAssistant && i === messages.length - 1 && isStreaming;
+              const showTyping = isLastAssistant && msg.content === "";
               return (
-                <div key={i} className={`chat ${isAssistant ? 'chat-start' : 'chat-end'}`}>
-                  <div className="chat-image avatar">
-                    <div className={`w-10 rounded-full flex items-center justify-center ${isAssistant ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary'}`}>
-                      {isAssistant ? (
-                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                          <path d="M8 1a2.5 2.5 0 0 0-2.5 2.5V5H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1.5V3.5A2.5 2.5 0 0 0 8 1zM6.5 3.5a1.5 1.5 0 1 1 3 0V5h-3V3.5zM6 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 1a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
-                        </svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                          <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm5 6a5 5 0 0 0-10 0h10z" />
-                        </svg>
-                      )}
-                    </div>
+                <div key={i} className={`chat-message ${isAssistant ? "assistant" : "user"}`} style={{
+                  display: "flex", gap: 12, maxWidth: "85%",
+                  alignSelf: isAssistant ? "flex-start" : "flex-end",
+                  flexDirection: isAssistant ? "row" : "row-reverse",
+                }}>
+                  <div className="flex items-center justify-center shrink-0" style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: isAssistant ? "var(--colorBrandBackground2)" : "var(--colorNeutralBackground3)",
+                    color: isAssistant ? "var(--colorBrandForeground1)" : "var(--colorNeutralForeground2)",
+                  }}>
+                    {isAssistant ? <Bot style={{ fontSize: 16 }} /> : <User style={{ fontSize: 16 }} />}
                   </div>
-                  <div className="chat-header opacity-50 mb-1">
-                    {isAssistant ? 'AutoDub AI' : 'You'}
-                  </div>
-                  <div className={`chat-bubble max-w-[85%] ${isAssistant ? 'chat-bubble-primary bg-primary/10 text-base-content border border-primary/20' : 'chat-bubble-secondary text-secondary-content'} text-sm leading-relaxed`}>
+                  <div className="win11-chat-bubble" style={{ background: isAssistant ? "var(--colorNeutralBackground2)" : "var(--colorBrandBackground)", color: isAssistant ? "var(--colorNeutralForeground1)" : "white", border: isAssistant ? "1px solid var(--colorNeutralStroke2)" : "none" }}>
                     {showTyping ? (
-                      <span className="loading loading-dots loading-md"></span>
+                      <span><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></span>
                     ) : (
-                      <div className="prose prose-sm max-w-none prose-p:my-2 prose-pre:my-2 prose-pre:bg-base-300">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
-                        </ReactMarkdown>
-                        {isLastAssistant && (
-                          <span className="inline-block w-1.5 h-4 bg-primary ml-1 align-text-bottom animate-pulse" />
-                        )}
+                      <div className="prose" style={{ color: "inherit" }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        {isLastAssistant && <span className="animate-pulse" style={{ display: "inline-block", width: 4, height: 14, background: "currentColor", marginLeft: 2, verticalAlign: "text-bottom", borderRadius: 2 }} />}
                       </div>
                     )}
                   </div>
@@ -273,31 +164,19 @@ function AIChat() {
         )}
       </div>
 
-      {/* Input area */}
+      {/* Input */}
       {isConnected && (
-        <div className="p-4 sm:p-6 bg-base-200/30 border-t border-base-content/10 shrink-0">
-          <div className="max-w-4xl mx-auto relative flex items-end bg-base-100 rounded-xl border border-base-content/20 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
-            <textarea
-              ref={textareaRef}
-              className="textarea w-full bg-transparent border-none focus:outline-none resize-none py-3 pl-4 pr-14 text-base leading-relaxed"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('chat.placeholder')}
-              rows={1}
-              disabled={isStreaming}
-              style={{ minHeight: '52px' }}
-            />
-            <button
-              className="btn btn-primary btn-sm btn-square absolute right-2 bottom-2 z-10 rounded-lg"
-              onClick={handleSend}
-              disabled={isStreaming || !input.trim()}
-              title={t('chat.send_title')}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5">
-                <path d="M2 9l14-7-7 14V9H2z" />
-              </svg>
-            </button>
+        <div className="shrink-0" style={{ padding: "16px 48px 24px", borderTop: "1px solid var(--colorNeutralStroke2)" }}>
+          <div className="flex items-end gap-3" style={{ maxWidth: 768, margin: "0 auto" }}>
+            <Textarea ref={textareaRef} value={input}
+              onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder={t("chat.placeholder")} disabled={isStreaming}
+              className="flex-1" style={{ minHeight: 44, maxHeight: 120, resize: "none", borderRadius: 12 }} />
+            <Button appearance="primary" shape="circular" icon={<Send style={{ fontSize: 16 }} />}
+              onClick={handleSend} disabled={isStreaming || !input.trim()} />
+          </div>
+          <div className="text-center mt-3 text-xs" style={{ color: "var(--colorNeutralForeground4)" }}>
+            {t("chat.disclaimer")}
           </div>
         </div>
       )}

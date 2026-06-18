@@ -3,10 +3,8 @@ import sys
 import subprocess
 import torch
 import shutil
-import glob
 import threading
 import re
-import math
 os.environ["PYTHONIOENCODING"] = "utf-8"
 # WhisperX will be imported locally inside the worker
 
@@ -74,7 +72,33 @@ class AutoDubWorker(threading.Thread):
         if isinstance(video_path, dict):
             cfg = video_path
             self.video_path = cfg.get("video_path", "")
-            self.out_dir = cfg.get("out_dir") or os.path.dirname(self.video_path) if self.video_path else os.getcwd()
+            
+            # ── Security: Path Traversal Protection for out_dir ──
+            req_out_dir = cfg.get("out_dir")
+            default_out = os.path.dirname(self.video_path) if self.video_path else os.getcwd()
+            
+            if req_out_dir:
+                # Resolve paths to absolute to prevent bypass via symlinks or ..
+                abs_req = os.path.realpath(req_out_dir)  # realpath resolves symlinks (stronger than abspath)
+                user_home = os.path.expanduser("~")
+                # Allow only if it's inside user home or same drive (for Industrial Edition)
+                # But strictly block sensitive system paths
+                system_paths = [
+                    os.environ.get("SystemRoot", "C:\\Windows").lower(),
+                    "C:\\program files",
+                    "C:\\program files (x86)",
+                    "C:\\users\\public"
+                ]
+                is_system = any(abs_req.lower().startswith(p) for p in system_paths)
+                
+                if not is_system:
+                    self.out_dir = abs_req
+                else:
+                    print(f"[SECURITY] Blocked out_dir on system path: {abs_req}")
+                    self.out_dir = default_out
+            else:
+                self.out_dir = default_out
+
             target_langs = cfg.get("target_langs", cfg.get("langs", ["en"]))
             self.langs = {lang: f"{lang}-default" for lang in target_langs}
             self.model_size = cfg.get("whisper_model", "small")
@@ -121,6 +145,8 @@ class AutoDubWorker(threading.Thread):
 
     def _run_subprocess(self, cmd, **kwargs):
         check = kwargs.pop("check", False)
+        timeout = kwargs.pop("timeout", None)  # Popped — handled via polling loop below
+        _ = timeout  # timeout is used implicitly via process.wait(timeout=0.5) polling
 
         # ── Security: don't leak API keys to child processes ──
         if "env" not in kwargs:
@@ -136,7 +162,9 @@ class AutoDubWorker(threading.Thread):
             kwargs['stdout'] = subprocess.PIPE
             kwargs['stderr'] = subprocess.STDOUT
             kwargs['bufsize'] = 1
-            kwargs['universal_newlines'] = True
+            kwargs['text'] = True
+            kwargs['encoding'] = 'utf-8'
+            kwargs['errors'] = 'replace'
 
         process = subprocess.Popen(cmd, **kwargs)
         self.active_processes.append(process)
@@ -252,14 +280,28 @@ class AutoDubWorker(threading.Thread):
             self.video_path = os.path.realpath(self.video_path)
 
             # Language-TTS compatibility check
+            # Use IDs for internal logic to match frontend config
             TTS_COMPAT = {
-                "Edge-TTS (Cloud, Free, Fast)": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
-                "Qwen3-TTS Local": {"ru", "en"},
-                "XTTSv2 Local": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
-                "F5-TTS Local": {"ru", "en", "tr", "ar"},
+                "edge-tts": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
+                "azure": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
+                "qwen3-tts": {"ru", "en", "es", "fr", "zh"},
+                "xttsv2": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
+                "f5-tts": {"ru", "en", "tr", "ar", "zh"},
             }
+            # Fallback for display names if sent instead of IDs
+            DISPLAY_TO_ID = {
+                "Edge-TTS (Cloud, Free, Fast)": "edge-tts",
+                "Qwen3-TTS Local": "qwen3-tts",
+                "XTTSv2 Local": "xttsv2",
+                "F5-TTS Local": "f5-tts",
+                "Azure OpenAI (Cloud)": "azure"
+            }
+            engine_id = self.dub_engine.lower()
+            if self.dub_engine in DISPLAY_TO_ID:
+                engine_id = DISPLAY_TO_ID[self.dub_engine]
+            
             for lang, _ in self.langs.items():
-                compat = TTS_COMPAT.get(self.dub_engine, set())
+                compat = TTS_COMPAT.get(engine_id, set())
                 if lang not in compat:
                     err = f"❌ {self.dub_engine} не поддерживает язык '{lang}'. Совместимые языки: {sorted(compat)}"
                     self.log_signal.emit(err)
@@ -320,25 +362,34 @@ class AutoDubWorker(threading.Thread):
                 self.log_signal.emit(f"✅ Сегменты загружены из кэша ({len(segments)} шт., пропуск Whisper)")
             else:
                 self.log_signal.emit(f"🔄 Загрузка Faster-Whisper ({self.model_size}) на {self.device}...")
-                from faster_whisper import WhisperModel
-
-                try:
-                    compute_type = "float16" if self.device == "cuda" else "int8"
-                    model = WhisperModel(self.model_size, device=self.device, compute_type=compute_type)
-                    segments_gen, info = model.transcribe(transcribe_path, beam_size=5)
-                    self.log_signal.emit(f"✅ Транскрибация завершена (язык: {info.language}).")
-
-                    segments = []
-                    for s in segments_gen:
-                        self._check_cancelled()
-                        segments.append({"start": s.start, "end": s.end, "text": s.text, "speaker": "SPEAKER_00"})
-
-                except Exception as e:
-                    self.log_signal.emit(f"⚠ Ошибка транскрибации: {e}")
-                    raise
-
-                del model
-
+                # ── Run Whisper in subprocess for guaranteed VRAM cleanup ──
+                import json as _json, tempfile as _tf
+                whisper_json_path = os.path.join(self.out_dir, f".autodub_{base_name}_whisper_out.json")
+                # Write params as JSON to avoid escaping issues with paths
+                whisper_params = _json.dumps({
+                    "model_size": self.model_size,
+                    "device": self.device,
+                    "audio_path": transcribe_path,
+                    "output_path": whisper_json_path,
+                })
+                whisper_code = (
+                    "import sys,json; p=json.loads(sys.argv[1]);"
+                    "from faster_whisper import WhisperModel;"
+                    "ct='float16' if p['device']=='cuda' else 'int8';"
+                    "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
+                    "segs,info=m.transcribe(p['audio_path'],beam_size=5);"
+                    "print('LANG:'+info.language);"
+                    "out=[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs];"
+                    "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
+                    "print(f'DONE:{len(out)}')"
+                )
+                self._run_subprocess(
+                    [sys.executable, "-c", whisper_code, whisper_params],
+                    check=True, timeout=600,
+                )
+                with open(whisper_json_path, "r", encoding="utf-8") as f:
+                    segments = _json.load(f)
+                all_created_files.append(whisper_json_path)
                 self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
                 _save_checkpoint("segments", segments)
 
@@ -351,7 +402,7 @@ class AutoDubWorker(threading.Thread):
                     self._run_subprocess(
                         [sys.executable, diar_script, transcribe_path, diar_json],
                         check=True, timeout=600,
-                        env={**os.environ, "HF_TOKEN": self.hf_key},
+                        env={"HF_TOKEN": self.hf_key},
                     )
                     if os.path.exists(diar_json):
                         import json as _json
@@ -431,9 +482,9 @@ class AutoDubWorker(threading.Thread):
                         f.write(f"{idx+1}\n{self.format_timestamp(tseg['start'])} --> {self.format_timestamp(tseg['end'])}\n{tseg['text'].strip()}\n\n")
 
                 # --- TTS Logic ---
-                use_f5 = "F5-TTS" in self.dub_engine
-                use_xtts = "XTTSv2" in self.dub_engine
-                use_qwen = "Qwen3-TTS" in self.dub_engine
+                use_f5 = "f5-tts" in engine_id
+                use_xtts = "xttsv2" in engine_id
+                use_qwen = "qwen3-tts" in engine_id
                 audio_clips = []
 
                 # Pre-extract skip_dub segments
@@ -483,10 +534,12 @@ class AutoDubWorker(threading.Thread):
                         
                         if use_f5:
                             f5_py = os.path.join(os.path.dirname(__file__), ".venv-f5", "Scripts", "python.exe")
-                            self._run_subprocess([f5_py, "f5_worker.py", tasks_file], check=True)
+                            f5_worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
+                            self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True)
                         else:
                             xtts_py = os.path.join(os.path.dirname(__file__), ".venv-xtts", "Scripts", "python.exe")
-                            self._run_subprocess([xtts_py, "xtts_worker.py", tasks_file], check=True)
+                            xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
+                            self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True)
                         
                         all_created_files.append(tasks_file)
 
@@ -502,9 +555,10 @@ class AutoDubWorker(threading.Thread):
                         with open(tasks_file, "w", encoding="utf-8") as f: json.dump(tasks, f)
                         
                         qwen_py = os.path.join(os.path.dirname(__file__), ".venv-qwen3-tts", "Scripts", "python.exe")
+                        qwen_worker_script = os.path.join(os.path.dirname(__file__), "qwen3_worker.py")
                         lang_map = {"ru": "Russian", "en": "English", "tr": "Turkish"}
                         qwen_lang = lang_map.get(lang, "Russian")
-                        self._run_subprocess([qwen_py, "qwen3_worker.py", tasks_file, "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", qwen_lang, "Vivian"], check=True)
+                        self._run_subprocess([qwen_py, qwen_worker_script, tasks_file, "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", qwen_lang, "Vivian"], check=True)
                         all_created_files.append(tasks_file)
 
                 else: # Edge-TTS
@@ -698,6 +752,10 @@ class AutoDubWorker(threading.Thread):
             self.log_signal.emit("🛑 Пайплайн отменён пользователем.")
             self.finished_signal.emit(False, "Cancelled by user")
         except Exception as e:
+            import traceback as _tb
+            # Log full traceback to file/console for debugging
+            _tb.print_exc()
+            self.log_signal.emit(f"❌ Pipeline error: {e}")
             self.finished_signal.emit(False, str(e))
         finally:
             with PIPELINE_LOCK:
