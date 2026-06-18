@@ -302,6 +302,98 @@ class Translator:
                     continue
             raise RuntimeError("All LLM fallbacks failed for smart JSON translation.")
 
+    def _gemma4_refine(self, segments, target_lang, log_callback=None, check_cancelled=None):
+        """Refine base translations (from DeepL or Google) using Gemma4 via Ollama."""
+        import gc as _gc
+        lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic"}
+        lang_name = lang_names.get(target_lang, target_lang)
+        batch_size = 4
+        total = len(segments)
+        if log_callback: log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
+
+        # VRAM cleanup
+        try:
+            import torch as _t
+            _gc.collect()
+            if _t.cuda.is_available():
+                _t.cuda.empty_cache()
+                _t.cuda.synchronize()
+        except Exception: pass
+
+        # Stop any existing Ollama models
+        try:
+            import subprocess as _sp
+            _sp.run(["ollama", "stop", "gemma4:e4b"], capture_output=True, timeout=10)
+        except Exception: pass
+        import time as _time; _time.sleep(1.5)
+
+        # Warmup
+        if log_callback: log_callback("  ⏳ Прогрев Gemma4...")
+        warmup_ok = False
+        try:
+            warmup_prompt = f"Say 'ready' in {lang_name}. One word only."
+            warmup_response = self._call_llm(warmup_prompt, is_json=False)
+            if warmup_response and len(warmup_response.strip()) > 0:
+                warmup_ok = True
+                if log_callback: log_callback("  ✅ Gemma4 загружен и готов")
+        except Exception:
+            if log_callback: log_callback("  ⚠ Gemma4 не отвечает — оставляю базовый перевод")
+            for seg in segments:
+                seg["text"] = seg.get("translated_base", seg["text"])
+            self.release_models()
+            return segments
+
+        gemma4_failures = 0
+        for batch_start in range(0, total, batch_size):
+            batch_end = min(batch_start + batch_size, total)
+            batch = segments[batch_start:batch_end]
+            if gemma4_failures >= 3:
+                for seg in batch: seg["text"] = seg.get("translated_base", seg["text"])
+                continue
+
+            dialogue = []
+            for j, seg in enumerate(batch):
+                idx = batch_start + j
+                spk = seg.get("speaker", "SPEAKER_00")
+                orig = seg["text"].strip()
+                base = seg.get("translated_base", orig)
+                dialogue.append(f"[{j}] {spk}\n    Original: {orig}\n    Draft: {base}")
+            full_text = "\n\n".join(dialogue)
+            prompt = f"""Improve these subtitle translations to sound natural in {lang_name}. Fix grammar, flow, and make them conversational.
+
+Rules:
+- Output a JSON object with "segments" array
+- Each segment: {{"text": "improved translation", "skip_dub": false}}
+- Keep names/brands/tech terms unchanged
+- If the Draft is already perfect, copy it as-is
+
+Dialogue:
+{full_text}
+
+JSON:"""
+            try:
+                response = self._call_llm(prompt, is_json=True)
+                import json as _json
+                data = _json.loads(response)
+                parsed = data.get("segments", [])
+                gemma4_failures = 0
+                if parsed and len(parsed) == len(batch):
+                    for j, p_seg in enumerate(parsed):
+                        new_text = p_seg.get("text", "").strip()
+                        if new_text: batch[j]["text"] = new_text
+                elif parsed:
+                    for j in range(min(len(parsed), len(batch))):
+                        new_text = parsed[j].get("text", "").strip()
+                        if new_text: batch[j]["text"] = new_text
+            except Exception as e:
+                gemma4_failures += 1
+                if log_callback: log_callback(f"  ⚠ Gemma4 batch failed ({gemma4_failures}/3): {str(e)[:80]}.")
+                for seg in batch: seg["text"] = seg.get("translated_base", seg["text"])
+
+        if log_callback: log_callback("✅ Перевод завершен (DeepL + Gemma4)!")
+        self.release_models()
+        return segments
+
     def release_models(self):
         import gc
         if "ollama" in self.engine_name.lower():
@@ -332,6 +424,15 @@ class Translator:
         is_deepl = "deepl" in self.engine_name.lower() and self.deepl_key
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
                                       ("deepseek" in self.engine_name.lower() and self.deepseek_key))
+        # Hybrid: DeepL base + Gemma4 refinement (if Ollama is running)
+        gemma4_available = False
+        if is_deepl:
+            import urllib.request as _ur
+            try:
+                _ur.urlopen("http://localhost:11434/api/tags", timeout=2)
+                gemma4_available = True
+            except Exception:
+                pass
 
         # ── Step 1: Fast base translation ──
         # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
@@ -504,6 +605,11 @@ JSON:"""
             if log_callback: log_callback("✅ Перевод завершен!")
             self.release_models()
             return segments
+
+        # ── DeepL + Gemma4 hybrid refinement ──
+        if is_deepl and gemma4_available:
+            if log_callback: log_callback("🧠 DeepL + Gemma4 — улучшаю перевод...")
+            return self._gemma4_refine(segments, target_lang, log_callback, check_cancelled)
 
         # ── Non-AI engines: just use base translation ──
         if not is_ai_refine:

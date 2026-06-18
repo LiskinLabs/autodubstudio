@@ -44,7 +44,7 @@ const LANGS = ["ru", "tr", "en", "es", "fr", "de", "ar", "zh", "ja", "ko", "it",
 const TTS_BY_LANG: Record<string, string[]> = {
   "ru": ["qwen3-tts", "xttsv2", "f5-tts", "azure", "edge-tts"],
   "en": ["qwen3-tts", "xttsv2", "f5-tts", "azure", "edge-tts"],
-  "tr": ["xttsv2", "azure", "edge-tts"],
+  "tr": ["f5-tts", "xttsv2", "azure", "edge-tts"],
   "es": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
   "fr": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
   "de": ["xttsv2", "azure", "edge-tts"],

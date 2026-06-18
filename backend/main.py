@@ -251,15 +251,25 @@ async def get_pipeline_status():
         pipeline_status["vram_total_gb"] = 0
     return pipeline_status
 
+# Safe-to-terminate process names (browsers, media, chat apps)
+SAFE_TO_KILL = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe",
+                "spotify.exe", "discord.exe", "teams.exe", "slack.exe", "zoom.exe",
+                "vlc.exe", "wmplayer.exe", "msrdc.exe", "mstsc.exe"}
+
 @app.get("/api/system/processes")
 async def get_heavy_processes():
-    """Return top VRAM/RAM-consuming processes for the cleaner dialog."""
-    import psutil
+    """Return top VRAM/RAM-consuming SAFE-TO-KILL processes for the cleaner dialog."""
+    import psutil, getpass
+    current_user = getpass.getuser()
     procs = []
-    for p in psutil.process_iter(['pid', 'name', 'memory_info']):
+    for p in psutil.process_iter(['pid', 'name', 'memory_info', 'username']):
         try:
             mi = p.info['memory_info']
-            if mi and mi.rss > 50 * 1024 * 1024:  # >50 MB
+            name = (p.info['name'] or "").lower()
+            # Only show processes owned by current user AND in the safe-to-kill list
+            if (mi and mi.rss > 50 * 1024 * 1024
+                    and p.info['username'] == current_user
+                    and name in SAFE_TO_KILL):
                 procs.append({
                     "pid": p.info['pid'],
                     "name": p.info['name'],
@@ -289,7 +299,8 @@ async def kill_process(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"kill-process failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to terminate process")
 
 @app.get("/api/token")
 async def get_ws_token(request: Request):
