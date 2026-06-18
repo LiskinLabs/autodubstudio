@@ -99,7 +99,7 @@ const App: React.FC = () => {
       {/* ── Body: Sidebar + Content ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* ── Win11 Settings Sidebar (acrylic) ── */}
-        <nav className="flex flex-col shrink-0 overflow-y-auto" role="navigation"
+        <nav className="win11-sidebar flex flex-col shrink-0 overflow-y-auto" role="navigation"
           style={{
             width: 280, padding: "8px 0 16px",
             background: "var(--colorNeutralBackground2)",
@@ -114,9 +114,9 @@ const App: React.FC = () => {
               className={`win11-nav-item${activeTab === item.id ? " active" : ""}`}
               onClick={() => setActiveTab(item.id)}>
               <span className="nav-icon">{item.icon}</span>
-              <span>{t(item.labelKey as any)}</span>
+              <span className="nav-label">{t(item.labelKey as any)}</span>
               {item.kbShortcut && (
-                <span className="ml-auto" style={{ fontSize: 11, color: "var(--colorNeutralForeground4)", fontFamily: "'JetBrains Mono', monospace" }}>{item.kbShortcut}</span>
+                <span className="nav-shortcut ml-auto" style={{ fontSize: 11, color: "var(--colorNeutralForeground4)", fontFamily: "'JetBrains Mono', monospace" }}>{item.kbShortcut}</span>
               )}
             </button>
           ))}
@@ -132,7 +132,7 @@ const App: React.FC = () => {
                 className={`win11-nav-item${isActive ? " active" : ""}`}
                 onClick={() => setActiveTab(item.id)}>
                 <span className="nav-icon">{item.icon}</span>
-                <span>{t(item.labelKey as any)}</span>
+                <span className="nav-label">{t(item.labelKey as any)}</span>
                 {isActive && (
                   <span className="ml-auto" style={{ width: 3, height: 16, borderRadius: 2, background: "var(--colorBrandForeground1)", flexShrink: 0 }} />
                 )}

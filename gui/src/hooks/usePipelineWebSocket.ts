@@ -34,6 +34,8 @@ export function usePipelineWebSocket(
       ws.onopen = () => {
         // Authenticate immediately
         ws.send(JSON.stringify({ auth: token }));
+        // Mark as connected — if auth fails, onclose will reset it
+        setIsConnected(true);
       };
 
       ws.onmessage = (event) => {

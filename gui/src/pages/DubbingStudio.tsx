@@ -227,7 +227,7 @@ export default function DubbingStudio() {
           <div className="win11-card">
             <div className="win11-card-header">{t("dubbing.config")}</div>
             <div className="win11-card-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+              <div className="win11-config-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
                 <Field label={t("dubbing.target_lang")} style={{ padding: "8px 0" }}>
                   <Select value={config.targetLanguage} onChange={(e) => updateConfig("targetLanguage", e.target.value)} size="large">
                     {LANGS.map(c => (<option key={c} value={c}>{t(LANG_T_KEY[c] as any)}</option>))}
@@ -426,7 +426,7 @@ export default function DubbingStudio() {
             </div>
             <div className="win11-card-body">
               {logs.length > 0
-                ? <VirtualLogViewer logs={logs} maxHeight={250} />
+                ? <VirtualLogViewer logs={logs} maxHeight={480} />
                 : <div className="text-xs font-mono opacity-60">[{new Date().toLocaleTimeString()}] {t("dubbing.status.waiting_backend")}</div>}
             </div>
           </div>

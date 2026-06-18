@@ -288,14 +288,24 @@ html, body, #root {
 .prose pre { margin: 0.5em 0; padding: 8px 12px; background: var(--colorNeutralBackground3); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; overflow-x: auto; }
 
 /* ═══════════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — Win11 Settings patterns
    ═══════════════════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  .win11-page { padding: 24px 24px 96px; }
+@media (max-width: 1000px) {
+  .win11-page { padding: 24px 32px 64px; max-width: none; }
   .win11-page-title { font-size: 24px; }
+  .win11-config-grid { grid-template-columns: 1fr !important; }
 }
-@media (max-width: 600px) {
-  .win11-page { padding: 16px 16px 96px; }
+@media (max-width: 720px) {
+  .win11-page { padding: 16px 20px 48px; }
   .win11-page-title { font-size: 20px; }
+  .win11-page-subtitle { font-size: 13px; }
   .win11-editor-split { flex-direction: column; }
+  .win11-sidebar { width: 220px !important; }
+}
+@media (max-width: 560px) {
+  .win11-sidebar { width: 56px !important; }
+  .win11-sidebar .nav-label { display: none; }
+  .win11-sidebar .nav-shortcut { display: none; }
+  .win11-nav-item { justify-content: center; padding: 10px 8px !important; }
+  .win11-nav-section { padding: 16px 8px 4px !important; font-size: 0; }
 }
