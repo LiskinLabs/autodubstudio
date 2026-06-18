@@ -62,7 +62,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.edge': 'Edge-TTS [internet]',
     'dubbing.voice.qwen3_full': 'Qwen3-TTS (Local)',
     'dubbing.voice.xttsv2_full': 'XTTSv2 (Local)',
-    'dubbing.voice.f5tts_full': 'F5-TTS (Local)',
+    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Local)',
+    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Local, Fast)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Cloud)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Cloud)',
 
@@ -582,7 +583,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.edge': 'Edge-TTS [интернет]',
     'dubbing.voice.qwen3_full': 'Qwen3-TTS (Локально)',
     'dubbing.voice.xttsv2_full': 'XTTSv2 (Локально)',
-    'dubbing.voice.f5tts_full': 'F5-TTS (Локально)',
+    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Локально)',
+    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Локально, Быстро)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Облако)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Облако)',
 
@@ -979,7 +981,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.edge': 'Edge-TTS [internet]',
     'dubbing.voice.qwen3_full': 'Qwen3-TTS (Yerel)',
     'dubbing.voice.xttsv2_full': 'XTTSv2 (Yerel)',
-    'dubbing.voice.f5tts_full': 'F5-TTS (Yerel)',
+    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Yerel)',
+    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Yerel, Hızlı)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Bulut)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Bulut)',
 

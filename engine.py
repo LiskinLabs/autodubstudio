@@ -310,6 +310,7 @@ class AutoDubWorker(threading.Thread):
                 "qwen3-tts": {"ru", "en", "es", "fr", "zh"},
                 "xttsv2": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
                 "f5-tts": {"ru", "en", "tr", "ar", "zh"},
+                "f5-onnx": {"ru", "en", "tr", "ar", "zh"},
             }
             # Fallback for display names if sent instead of IDs
             DISPLAY_TO_ID = {
@@ -530,6 +531,7 @@ class AutoDubWorker(threading.Thread):
                 _set_pipeline_step("tts", 4)
                 _set_model_status("tts", "running")
                 use_f5 = "f5-tts" in engine_id
+                use_f5_onnx = "f5-onnx" in engine_id
                 use_xtts = "xttsv2" in engine_id
                 use_qwen = "qwen3-tts" in engine_id
                 audio_clips = []
@@ -539,7 +541,7 @@ class AutoDubWorker(threading.Thread):
                 tts_segments = []
 
                 for idx, tseg in enumerate(translated_segments):
-                    ext = "mp3" if not (use_f5 or use_xtts or use_qwen) else "wav"
+                    ext = "mp3" if not (use_f5 or use_f5_onnx or use_xtts or use_qwen) else "wav"
                     clip_path = os.path.join(self.out_dir, f"temp_{lang}_{idx}.{ext}")
                     
                     if tseg.get("skip_dub", False):
@@ -552,7 +554,7 @@ class AutoDubWorker(threading.Thread):
                     else:
                         tts_segments.append((idx, tseg, clip_path))
 
-                if use_f5 or use_xtts:
+                if use_f5 or use_f5_onnx or use_xtts:
                     speaker_refs = {}
                     for s in segments:
                         spk = s.get("speaker", "SPEAKER_00")
@@ -583,6 +585,10 @@ class AutoDubWorker(threading.Thread):
                             f5_py = os.path.join(os.path.dirname(__file__), ".venv-f5", "Scripts", "python.exe")
                             f5_worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
                             self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True)
+                        elif use_f5_onnx:
+                            onnx_py = os.path.join(os.path.dirname(__file__), ".venv", "Scripts", "python.exe")
+                            onnx_worker = os.path.join(os.path.dirname(__file__), "f5_onnx_worker.py")
+                            self._run_subprocess([onnx_py, onnx_worker, tasks_file], check=True)
                         else:
                             xtts_py = os.path.join(os.path.dirname(__file__), ".venv-xtts", "Scripts", "python.exe")
                             xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
