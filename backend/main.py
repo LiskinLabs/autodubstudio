@@ -273,15 +273,21 @@ async def get_heavy_processes():
 
 @app.post("/api/system/kill-process")
 async def kill_process(request: Request):
-    """Force-kill a process by PID (used by VRAM cleaner)."""
+    """Force-kill a process by PID — only processes owned by the same user."""
     try:
         body = await request.json()
         pid = body.get("pid")
-        if not pid:
-            raise HTTPException(status_code=400, detail="Missing pid")
-        import psutil, signal
-        psutil.Process(pid).send_signal(signal.SIGTERM)
+        if not pid or not isinstance(pid, int) or pid <= 0:
+            raise HTTPException(status_code=400, detail="Invalid pid")
+        import psutil, getpass
+        proc = psutil.Process(pid)
+        # Only allow killing processes owned by the current user
+        if proc.username() != getpass.getuser():
+            raise HTTPException(status_code=403, detail="Not your process")
+        proc.terminate()
         return {"status": "ok", "pid": pid}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
