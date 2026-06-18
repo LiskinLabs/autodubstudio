@@ -55,7 +55,7 @@ PIPELINE_LOCK = threading.Lock()
 def _set_model_status(model: str, state: str):
     """Update global pipeline_status dict for the StatusBar."""
     try:
-        from main import pipeline_status
+        from shared import pipeline_status
         pipeline_status["models"][model] = state
         pipeline_status["active"] = True
     except Exception:
@@ -63,7 +63,7 @@ def _set_model_status(model: str, state: str):
 
 def _set_pipeline_step(step_name: str, step_index: int):
     try:
-        from main import pipeline_status
+        from shared import pipeline_status
         pipeline_status["step"] = step_name
         pipeline_status["step_index"] = step_index
     except Exception:

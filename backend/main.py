@@ -174,26 +174,13 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# ── Shared state (imported by engine.py without circular import) ──
+from shared import pipeline_status
+
 # ── WebSocket auth token (generated fresh each backend startup) ──
 WS_AUTH_TOKEN = secrets.token_urlsafe(32)
 print(f"[SECURITY] WebSocket auth token generated (len={len(WS_AUTH_TOKEN)} chars)")
 print(f"[SECURITY] Backend bound to 127.0.0.1:8000 — no external network access")
-
-# ── Pipeline model status (updated by engine.py, read by StatusBar) ──
-pipeline_status = {
-    "active": False,
-    "step": "",
-    "step_index": 0,
-    "total_steps": 6,
-    "models": {
-        "demucs": "idle",      # idle | running | done | error
-        "whisper": "idle",
-        "pyannote": "idle",
-        "translate": "idle",
-        "tts": "idle",
-        "mux": "idle",
-    }
-}
 
 class StatusResponse(BaseModel):
     status: str
