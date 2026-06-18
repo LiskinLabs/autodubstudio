@@ -124,7 +124,7 @@ class AutoDubWorker(threading.Thread):
 
             target_langs = cfg.get("target_langs", cfg.get("langs", ["en"]))
             self.langs = {lang: f"{lang}-default" for lang in target_langs}
-            self.model_size = cfg.get("whisper_model", "small")
+            self.model_size = cfg.get("whisper_model", "large-v3")
             self.device = cfg.get("device", "cpu")
             self.translator_engine = cfg.get("translation_engine", "Google Translate (Free)")
             self.gemini_key = cfg.get("gemini_key", "")
