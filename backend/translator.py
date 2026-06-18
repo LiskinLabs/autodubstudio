@@ -441,6 +441,9 @@ JSON:"""
             import urllib.request
             import urllib.error
             import json as _json
+            deepl_errors = 0
+            import urllib.error
+            import json as _json
 
             is_free = self.deepl_key.endswith(':fx')
             url = "https://api-free.deepl.com/v2/translate" if is_free else "https://api.deepl.com/v2/translate"
@@ -475,13 +478,22 @@ JSON:"""
                         seg["translated_base"] = orig_text
         else:
             if log_callback: log_callback(f"🌍 Google Translate - быстрый базовый перевод...")
+            google_errors = 0
             for seg in segments:
                 if check_cancelled: check_cancelled()
                 orig_text = seg["text"].strip()
-                if orig_text:
-                    seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
-                else:
+                if not orig_text:
                     seg["translated_base"] = ""
+                    continue
+                try:
+                    seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
+                except Exception as e:
+                    google_errors += 1
+                    if log_callback and google_errors <= 2:
+                        log_callback(f"  ⚠ Google Translate error: {str(e)[:100]}. Using original.")
+                    seg["translated_base"] = orig_text  # fallback to original
+            if google_errors > 0 and log_callback:
+                log_callback(f"  ⚠ Google Translate failed for {google_errors}/{len(segments)} segments")
 
         # ── Step 2: AI refinement (Gemma4/Gemini/DeepSeek) ──
         if is_ollama:
