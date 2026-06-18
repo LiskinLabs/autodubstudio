@@ -329,21 +329,58 @@ class Translator:
 
     def smart_translate_segments(self, segments, target_lang, log_callback=None, check_cancelled=None):
         is_ollama = "ollama" in self.engine_name.lower()
+        is_deepl = "deepl" in self.engine_name.lower() and self.deepl_key
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
                                       ("deepseek" in self.engine_name.lower() and self.deepseek_key))
 
-        # ── Step 1: ALWAYS get a fast base translation ──
-        # Google Translate is free, fast, and supports all 14 languages.
-        # AI refinement (Gemma4/Gemini/DeepSeek) happens in Step 2 below.
-        if log_callback: log_callback(f"🌍 Google Translate - быстрый базовый перевод...")
-        for seg in segments:
-            if check_cancelled: check_cancelled()
-            orig_text = seg["text"].strip()
-            if orig_text:
-                # Always use Google Translate for base — fast and free
-                seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
-            else:
-                seg["translated_base"] = ""
+        # ── Step 1: Fast base translation ──
+        # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
+        if is_deepl:
+            if log_callback: log_callback(f"🌐 DeepL API - профессиональный перевод...")
+            import urllib.request
+            import urllib.error
+            import json as _json
+
+            is_free = self.deepl_key.endswith(':fx')
+            url = "https://api-free.deepl.com/v2/translate" if is_free else "https://api.deepl.com/v2/translate"
+
+            for seg in segments:
+                if check_cancelled: check_cancelled()
+                orig_text = seg["text"].strip()
+                if not orig_text:
+                    seg["translated_base"] = ""
+                    continue
+                try:
+                    payload = _json.dumps({
+                        "text": [orig_text],
+                        "target_lang": target_lang.upper()
+                    }).encode('utf-8')
+                    headers = {
+                        'Authorization': f'DeepL-Auth-Key {self.deepl_key}',
+                        'Content-Type': 'application/json'
+                    }
+                    req = urllib.request.Request(url, data=payload, headers=headers)
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        if resp.status == 200:
+                            result = _json.loads(resp.read().decode())
+                            seg["translated_base"] = result["translations"][0]["text"].strip()
+                        else:
+                            raise Exception(f"HTTP {resp.status}")
+                except Exception as e:
+                    if log_callback: log_callback(f"  ⚠ DeepL failed for segment: {str(e)[:80]}. Falling back to Google.")
+                    try:
+                        seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
+                    except Exception:
+                        seg["translated_base"] = orig_text
+        else:
+            if log_callback: log_callback(f"🌍 Google Translate - быстрый базовый перевод...")
+            for seg in segments:
+                if check_cancelled: check_cancelled()
+                orig_text = seg["text"].strip()
+                if orig_text:
+                    seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
+                else:
+                    seg["translated_base"] = ""
 
         # ── Step 2: AI refinement (Gemma4/Gemini/DeepSeek) ──
         if is_ollama:
