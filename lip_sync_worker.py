@@ -6,9 +6,9 @@ For true lip-sync (Wav2Lip), 8-12 GB VRAM is needed — rejected per ARCHITECTUR
 This worker does an ffmpeg audio swap: video from original + audio from dub.
 """
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 import traceback
 
 
@@ -28,7 +28,7 @@ def main():
             print(f"❌ {label} not found: {fpath}")
             sys.exit(1)
 
-    print(f"🎬 Lip-Sync (audio swap mode)")
+    print("🎬 Lip-Sync (audio swap mode)")
     print(f"   Video: {os.path.basename(input_video)}")
     print(f"   Audio: {os.path.basename(input_audio)}")
 

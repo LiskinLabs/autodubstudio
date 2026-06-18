@@ -2,7 +2,10 @@
 XTTS v2 Worker — Voice Cloning for AutoDubStudio
 Runs on Python 3.11 (separate venv), called as subprocess from main app.
 """
-import os, sys, json, gc, traceback
+import json
+import os
+import sys
+import traceback
 
 # Automatically accept Coqui TTS license to prevent hanging on input
 os.environ["COQUI_TOS_AGREED"] = "1"
@@ -27,7 +30,7 @@ def main():
 
     from TTS.api import TTS
     from TTS.utils.manage import ModelManager
-    
+
     print("Loading XTTS v2 model...")
     model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
     model_path, _, _ = ModelManager().download_model(model_name)

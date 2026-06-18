@@ -1,6 +1,7 @@
 """Generate all app icon sizes from user's source icon."""
+import os
+
 from PIL import Image
-import os, struct
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 SOURCE = r"C:\Users\silvestr.liskin\Downloads\edited-photo (2).png"

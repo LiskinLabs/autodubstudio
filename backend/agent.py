@@ -1,5 +1,5 @@
+
 import httpx
-import json
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 DEFAULT_MODEL = "gemma4:e4b" # Fallback if specific model is not found
@@ -10,13 +10,13 @@ async def call_ollama(prompt: str, system_prompt: str = "", model: str = DEFAULT
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
-    
+
     payload = {
         "model": model,
         "messages": messages,
         "stream": False
     }
-    
+
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(OLLAMA_URL, json=payload, timeout=60.0)

@@ -1,17 +1,19 @@
 import os
-import sys
-import subprocess
-import torch
-import shutil
-import threading
 import re
+import shutil
+import subprocess
+import sys
+import threading
+
+import torch
+
 os.environ["PYTHONIOENCODING"] = "utf-8"
 # WhisperX will be imported locally inside the worker
 
 from pydub import AudioSegment
 
-from backend.vram_manager import get_free_vram_mb, free_up_vram
 from backend.translator import Translator
+from backend.vram_manager import free_up_vram, get_free_vram_mb
 
 # ── Safe subprocess environment (security: don't leak API keys to child processes) ──
 _SUBPROCESS_SAFE_VARS = {
@@ -84,22 +86,22 @@ class AutoDubWorker(threading.Thread):
         self.translation_ready_signal = EventSignal()
         self.manual_edit_signal = EventSignal()
         self._stop_event = threading.Event()
-        
+
         # Support both old positional-arg style and new dict-based config (v3 UI)
         if isinstance(video_path, dict):
             cfg = video_path
             self.video_path = cfg.get("video_path", "")
-            
+
             # ── Security: Path Traversal Protection for out_dir ──
             req_out_dir = cfg.get("out_dir")
-            
+
             if self.video_path and (self.video_path.startswith("http://") or self.video_path.startswith("https://")):
                 default_out = os.path.join(os.getcwd(), "downloads")
                 os.makedirs(default_out, exist_ok=True)
             else:
                 default_out = os.path.dirname(self.video_path) if self.video_path else os.getcwd()
 
-            
+
             if req_out_dir:
                 # Resolve paths to absolute to prevent bypass via symlinks or ..
                 abs_req = os.path.realpath(req_out_dir)  # realpath resolves symlinks (stronger than abspath)
@@ -113,7 +115,7 @@ class AutoDubWorker(threading.Thread):
                     "C:\\users\\public"
                 ]
                 is_system = any(abs_req.lower().startswith(p) for p in system_paths)
-                
+
                 if not is_system:
                     self.out_dir = abs_req
                 else:
@@ -151,7 +153,7 @@ class AutoDubWorker(threading.Thread):
             self.lip_sync = False
 
         self.translator = Translator(self.translator_engine, self.gemini_key, self.deepseek_key, self.deepl_key, self.device)
-        
+
         self.pause_event = threading.Event()
         self.edited_segments = None
         self.active_processes = []
@@ -191,12 +193,12 @@ class AutoDubWorker(threading.Thread):
 
         process = subprocess.Popen(cmd, **kwargs)
         self.active_processes.append(process)
-        
+
         def _read_output(pipe):
             for line in pipe:
                 if line.strip():
                     self.log_signal.emit(f"  > {line.strip()}")
-                    
+
         reader_thread = None
         if kwargs.get('stdout') == subprocess.PIPE:
             reader_thread = threading.Thread(target=_read_output, args=(process.stdout,), daemon=True)
@@ -210,10 +212,10 @@ class AutoDubWorker(threading.Thread):
                 process.wait(timeout=0.5)
             except subprocess.TimeoutExpired:
                 pass
-                
+
         if reader_thread:
             reader_thread.join(timeout=1.0)
-            
+
         if process in self.active_processes:
             self.active_processes.remove(process)
         if process.returncode != 0:
@@ -248,9 +250,10 @@ class AutoDubWorker(threading.Thread):
 
     def _download_youtube(self, url, out_dir):
         """Download video from YouTube/TikTok/Vimeo URL using yt-dlp."""
-        import yt_dlp
         from urllib.parse import urlparse
-        
+
+        import yt_dlp
+
         # SSRF Protection: Validate URL scheme and domain
         parsed = urlparse(url)
         allowed_domains = ["youtube.com", "youtu.be", "www.youtube.com", "tiktok.com", "www.tiktok.com", "vimeo.com", "www.vimeo.com"]
@@ -323,7 +326,7 @@ class AutoDubWorker(threading.Thread):
             engine_id = self.dub_engine.lower()
             if self.dub_engine in DISPLAY_TO_ID:
                 engine_id = DISPLAY_TO_ID[self.dub_engine]
-            
+
             for lang, _ in self.langs.items():
                 compat = TTS_COMPAT.get(engine_id, set())
                 if lang not in compat:
@@ -395,7 +398,7 @@ class AutoDubWorker(threading.Thread):
             else:
                 self.log_signal.emit(f"🔄 Загрузка Faster-Whisper ({self.model_size}) на {self.device}...")
                 # ── Run Whisper in subprocess for guaranteed VRAM cleanup ──
-                import json as _json, tempfile as _tf
+                import json as _json
                 whisper_json_path = os.path.join(self.out_dir, f".autodub_{base_name}_whisper_out.json")
                 # Write params as JSON to avoid escaping issues with paths
                 whisper_params = _json.dumps({
@@ -543,7 +546,7 @@ class AutoDubWorker(threading.Thread):
                 for idx, tseg in enumerate(translated_segments):
                     ext = "mp3" if not (use_f5 or use_f5_onnx or use_xtts or use_qwen) else "wav"
                     clip_path = os.path.join(self.out_dir, f"temp_{lang}_{idx}.{ext}")
-                    
+
                     if tseg.get("skip_dub", False):
                         orig_start_ms = int(tseg["start"] * 1000)
                         orig_end_ms = int(tseg["end"] * 1000)
@@ -561,7 +564,7 @@ class AutoDubWorker(threading.Thread):
                         dur = s["end"] - s["start"]
                         if spk not in speaker_refs or dur > speaker_refs[spk]["dur"]:
                             speaker_refs[spk] = {"dur": dur, "start": s["start"], "end": s["end"], "text": s["text"]}
-                    
+
                     for spk, ref in speaker_refs.items():
                         ref_path = os.path.join(self.out_dir, f"ref_{spk}.wav")
                         vocals_full[int(ref["start"]*1000):int(ref["end"]*1000)].export(ref_path, format="wav")
@@ -575,12 +578,12 @@ class AutoDubWorker(threading.Thread):
                         ref = speaker_refs.get(spk, list(speaker_refs.values())[0])
                         tasks.append({"ref_audio": ref["path"], "ref_text": ref["text"], "gen_text": tseg["text"], "out_path": clip_path, "language": lang})
                         audio_clips.append((tseg["start"], clip_path, False, tseg))
-                    
+
                     if tasks:
                         tasks_file = os.path.join(self.out_dir, f"tasks_{lang}.json")
                         import json
                         with open(tasks_file, "w", encoding="utf-8") as f: json.dump(tasks, f)
-                        
+
                         if use_f5:
                             f5_py = os.path.join(os.path.dirname(__file__), ".venv-f5", "Scripts", "python.exe")
                             f5_worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
@@ -593,7 +596,7 @@ class AutoDubWorker(threading.Thread):
                             xtts_py = os.path.join(os.path.dirname(__file__), ".venv-xtts", "Scripts", "python.exe")
                             xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
                             self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True)
-                        
+
                         all_created_files.append(tasks_file)
 
                 elif use_qwen:
@@ -601,12 +604,12 @@ class AutoDubWorker(threading.Thread):
                     for idx, tseg, clip_path in tts_segments:
                         tasks.append({"gen_text": tseg["text"], "out_path": clip_path})
                         audio_clips.append((tseg["start"], clip_path, False, tseg))
-                    
+
                     if tasks:
                         tasks_file = os.path.join(self.out_dir, f"tasks_qwen_{lang}.json")
                         import json
                         with open(tasks_file, "w", encoding="utf-8") as f: json.dump(tasks, f)
-                        
+
                         qwen_py = os.path.join(os.path.dirname(__file__), ".venv-qwen3-tts", "Scripts", "python.exe")
                         qwen_worker_script = os.path.join(os.path.dirname(__file__), "qwen3_worker.py")
                         lang_map = {"ru": "Russian", "en": "English", "tr": "Turkish"}
@@ -615,7 +618,9 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(tasks_file)
 
                 else: # Edge-TTS
-                    import asyncio, edge_tts
+                    import asyncio
+
+                    import edge_tts
                     EDGE_VOICES = {
                         "ru": "ru-RU-DmitryNeural", "en": "en-US-ChristopherNeural",
                         "tr": "tr-TR-AhmetNeural",  "ar": "ar-SA-HamedNeural",
@@ -736,7 +741,7 @@ class AutoDubWorker(threading.Thread):
                             self._run_subprocess(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                             clip = AudioSegment.from_file(stretched_cp)
                             all_created_files.append(stretched_cp)
-                        
+
                         final_audio = final_audio.overlay(clip, position=int(start_t * 1000))
                         all_created_files.append(cp)
 
@@ -746,7 +751,7 @@ class AutoDubWorker(threading.Thread):
 
                 ducked_path = os.path.join(self.out_dir, f"{base_name}_{lang}_ducked.wav")
                 self._run_subprocess(["ffmpeg", "-y", "-i", self.video_path, "-i", dub_path, "-filter_complex", "[0:a]volume=0.5[bg];[bg][1:a]amix=inputs=2:duration=first", ducked_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
+
                 bg_path = os.path.join(self.out_dir, f"{base_name}_{lang}_bg.wav")
                 if os.path.exists(no_vocals_path):
                     self._run_subprocess(["ffmpeg", "-y", "-i", no_vocals_path, "-i", dub_path, "-filter_complex", "amix=inputs=2:duration=first", bg_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -754,7 +759,7 @@ class AutoDubWorker(threading.Thread):
                     self._run_subprocess(["ffmpeg", "-y", "-i", self.video_path, "-i", dub_path, "-filter_complex", "[0:a]volume=0.5[bg];[bg][1:a]amix=inputs=2:duration=first", bg_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 ffmpeg_inputs.extend(["-i", ducked_path, "-i", bg_path, "-i", srt_path])
                 all_created_files.extend([ducked_path, bg_path])
-                
+
                 ffmpeg_maps.extend(["-map", f"{file_idx}:a:0", "-map", f"{file_idx+1}:a:0", "-map", f"{file_idx+2}:s:0"])
                 lang_names = {"ru": "Russian", "tr": "Turkish", "en": "English", "ar": "Arabic",
                               "es": "Spanish", "fr": "French", "de": "German"}
@@ -784,12 +789,12 @@ class AutoDubWorker(threading.Thread):
             self._run_subprocess(["ffmpeg", "-y"] + ffmpeg_inputs + ["-c:v", "copy", "-c:a", "aac", "-c:s", "srt"] + ffmpeg_maps + metadata + [final_mkv], check=True)
             self.progress_signal.emit(100)
             _set_model_status("mux", "done")
-            
+
             # --- Lip-Sync Logic ---
             if getattr(self, "lip_sync", False):
                 self.log_signal.emit("👄 Запуск Lip-Sync (LatentSync/Wav2Lip)...")
                 lip_sync_out = os.path.join(self.out_dir, f"{base_name}_Final_LipSync.mkv")
-                
+
                 # Check if lip_sync_worker exists, if not just skip or simulate
                 worker_script = os.path.join(os.path.dirname(__file__), "lip_sync_worker.py")
                 if os.path.exists(worker_script):
@@ -799,7 +804,7 @@ class AutoDubWorker(threading.Thread):
                         audio_track = os.path.join(self.out_dir, f"{base_name}_{first_lang}_bg.wav")
                         if not os.path.exists(audio_track):
                             audio_track = os.path.join(self.out_dir, f"{base_name}_{first_lang}_dub.wav")
-                            
+
                         # Here we would call the actual Lip-Sync model
                         # e.g., self._run_subprocess(["python", worker_script, self.video_path, audio_track, lip_sync_out], check=True)
                         shutil.copy(final_mkv, lip_sync_out) # Placeholder: just copy for now if model not downloaded

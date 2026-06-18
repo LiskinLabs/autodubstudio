@@ -1,7 +1,8 @@
 import os
-import sys
+
 import yt_dlp
 from PyQt6.QtCore import QThread, pyqtSignal
+
 
 class YouTubeDownloadWorker(QThread):
     progress_signal = pyqtSignal(int)
@@ -29,9 +30,9 @@ class YouTubeDownloadWorker(QThread):
                 pass
 
     def run(self):
-        from urllib.parse import urlparse
-        import socket
         import ipaddress
+        import socket
+        from urllib.parse import urlparse
 
         # SSRF Protection: Validate URL scheme and domain
         parsed = urlparse(self.url)

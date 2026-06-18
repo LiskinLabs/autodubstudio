@@ -1,8 +1,10 @@
+import json
 import os
 import sys
-import json
-import torch
 import traceback
+
+import torch
+
 
 def main():
     if len(sys.argv) < 3:
@@ -20,7 +22,7 @@ def main():
 
     print("Запуск Pyannote Diarization 3.1...")
     print(f"Аудио: {audio_path}")
-    
+
     try:
         from pyannote.audio import Pipeline
     except ImportError:

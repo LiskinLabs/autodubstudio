@@ -1,6 +1,7 @@
+import json
 import os
 import re
-import json
+
 import torch
 from deep_translator import GoogleTranslator
 
@@ -50,22 +51,22 @@ class Translator:
                 return response.choices[0].message.content.strip()
 
             elif "deepl" in self.engine_name.lower() and self.deepl_key:
-                import urllib.request
-                import urllib.error
                 import json
+                import urllib.error
+                import urllib.request
                 is_free = self.deepl_key.endswith(':fx')
                 url = "https://api-free.deepl.com/v2/translate" if is_free else "https://api.deepl.com/v2/translate"
-                
+
                 payload = json.dumps({
                     "text": [text],
                     "target_lang": target_lang.upper()
                 }).encode('utf-8')
-                
+
                 headers = {
                     'Authorization': f'DeepL-Auth-Key {self.deepl_key}',
                     'Content-Type': 'application/json'
                 }
-                
+
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
                     with urllib.request.urlopen(req, timeout=30) as response:
@@ -160,9 +161,9 @@ class Translator:
             return response.choices[0].message.content
 
         elif "ollama" in self.engine_name.lower():
-            import urllib.request
-            import urllib.error
             import json
+            import urllib.error
+            import urllib.request
             url = "http://localhost:11434/api/chat"  # Use chat API — proper template formatting for Gemma4
 
             # Dynamically scale num_predict + num_gpu based on available VRAM
@@ -237,7 +238,7 @@ class Translator:
             response_text = self.qwen_tokenizer.decode(outputs[0][inputs['input_ids'].shape[-1]:], skip_special_tokens=True)
 
             return response_text
-            
+
         elif "llamacpp" in self.engine_name.lower() and self.gguf_model_path:
             from llama_cpp import Llama
             if not self.llama_cpp_model:
@@ -248,17 +249,17 @@ class Translator:
                     n_ctx=2048,
                     verbose=False
                 )
-            
+
             kwargs = {}
             if is_json:
                 kwargs["response_format"] = {"type": "json_object"}
-                
+
             response = self.llama_cpp_model.create_chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 **kwargs
             )
             return response["choices"][0]["message"]["content"].strip()
-            
+
         # Fallback logic if we are doing smart translation over Google/DeepL
         if self.gemini_key:
             client = genai.Client(api_key=self.gemini_key)
@@ -279,9 +280,9 @@ class Translator:
             return response.choices[0].message.content
         else:
             # Fallback to Ollama via /api/chat (proper template formatting for Gemma4)
-            import urllib.request
-            import urllib.error
             import json
+            import urllib.error
+            import urllib.request
             url = "http://localhost:11434/api/chat"
             for model_name in ["gemma4:e4b"]:
                 payload = json.dumps({
@@ -298,7 +299,7 @@ class Translator:
                         if response.status == 200:
                             result = json.loads(response.read().decode())
                             return result.get("message", {}).get("content", "")
-                except Exception as e:
+                except Exception:
                     continue
             raise RuntimeError("All LLM fallbacks failed for smart JSON translation.")
 
@@ -397,8 +398,8 @@ JSON:"""
     def release_models(self):
         import gc
         if "ollama" in self.engine_name.lower():
-            import urllib.request
             import json
+            import urllib.request
             url = "http://localhost:11434/api/generate"
             # Release the actual models used: gemma4:e4b (primary) + gemma2 fallbacks
             for model_name in ["gemma4:e4b", "gemma2:2b", "gemma2"]:
@@ -437,13 +438,11 @@ JSON:"""
         # ── Step 1: Fast base translation ──
         # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
         if is_deepl:
-            if log_callback: log_callback(f"🌐 DeepL API - профессиональный перевод...")
+            if log_callback: log_callback("🌐 DeepL API - профессиональный перевод...")
+            import json as _json
+            import urllib.error
             import urllib.request
-            import urllib.error
-            import json as _json
             deepl_errors = 0
-            import urllib.error
-            import json as _json
 
             is_free = self.deepl_key.endswith(':fx')
             url = "https://api-free.deepl.com/v2/translate" if is_free else "https://api.deepl.com/v2/translate"
@@ -477,7 +476,7 @@ JSON:"""
                     except Exception:
                         seg["translated_base"] = orig_text
         else:
-            if log_callback: log_callback(f"🌍 Google Translate - быстрый базовый перевод...")
+            if log_callback: log_callback("🌍 Google Translate - быстрый базовый перевод...")
             google_errors = 0
             for seg in segments:
                 if check_cancelled: check_cancelled()
@@ -508,7 +507,9 @@ JSON:"""
 
             # ── VRAM cleanup: aggressively free GPU memory before loading Gemma4 ──
             try:
-                import gc, torch
+                import gc
+
+                import torch
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -541,10 +542,10 @@ JSON:"""
                 if warmup_response and len(warmup_response.strip()) > 0:
                     warmup_ok = True
                     if log_callback:
-                        log_callback(f"  ✅ Gemma4 загружен и готов")
+                        log_callback("  ✅ Gemma4 загружен и готов")
             except Exception:
                 if log_callback:
-                    log_callback(f"  ⚠ Gemma4 не отвечает — использую Google Translate для этого прогона")
+                    log_callback("  ⚠ Gemma4 не отвечает — использую Google Translate для этого прогона")
                 # Gemma4 is down; fall back to Google Translate base translation
                 for seg in segments:
                     seg["text"] = seg.get("translated_base", seg["text"])

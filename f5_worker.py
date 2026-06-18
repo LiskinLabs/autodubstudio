@@ -4,7 +4,11 @@ Runs in Python 3.10 venv with CUDA 11.8.
 F5TTS_Base model + fp16 + checkpoint_activations = fits 4GB VRAM.
 Key: NO Whisper ASR — ref_text must be provided manually.
 """
-import os, sys, json, gc, traceback
+import gc
+import json
+import os
+import sys
+import traceback
 
 
 def main():
@@ -28,10 +32,11 @@ def main():
         gc.collect()
 
     # ── Load F5-TTS with proper checkpoint ──
-    from omegaconf import OmegaConf
-    from hydra.utils import get_class
     from importlib.resources import files
+
     from f5_tts.infer.utils_infer import load_model, load_vocoder
+    from hydra.utils import get_class
+    from omegaconf import OmegaConf
 
     cfg = OmegaConf.load(str(files("f5_tts").joinpath("configs/F5TTS_Base.yaml")))
     arch = cfg.model.arch

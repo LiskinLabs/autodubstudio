@@ -3,7 +3,11 @@ F5-TTS-ONNX Worker — ONNX Runtime Turkish TTS for AutoDubStudio
 Uses: patientxtr/F5_TTS_ONNX_Turkish + DakeQQ/F5-TTS-ONNX inference
 Faster inference, lower VRAM than PyTorch version.
 """
-import os, sys, json, gc, traceback
+import json
+import os
+import sys
+import traceback
+
 import numpy as np
 import onnxruntime as ort
 import soundfile as sf
@@ -58,13 +62,13 @@ def main():
 
     providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if ort.get_device() == 'GPU' else ['CPUExecutionProvider']
 
-    print(f"Loading Preprocess model...")
+    print("Loading Preprocess model...")
     pre_sess = ort.InferenceSession(PREPROCESS_ONNX, sess_opts, providers=providers)
 
-    print(f"Loading Transformer model...")
+    print("Loading Transformer model...")
     tr_sess = ort.InferenceSession(TRANSFORMER_ONNX, sess_opts, providers=providers)
 
-    print(f"Loading Decode model...")
+    print("Loading Decode model...")
     dec_sess = ort.InferenceSession(DECODE_ONNX, sess_opts, providers=providers)
 
     print(f"All models loaded! Providers: {pre_sess.get_providers()}")

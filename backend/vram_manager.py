@@ -1,5 +1,5 @@
-import os
 import subprocess
+
 import torch
 
 # VRAM-hungry processes to offer to close
@@ -38,7 +38,7 @@ def free_up_vram(log_callback=None):
                 killed += 1
         except (FileNotFoundError, subprocess.SubprocessError, OSError):
             pass
-            
+
     if killed == 0:
         if log_callback: log_callback("🧹 Нет запущенных фоновых программ для закрытия.")
     else:

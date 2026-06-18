@@ -1,16 +1,24 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Request
+import asyncio
+import json
+import logging
+import os
+import secrets
+import sys
+import tempfile
+import time
+
+import httpx
+import uvicorn
+from fastapi import (
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import uvicorn
-import json
-import os
-import sys
-import time
-import logging
-import asyncio
-import secrets
-import httpx
-import tempfile
 
 # ── Logging to file ──
 LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "autodub_backend.log")
@@ -63,9 +71,10 @@ for handler in logging.root.handlers:
         datefmt="%Y-%m-%d %H:%M:%S",
     ))
 logger = logging.getLogger("autodub")
-from queue import Queue, Empty
-import psutil
 import threading
+from queue import Empty, Queue
+
+import psutil
 
 download_semaphore = threading.Semaphore(2)
 
@@ -110,7 +119,7 @@ except Exception as e:
 
 # Add parent directory to path to import engine.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engine import AutoDubWorker, PIPELINE_BUSY
+from engine import PIPELINE_BUSY, AutoDubWorker
 
 APP_VERSION = "0.0.1"
 
@@ -125,6 +134,7 @@ MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — enough for error reports, too small 
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests with bodies larger than MAX_BODY_SIZE."""
@@ -180,7 +190,7 @@ from shared import pipeline_status
 # ── WebSocket auth token (generated fresh each backend startup) ──
 WS_AUTH_TOKEN = secrets.token_urlsafe(32)
 print(f"[SECURITY] WebSocket auth token generated (len={len(WS_AUTH_TOKEN)} chars)")
-print(f"[SECURITY] Backend bound to 127.0.0.1:8000 — no external network access")
+print("[SECURITY] Backend bound to 127.0.0.1:8000 — no external network access")
 
 class StatusResponse(BaseModel):
     status: str
@@ -259,7 +269,9 @@ SAFE_TO_KILL = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.e
 @app.get("/api/system/processes")
 async def get_heavy_processes():
     """Return top VRAM/RAM-consuming SAFE-TO-KILL processes for the cleaner dialog."""
-    import psutil, getpass
+    import getpass
+
+    import psutil
     current_user = getpass.getuser()
     procs = []
     for p in psutil.process_iter(['pid', 'name', 'memory_info', 'username']):
@@ -289,7 +301,9 @@ async def kill_process(request: Request):
         pid = body.get("pid")
         if not pid or not isinstance(pid, int) or pid <= 0:
             raise HTTPException(status_code=400, detail="Invalid pid")
-        import psutil, getpass
+        import getpass
+
+        import psutil
         proc = psutil.Process(pid)
         # Only allow killing processes owned by the current user
         if proc.username() != getpass.getuser():
@@ -370,7 +384,7 @@ async def websocket_pipeline(websocket: WebSocket):
     global active_worker
 
     event_queue = Queue()
-    
+
     def on_progress(val):
         event_queue.put({"type": "progress", "data": val})
     def on_log(text):
@@ -385,28 +399,28 @@ async def websocket_pipeline(websocket: WebSocket):
         orig = [s["orig"] for s in manual_subs]
         trans = [s["trans"] for s in manual_subs]
         event_queue.put({"type": "review_ready", "original": orig, "translated": trans, "segments": manual_subs})
-        
+
     try:
         while True:
             # Handle incoming messages with a timeout
             try:
                 data = await asyncio.wait_for(websocket.receive_json(), timeout=0.1)
-                
+
                 if data.get("action") == "start":
                     cfg = data.get("config", {})
                     if active_worker and active_worker.is_alive():
                         await websocket.send_json({"type": "error", "message": "Pipeline already running"})
                         continue
-                        
+
                     active_worker = AutoDubWorker(cfg)
                     active_worker.progress_signal.connect(on_progress)
                     active_worker.log_signal.connect(on_log)
                     active_worker.finished_signal.connect(on_finished)
                     active_worker.manual_edit_signal.connect(on_manual_edit)
-                    
+
                     active_worker.start()
                     await websocket.send_json({"type": "info", "message": "Pipeline started"})
-                    
+
                 elif data.get("action") == "resume":
                     if PIPELINE_BUSY and active_worker:
                         if "segments" in data:
@@ -421,15 +435,15 @@ async def websocket_pipeline(websocket: WebSocket):
                             active_worker.edited_segments = edited
                         active_worker.pause_event.set()
                         await websocket.send_json({"type": "info", "message": "Pipeline resumed"})
-                        
+
                 elif data.get("action") == "stop":
                     if active_worker:
                         active_worker.requestInterruption()
                         await websocket.send_json({"type": "info", "message": "Stopping..."})
-                        
+
             except asyncio.TimeoutError:
                 pass
-                
+
             # Handle outgoing messages from thread
             while not event_queue.empty():
                 try:
@@ -437,7 +451,7 @@ async def websocket_pipeline(websocket: WebSocket):
                     await websocket.send_json(event)
                 except Empty:
                     break
-                    
+
     except WebSocketDisconnect:
         print("Client disconnected from WebSocket")
         # Do NOT stop the worker automatically on disconnect. The user might refresh the page.
@@ -504,10 +518,10 @@ def _run_live_capture(websocket, config, stop_event):
     font_size = config.get("fontSize", "medium")
 
     try:
-        import sounddevice as sd
         import numpy as np
-        from faster_whisper import WhisperModel
+        import sounddevice as sd
         import torch
+        from faster_whisper import WhisperModel
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
@@ -608,7 +622,6 @@ def _run_live_capture(websocket, config, stop_event):
 # ── Model Download / Status ──
 import subprocess
 import threading
-import time
 
 _model_download_status: dict = {}
 _model_download_lock = threading.Lock()
@@ -756,11 +769,11 @@ async def delete_model(model_id: str):
         raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
 
     logger.warning("AUDIT: Model deletion requested | model=%s", model_id)
-        
+
     import shutil
     deleted_paths = []
     errors = []
-    
+
     def try_remove_dir(path):
         if os.path.exists(path):
             try:
@@ -768,7 +781,7 @@ async def delete_model(model_id: str):
                 deleted_paths.append(path)
             except Exception as e:
                 errors.append(f"Failed to delete {path}: {str(e)}")
-                
+
     def try_remove_file(path):
         if os.path.exists(path):
             try:
@@ -972,7 +985,7 @@ print('PYANNOTE_OK')
                 import re
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                
+
                 process = subprocess.Popen(
                     ["ollama", "pull", "gemma4:e4b"],
                     stdout=subprocess.PIPE,
@@ -983,7 +996,7 @@ print('PYANNOTE_OK')
                     errors='replace',
                     env=_safe_subprocess_env()
                 )
-                
+
                 buffer = ""
                 while True:
                     char = process.stdout.read(1)
@@ -1080,7 +1093,6 @@ async def set_github_token(data: dict, authorization: str = Header("")):
 _error_report_count = 0
 _MAX_ERROR_REPORTS = 5
 
-import re
 
 def redact_secrets(text: str) -> str:
     """Thin wrapper around _redact_log for backward compatibility — WebSocket log events."""
@@ -1233,7 +1245,7 @@ async def send_pending_crash_report():
                 json={"title": title, "body": body, "labels": ["bug", "crash"]},
                 headers={"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
             )
-        
+
         if resp.status_code == 201:
             print(f"[CRASH] Sent crash report -> GitHub Issue #{resp.json().get('number')}")
         else:
@@ -1255,7 +1267,6 @@ async def background_self_test():
     logger.info("[SELF-TEST] Background monitor started")
     while True:
         try:
-            from engine import PIPELINE_BUSY
             await asyncio.sleep(60)
         except Exception as e:
             logger.error(f"[CRITICAL SELF-TEST ERROR] {redact_secrets(str(e))}")

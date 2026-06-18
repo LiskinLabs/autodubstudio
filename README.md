@@ -32,7 +32,7 @@
 | 📝 **Transcription** | Faster-Whisper (tiny→large-v3) | Speech recognition with checkpoints |
 | 👥 **Diarization** | Pyannote 3.1 | Speaker identification (HF token) |
 | 🧠 **AI Translation** | 5 engines | Gemma 4, Gemini, DeepSeek, Google, DeepL |
-| 🎙️ **TTS** | 5 engines | Qwen3-TTS, XTTSv2, F5-TTS, Edge-TTS, Azure |
+| 🎙️ **TTS** | 6 engines | Qwen3-TTS, XTTSv2, F5-TTS, **F5-TTS ONNX**, Edge-TTS, Azure |
 | 👄 **Lip-Sync** | FFmpeg Audio Swap | Replace audio track |
 | 🎬 **Assembly** | FFmpeg MKV | Multi-track: original + dub + subtitles |
 
@@ -45,8 +45,9 @@
 - **Command Palette** — Ctrl+K search & navigation
 - **Keyboard shortcuts** — Ctrl+1/2/3/, for tabs
 - **Page transitions** — Win11-style slide animations
-- **GPU/VRAM/RAM monitor** — real-time in status bar
-- **Virtual log viewer** — 60fps at any log volume
+- **GPU/VRAM/RAM monitor** — real-time in status bar (per-model indicators)
+- **Virtual log viewer** — 60fps at any log volume, sticky scroll
+- **VRAM Cleaner** — auto-detect high GPU pressure, one-click process kill
 - **ARIA accessibility** — screen reader support
 
 ### Smart Features
@@ -56,6 +57,9 @@
 - **Advanced settings** — 6 toggles (SRT export, keep temp files, etc.)
 - **Live Subtitles** — real-time translation overlay
 - **AI Chat** — local LLM via Ollama with Markdown rendering
+- **DeepL + Gemma4 Hybrid** — DeepL base translation + Gemma4 AI refinement
+- **Speaker Diarization** — color-coded speaker badges in review mode
+- **Row-based Review Editor** — side-by-side original/translation per segment
 
 ### Security
 - API keys in Tauri Secure Store (OS keychain)
@@ -72,14 +76,17 @@
 ```
 AutoDubStudio/
 ├── backend/
-│   ├── main.py              # FastAPI + WebSocket + 12 endpoints
-│   ├── translator.py        # 5 translation engines
+│   ├── main.py              # FastAPI + WebSocket + 15 endpoints
+│   ├── translator.py        # 6 engines + Gemma4 refinement
+│   ├── shared.py            # Shared state (no circular imports)
 │   ├── workers.py           # Background tasks
 │   ├── agent.py             # AI agent
 │   └── vram_manager.py      # VRAM optimization
 ├── engine.py                # Main pipeline (AutoDubWorker)
 ├── live_engine.py           # Live subtitles
-├── *_worker.py              # TTS workers (f5, qwen3, xtts, lip_sync, diarization)
+├── f5_worker.py             # F5-TTS PyTorch (marduk-ra Turkish)
+├── f5_onnx_worker.py        # F5-TTS ONNX (patientxtr Turkish)
+├── *_worker.py              # TTS workers (qwen3, xtts, lip_sync, diarization)
 ├── gui/
 │   ├── src/
 │   │   ├── App.tsx          # Win11 layout (Mica titlebar + sidebar + content)
@@ -144,14 +151,21 @@ See [`gui/DESIGN.md`](gui/DESIGN.md) — full Fluent UI v9 design system documen
 ## 🗺️ Roadmap
 
 ### v0.0.1 ✅ Current
-- [x] Full Fluent UI v9 migration
-- [x] Win11 Settings layout
-- [x] GPU/VRAM/RAM monitor
+- [x] Full Fluent UI v9 migration (Card, Badge, Dialog, ProgressBar)
+- [x] Win11 Settings responsive layout (3 breakpoints)
+- [x] GPU/VRAM/RAM monitor with per-model live indicators
 - [x] Advanced settings (6 options)
-- [x] i18n audit (100% EN/RU/TR)
-- [x] Backend crash-loop fix
-- [x] Page transitions
-- [x] Circular dependency fix (theme.ts ↔ store.ts)
+- [x] i18n audit (100% EN/RU/TR, 300+ keys)
+- [x] Backend crash-loop + zombie process cleanup
+- [x] Page state preservation (no unmount on tab switch)
+- [x] F5-TTS ONNX Turkish support (2 F5 variants)
+- [x] DeepL + Gemma4 hybrid translation
+- [x] Speaker diarization with colored badges
+- [x] Row-based review editor
+- [x] VRAM Cleaner with process kill dialog
+- [x] WebSocket deadlock fix (isConnected)
+- [x] Log viewer sticky scroll + missing CSS fix
+- [x] Progress bar pipeline stage emissions
 
 ### v0.0.2 📋 Planned
 - [ ] System tray minimize
