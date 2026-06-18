@@ -205,8 +205,8 @@ async def get_models():
     return {
         "models": [
             {"id": "qwen3-tts", "name": "Qwen3-TTS (Русский)", "type": "local"},
-            {"id": "xttsv2", "name": "XTTSv2 (Турецкий)", "type": "local"},
             {"id": "f5-tts", "name": "F5-TTS (Мультиязычный Zero-Shot)", "type": "local"},
+            {"id": "f5-tts-onnx-tr", "name": "F5-TTS ONNX (Turkish)", "type": "local"},
         ]
     }
 
@@ -630,7 +630,7 @@ _model_cancel_flags: dict = {}
 VALID_MODEL_IDS = {
     "whisper-tiny", "whisper-base", "whisper-small", "whisper-medium",
     "whisper-large-v2", "whisper-large-v3",
-    "pyannote-segmentation", "xttsv2", "qwen3-tts", "f5-tts",
+    "pyannote-segmentation", "xttsv2", "qwen3-tts", "f5-tts", "f5-tts-onnx-tr",
     "htdemucs", "gemma4"
 }
 
@@ -712,14 +712,21 @@ async def get_model_status():
                 models_status["qwen3-tts"] = True
                 break
 
-    # Check F5-TTS (skip .locks dirs — they're not model data)
+    # Check F5-TTS
     models_status["f5-tts"] = False
-    if os.path.exists(qwen3_cache):
-        for root, dirs, _ in os.walk(qwen3_cache):
-            dirs[:] = [d for d in dirs if d != ".locks"]  # skip lock files
-            if "f5" in root.lower() and "tts" in root.lower():
+    f5_cache = os.path.expanduser("~/.cache/huggingface/hub/models--SWivid--F5-TTS")
+    if os.path.exists(f5_cache):
+        for root, dirs, files in os.walk(f5_cache):
+            if "snapshots" in root:
                 models_status["f5-tts"] = True
-                break
+
+    # Check F5-TTS ONNX Turkish
+    models_status["f5-tts-onnx-tr"] = False
+    f5_onnx_tr_cache = os.path.expanduser("~/.cache/huggingface/hub/models--patientxtr--F5_TTS_ONNX_Turkish")
+    if os.path.exists(f5_onnx_tr_cache):
+        for root, dirs, files in os.walk(f5_onnx_tr_cache):
+            if "snapshots" in root:
+                models_status["f5-tts-onnx-tr"] = True
 
     # Check Demucs — model saved as .th file in torch hub checkpoints (~80 MB)
     demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
@@ -812,6 +819,9 @@ async def delete_model(model_id: str):
     elif model_id == "f5-tts":
         hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
         try_remove_dir(os.path.join(hf_cache, "models--SWivid--F5-TTS"))
+    elif model_id == "f5-tts-onnx-tr":
+        hf_cache = os.path.expanduser("~/.cache/huggingface/hub")
+        try_remove_dir(os.path.join(hf_cache, "models--patientxtr--F5_TTS_ONNX_Turkish"))
 
     elif model_id == "htdemucs":
         demucs_cache = os.path.expanduser("~/.cache/torch/hub/checkpoints")
@@ -962,6 +972,16 @@ print('PYANNOTE_OK')
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
                 snapshot_download("SWivid/F5-TTS")
+                with _model_download_lock:
+                    _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
+
+            elif model_id == "f5-tts-onnx-tr":
+                from huggingface_hub import snapshot_download
+                f5_onnx_tr_cache = os.path.expanduser("~/.cache/huggingface/hub/models--patientxtr--F5_TTS_ONNX_Turkish")
+                threading.Thread(target=_monitor_dir_size, args=(f5_onnx_tr_cache, 500, 5, 95), daemon=True).start()
+                with _model_download_lock:
+                    _model_download_status[model_id]["progress"] = 5
+                snapshot_download("patientxtr/F5_TTS_ONNX_Turkish")
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 

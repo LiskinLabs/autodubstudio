@@ -25,6 +25,7 @@ export const ALL_MODELS: ModelInfo[] = [
   { id: 'pyannote-segmentation', name: 'Pyannote Audio', size: '~220 MB', descKey: 'dl.models.pyannote', descDetailKey: 'dl.models.pyannote_detail' },
   { id: 'qwen3-tts', name: 'Qwen3-TTS', size: '~2.4 GB', descKey: 'dl.models.qwen', descDetailKey: 'dl.models.qwen_detail' },
   { id: 'f5-tts', name: 'F5-TTS', size: '~1.3 GB', descKey: 'dl.models.f5', descDetailKey: 'dl.models.f5_detail' },
+  { id: 'f5-tts-onnx-tr', name: 'F5-TTS ONNX (Turkish)', size: '~400 MB', descKey: 'dl.models.f5', descDetailKey: 'dl.models.f5_detail' },
   { id: 'xttsv2', name: 'XTTS v2', size: '~1.8 GB', descKey: 'dl.models.xtts', descDetailKey: 'dl.models.xtts_detail' },
   { id: 'gemma4', name: 'Gemma 4 (e4b)', size: '~9.6 GB', descKey: 'dl.models.gemma', descDetailKey: 'dl.models.gemma_detail' },
 ];
