@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type DragEvent, type ChangeEvent } from "react";
-import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Textarea } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
@@ -59,6 +59,17 @@ const TTS_T_KEY: Record<string, string> = {
   "f5-tts": "dubbing.voice.f5tts_full", "azure": "dubbing.voice.azure_cloud", "edge-tts": "dubbing.voice.edge_cloud",
 };
 
+// Win11-friendly speaker color palette
+const SPEAKER_COLORS: Record<string, { bg: string; text: string }> = {
+  SPEAKER_00: { bg: "#3b82f6", text: "#fff" }, // blue
+  SPEAKER_01: { bg: "#ef4444", text: "#fff" }, // red
+  SPEAKER_02: { bg: "#10b981", text: "#fff" }, // green
+  SPEAKER_03: { bg: "#f59e0b", text: "#000" }, // amber
+  SPEAKER_04: { bg: "#8b5cf6", text: "#fff" }, // violet
+  SPEAKER_05: { bg: "#ec4899", text: "#fff" }, // pink
+  default:    { bg: "#6b7280", text: "#fff" }, // gray
+};
+
 function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) => string }) {
   return (
     <div className="win11-steps">
@@ -113,7 +124,7 @@ export default function DubbingStudio() {
     onLog(`[FINISHED] Success: ${success}, Message: ${msg}`);
   }, [onLog]);
 
-  const { startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(onProgress, onLog, onReviewReady, onFinished);
+  const { isConnected, startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(onProgress, onLog, onReviewReady, onFinished);
   const { models: ollamaModels, checkConnection } = useOllama();
 
   const [config, setConfig] = useState<Config>({
@@ -154,6 +165,11 @@ export default function DubbingStudio() {
 
   const handleStart = useCallback(() => {
     if (!fileName && !youtubeUrl) return;
+    if (!isConnected) {
+      notifyToast.error(t("toast.backend_error"), { description: t("toast.backend_offline") });
+      onLog(`[SYSTEM] ${t("toast.backend_offline")}`);
+      return;
+    }
     notifyToast.success(t("toast.pipeline_started"), { description: t("toast.pipeline_init"), duration: 3000 });
     setPipelineState("running"); setActiveStep(1); setProgress(0); setLogs([]);
     startPipeline({
@@ -164,7 +180,7 @@ export default function DubbingStudio() {
       gemini_key: settings.geminiKey, deepseek_key: settings.deepseekKey, deepl_key: settings.deeplKey,
       manual_mode: config.pipelineMode === "manual"
     });
-  }, [fileName, youtubeUrl, config, startPipeline, settings]);
+  }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog]);
 
   const handleContinue = useCallback(() => {
     setPipelineState("running"); setActiveStep(5); setProgress(67);
@@ -369,22 +385,32 @@ export default function DubbingStudio() {
           </div>
 
           {/* Status + Actions */}
-          <div className="flex items-center justify-between mb-4">
-            {pipelineState === "running" && (
-              <Badge appearance="tint" color="brand" size="large">
-                <span className="animate-spin mr-2" style={{ display: "inline-block", width: 12, height: 12, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%" }} />
-                {t("dubbing.badge.running")}
-              </Badge>
-            )}
-            {pipelineState === "done" && (
-              <Badge appearance="tint" color="success" size="large" icon={<Check style={{ fontSize: 12 }} />}>
-                {t("dubbing.badge.done")}
-              </Badge>
-            )}
+          <div className="flex items-center justify-between mb-4" style={{ minHeight: 32 }}>
+            <div>
+              {pipelineState === "running" && (
+                <span className="text-xs flex items-center gap-2" style={{ color: "var(--colorNeutralForeground3)" }}>
+                  <span className="animate-spin" style={{
+                    display: "inline-block", width: 10, height: 10,
+                    border: "2px solid var(--colorBrandForeground1)",
+                    borderTopColor: "transparent", borderRadius: "50%",
+                  }} />
+                  {activeStep}/{PIPELINE_STEPS.length} — {t(STEP_T_KEY[PIPELINE_STEPS[Math.max(0, activeStep - 1)] || "source"] as any)}
+                </span>
+              )}
+              {pipelineState === "done" && (
+                <Badge appearance="tint" color="success" size="large" icon={<Check style={{ fontSize: 12 }} />}>
+                  {t("dubbing.badge.done")}
+                </Badge>
+              )}
+            </div>
             {pipelineState === "running" && (
               <Button appearance="subtle" icon={<Square />}
                 style={{ color: "var(--colorPaletteRedForeground1)" }}
-                onClick={() => { stopPipeline(); notifyToast.info(t("toast.pipeline_stopping"), { description: t("toast.pipeline_cancel") }); }}>
+                onClick={() => {
+                  stopPipeline();
+                  handleReset();
+                  notifyToast.info(t("toast.pipeline_stopping"), { description: t("toast.pipeline_cancel") });
+                }}>
                 {t("dubbing.btn.cancel")}
               </Button>
             )}
@@ -432,29 +458,90 @@ export default function DubbingStudio() {
             </div>
           </div>
 
-          {/* Split Editor */}
-          <div className="win11-editor-split" style={{ marginBottom: 24 }}>
-            <div className="win11-editor-panel">
-              <div className="win11-editor-header">
-                <span>{t("dubbing.review.original")}</span>
-                <span style={{ marginLeft: 8, opacity: 0.5 }}>— {t("dubbing.review.readonly")}</span>
-              </div>
-              <div className="win11-editor-body" style={{ borderRight: "1px solid var(--colorNeutralStroke2)", color: "var(--colorNeutralForeground2)" }}>
-                {originalSegments.map((s, i) => <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid var(--colorNeutralStroke2)" }}>{s}</div>)}
-              </div>
+          {/* Row-Based Review Editor using Fluent UI Card + Badge */}
+          <Card appearance="filled" style={{ marginBottom: 24 }}>
+            <CardHeader
+              header={
+                <div style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                  <span style={{ width: 80, flexShrink: 0 }}>{t("dubbing.review.speaker") || "Speaker"}</span>
+                  <span style={{ width: 120, flexShrink: 0 }}>{t("dubbing.review.time") || "Time"}</span>
+                  <span style={{ flex: 1 }}>{t("dubbing.review.original")}</span>
+                  <span style={{ flex: 1, color: "var(--colorBrandForeground1)" }}>{t("dubbing.review.translated")}</span>
+                </div>
+              }
+            />
+            {/* Scrollable rows */}
+            <div style={{
+              maxHeight: 420, overflowY: "auto", overflowX: "hidden",
+              borderTop: "1px solid var(--colorNeutralStroke2)",
+            }}>
+              {editedSegments.map((seg, i) => {
+                const speakerColor = SPEAKER_COLORS[seg.speaker as string] || SPEAKER_COLORS["default"];
+                return (
+                  <div key={i} style={{
+                    display: "flex", gap: 0, alignItems: "flex-start",
+                    padding: "8px 16px",
+                    borderBottom: "1px solid var(--colorNeutralStroke2)",
+                    fontSize: 12, lineHeight: 1.55,
+                    background: i % 2 === 0 ? "var(--colorNeutralBackground1)" : "var(--colorNeutralBackground2)",
+                  }}>
+                    {/* Speaker — Fluent UI Badge */}
+                    <span style={{ width: 80, flexShrink: 0, paddingTop: 1 }}>
+                      <Badge
+                        appearance="filled"
+                        color="brand"
+                        size="small"
+                        style={{
+                          background: speakerColor.bg, color: speakerColor.text,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {seg.speaker || "?"}
+                      </Badge>
+                    </span>
+                    {/* Timestamp */}
+                    <span style={{
+                      width: 120, flexShrink: 0,
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                      color: "var(--colorNeutralForeground3)", paddingTop: 3,
+                    }}>{seg.time || ""}</span>
+                    {/* Original text (read-only) */}
+                    <span style={{
+                      flex: 1, paddingRight: 12, paddingTop: 1,
+                      color: "var(--colorNeutralForeground2)", whiteSpace: "pre-wrap",
+                    }}>{seg.orig}</span>
+                    {/* Editable translation */}
+                    <input
+                      value={seg.trans}
+                      onChange={(e) => {
+                        const updated = [...editedSegments];
+                        updated[i] = { ...updated[i], trans: e.target.value };
+                        setEditedSegments(updated);
+                        setTranslatedSrt(updated.map((s: any) => s.trans).join("\n\n"));
+                      }}
+                      style={{
+                        flex: 1, border: "none", background: "transparent",
+                        color: "var(--colorBrandForeground1)",
+                        fontFamily: "'Segoe UI Variable', 'Segoe UI', 'Inter', sans-serif",
+                        fontSize: 12, lineHeight: 1.55, outline: "none",
+                        padding: "1px 4px", borderRadius: 3,
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.background = "var(--colorNeutralBackground3)";
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.background = "transparent";
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
-            <div className="win11-editor-panel">
-              <div className="win11-editor-header" style={{ background: "var(--colorBrandBackground2)", color: "var(--colorBrandForeground1)" }}>
-                <span>{t("dubbing.review.translated")}</span>
-                <span style={{ marginLeft: 8, opacity: 0.7 }}>— {t("dubbing.review.editable")}</span>
-              </div>
-              <Textarea value={translatedSrt}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTranslatedSrt(e.target.value)}
-                style={{
-                  flex: 1, minHeight: 300, fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-                  lineHeight: 1.7, resize: "none", border: "none", borderRadius: 0, padding: 16,
-                }} />
-            </div>
+          </Card>
+
+          {/* Segment count */}
+          <div className="text-xs mb-4" style={{ color: "var(--colorNeutralForeground3)" }}>
+            {editedSegments.length} {t("dubbing.review.segments") || "segments"} — {t("dubbing.review.edit_hint") || "Click any translation to edit it inline"}
           </div>
 
           <div className="flex gap-4">

@@ -228,10 +228,12 @@ async def get_gpu_status():
 
 @app.get("/api/token")
 async def get_ws_token(request: Request):
-    """Frontend fetches this token once to authenticate the WebSocket connection."""
-    origin = request.headers.get("origin") or request.headers.get("referer") or ""
-    if not origin or not ("tauri://localhost" in origin or "http://localhost" in origin or "http://127.0.0.1" in origin):
-        raise HTTPException(status_code=403, detail="Forbidden: Invalid origin")
+    """Frontend fetches this token once to authenticate the WebSocket connection.
+
+    The backend is bound to 127.0.0.1:8000 and does NOT listen on external interfaces.
+    Tauri webviews use a custom protocol (tauri://localhost) that may not send an Origin
+    header for cross-scheme fetch() calls. In production, the Tauri app is the only client.
+    """
     return {"token": WS_AUTH_TOKEN}
 
 @app.post("/api/ollama/start")

@@ -75,7 +75,13 @@ class AutoDubWorker(threading.Thread):
             
             # ── Security: Path Traversal Protection for out_dir ──
             req_out_dir = cfg.get("out_dir")
-            default_out = os.path.dirname(self.video_path) if self.video_path else os.getcwd()
+            
+            if self.video_path and (self.video_path.startswith("http://") or self.video_path.startswith("https://")):
+                default_out = os.path.join(os.getcwd(), "downloads")
+                os.makedirs(default_out, exist_ok=True)
+            else:
+                default_out = os.path.dirname(self.video_path) if self.video_path else os.getcwd()
+
             
             if req_out_dir:
                 # Resolve paths to absolute to prevent bypass via symlinks or ..
@@ -330,6 +336,7 @@ class AutoDubWorker(threading.Thread):
 
             # 1. Изоляция вокала (Demucs)
             self._check_cancelled()
+            self.progress_signal.emit(5)
             self.log_signal.emit("🎵 Изоляция вокала (Demucs) - извлекаем чистый голос...")
             demucs_out_dir = os.path.join(self.out_dir, "demucs_out")
             os.makedirs(demucs_out_dir, exist_ok=True)
@@ -342,6 +349,8 @@ class AutoDubWorker(threading.Thread):
                 self._run_subprocess(demucs_cmd, check=True)
             else:
                 self.log_signal.emit("✅ Чистый голос найден (пропуск Demucs)")
+
+            self.progress_signal.emit(15)
 
             transcribe_path = vocals_path if os.path.exists(vocals_path) else self.video_path
 
@@ -393,6 +402,8 @@ class AutoDubWorker(threading.Thread):
                 self.log_signal.emit(f"✅ Найдено и размечено {len(segments)} сегментов.")
                 _save_checkpoint("segments", segments)
 
+            self.progress_signal.emit(30)
+
             # 3. Диаризация (определение спикеров) — опционально, если есть HF токен
             if self.hf_key:
                 self.log_signal.emit("👥 Диаризация (Pyannote) — определение спикеров...")
@@ -420,6 +431,8 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(diar_json)
                 except Exception as e:
                     self.log_signal.emit(f"⚠ Диаризация не удалась: {e}. Использую SPEAKER_00.")
+
+            self.progress_signal.emit(35)
 
             # 3.5 — Save original English subtitles
             orig_srt_path = os.path.join(self.out_dir, f"{base_name}_original.srt")
@@ -456,6 +469,10 @@ class AutoDubWorker(threading.Thread):
                     self.log_signal.emit(f"🔤 Перевод на {lang}...")
                     translated_segments = self.translator.smart_translate_segments([dict(s) for s in segments], lang, self.log_signal.emit, self._check_cancelled)
                     _save_checkpoint(f"translated_{lang}", translated_segments)
+
+                # Progress: 35% + translation portion (15% of total range per lang)
+                num_langs = len(self.langs)
+                self.progress_signal.emit(35 + (i + 1) * (15 // max(num_langs, 1)))
 
                 if self.manual_mode:
                     manual_subs = []
@@ -717,10 +734,16 @@ class AutoDubWorker(threading.Thread):
                 audio_track_idx += 2; subtitle_track_idx += 1
                 file_idx += 3
 
+                # Progress: TTS done for this language
+                num_langs = len(self.langs)
+                self.progress_signal.emit(35 + (i + 1) * 50 // max(num_langs, 1))
+
 
             tag_str = f"_{self.tag}" if hasattr(self, 'tag') and self.tag else ""
+            self.progress_signal.emit(90)
             final_mkv = os.path.join(self.out_dir, f"{base_name}{tag_str}_Final.mkv")
             self._run_subprocess(["ffmpeg", "-y"] + ffmpeg_inputs + ["-c:v", "copy", "-c:a", "aac", "-c:s", "srt"] + ffmpeg_maps + metadata + [final_mkv], check=True)
+            self.progress_signal.emit(100)
             
             # --- Lip-Sync Logic ---
             if getattr(self, "lip_sync", False):

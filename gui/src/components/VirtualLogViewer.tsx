@@ -36,10 +36,13 @@ export default function VirtualLogViewer({ logs, maxHeight = 200, itemHeight = 2
     }
   }, []);
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to bottom only if user is already near the bottom (sticky)
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    const el = containerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [logs.length]);
 

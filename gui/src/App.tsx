@@ -172,10 +172,13 @@ const App: React.FC = () => {
   );
 };
 
-/** Win11 page wrapper — fade+slide transition on tab switch */
+/** Win11 page wrapper — hides/shows without unmounting to preserve pipeline state */
 function Page({ show, children }: { show: boolean; children: React.ReactNode }) {
-  if (!show) return null;
-  return <div className="animate-slide-up">{children}</div>;
+  return (
+    <div className="animate-slide-up" style={{ display: show ? "block" : "none" }}>
+      {children}
+    </div>
+  );
 }
 
 export default App;
