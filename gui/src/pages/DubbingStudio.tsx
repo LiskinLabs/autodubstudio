@@ -10,6 +10,7 @@ import {
   FastForwardRegular as FastForward,
 } from "@fluentui/react-icons";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useSettings } from "../store";
 import { useOllama } from "../hooks/useOllama";
 import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
@@ -119,9 +120,13 @@ export default function DubbingStudio() {
     setTranslatedSrt(trans.join("\n\n"));
   }, []);
 
+  const [outputPath, setOutputPath] = useState("");
   const onFinished = useCallback((success: boolean, msg: string) => {
     setPipelineState("done");
     onLog(`[FINISHED] Success: ${success}, Message: ${msg}`);
+    // Extract output file path from message: "Успешно: C:\...\file.mkv"
+    const match = msg.match(/([A-Z]:\\[^\s]+\.(mkv|mp4|avi|srt))/i);
+    if (match) setOutputPath(match[1]);
   }, [onLog]);
 
   const { isConnected, startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(onProgress, onLog, onReviewReady, onFinished);
@@ -434,7 +439,15 @@ export default function DubbingStudio() {
           {/* Done actions */}
           {pipelineState === "done" && (
             <div className="flex gap-4 animate-fade-in">
-              <Button appearance="primary" size="large" className="flex-1">{t("dubbing.btn.open")}</Button>
+              <Button appearance="primary" size="large" className="flex-1" onClick={async () => {
+                if (outputPath) {
+                  try {
+                    // Open the containing folder with the file selected
+                    const folder = outputPath.replace(/[\\/][^\\/]+$/, "");
+                    await openPath(folder);
+                  } catch (e) { console.error("Failed to open folder:", e); }
+                }
+              }}>{t("dubbing.btn.open")}</Button>
               <Button appearance="secondary" size="large" onClick={handleReset}>{t("dubbing.btn.new")}</Button>
             </div>
           )}

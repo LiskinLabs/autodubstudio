@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Badge } from "@fluentui/react-components";
+import { Badge, Button, Dialog, DialogTrigger, DialogSurface, DialogTitle, DialogBody, DialogActions } from "@fluentui/react-components";
+import { DismissRegular as DismissIcon } from "@fluentui/react-icons";
 import { useSettings } from "../store";
 import UpdateChecker from "./UpdateChecker";
 import ModelDownloader from "./ModelDownloader";
@@ -89,7 +90,60 @@ const StatusBar: React.FC = () => {
   const vramPct = hasVram ? gpu.vram_used_gb / gpu.vram_total_gb : 0;
   const vramColor = vramPct > 0.9 ? "var(--colorPaletteRedForeground1)" : vramPct > 0.7 ? "var(--colorPaletteYellowForeground1)" : "var(--colorPaletteGreenForeground1)";
 
-  return (
+  // VRAM cleaner dialog
+  const [cleanerOpen, setCleanerOpen] = useState(false);
+  const [processes, setProcesses] = useState<Array<{pid: number; name: string; ram_mb: number}>>([]);
+  const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
+
+  const fetchProcesses = useCallback(async () => {
+    try {
+      const resp = await fetch(`${BACKEND}/api/system/processes`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setProcesses(data.processes || []);
+      }
+    } catch {}
+  }, []);
+
+  const killSelected = async () => {
+    for (const pid of selectedPids) {
+      try { await fetch(`${BACKEND}/api/system/kill-process`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pid}) }); } catch {}
+    }
+    setSelectedPids(new Set());
+    setCleanerOpen(false);
+  };
+
+  const vramHigh = vramPct > 0.85;
+
+  return (<>
+    {/* VRAM Cleaner Dialog */}
+    <Dialog open={cleanerOpen} onOpenChange={(_, d) => setCleanerOpen(d.open)}>
+      <DialogSurface>
+        <DialogTitle>VRAM Cleaner — {t("settings.gpu_limit") || "GPU Memory"}</DialogTitle>
+        <DialogBody>
+          <div style={{ fontSize: 13, marginBottom: 12, color: "var(--colorNeutralForeground2)" }}>
+            VRAM: {fmt(gpu.vram_used_gb)} / {fmt(gpu.vram_total_gb)} ({(vramPct*100).toFixed(0)}%)
+          </div>
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            {processes.map(p => (
+              <label key={p.pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer", borderBottom: "1px solid var(--colorNeutralStroke2)" }}>
+                <input type="checkbox" checked={selectedPids.has(p.pid)} onChange={() => {
+                  setSelectedPids(prev => { const next = new Set(prev); next.has(p.pid) ? next.delete(p.pid) : next.add(p.pid); return next; });
+                }} />
+                <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
+                <span style={{ fontSize: 11, color: "var(--colorNeutralForeground3)", fontFamily: "'JetBrains Mono', monospace" }}>{p.ram_mb} MB</span>
+              </label>
+            ))}
+          </div>
+        </DialogBody>
+        <DialogActions>
+          <Button appearance="secondary" onClick={() => setCleanerOpen(false)}>Cancel</Button>
+          <Button appearance="primary" onClick={killSelected} disabled={selectedPids.size === 0}>Kill Selected ({selectedPids.size})</Button>
+        </DialogActions>
+      </DialogSurface>
+    </Dialog>
+
+    {/* Status Bar */}
     <div className="flex items-center shrink-0 select-none z-50" style={{
       height: 34, padding: "0 8px", fontSize: 11, fontWeight: 500,
       background: "var(--colorNeutralBackground2)",
@@ -144,8 +198,18 @@ const StatusBar: React.FC = () => {
       <UpdateChecker />
       <ModelDownloader />
 
+      {/* VRAM high warning */}
+      {vramHigh && (
+        <span onClick={() => { fetchProcesses(); setCleanerOpen(true); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 3, padding: "0 6px", opacity: 0.8 }}
+          title="VRAM pressure — click to clean">
+          <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--colorPaletteRedForeground1)", display: "inline-block" }} />
+          <span style={{ fontSize: 9, color: "var(--colorPaletteRedForeground1)", fontWeight: 600 }}>{(vramPct*100).toFixed(0)}%</span>
+        </span>
+      )}
+
       <span style={{ opacity: 0.25, marginLeft: 4, fontSize: 9 }}>v{pkg.version}</span>
     </div>
+  </>
   );
 };
 

@@ -232,18 +232,58 @@ async def get_gpu_status():
 @app.get("/api/pipeline/status")
 async def get_pipeline_status():
     """Live model status during dubbing — polled by StatusBar every 2s."""
-    # Merge with live VRAM
     try:
         import torch
         if torch.cuda.is_available():
+            # Use driver-level memory info (matches Task Manager "Dedicated GPU Memory")
             free_bytes, total_bytes = torch.cuda.mem_get_info(0)
-            pipeline_status["vram_used_gb"] = round((total_bytes - free_bytes) / (1024**3), 2)
+            used_bytes = total_bytes - free_bytes
+            pipeline_status["vram_used_gb"] = round(used_bytes / (1024**3), 2)
             pipeline_status["vram_total_gb"] = round(total_bytes / (1024**3), 2)
             pipeline_status["gpu_name"] = torch.cuda.get_device_name(0)
+            # Also report PyTorch-specific allocations
+            allocated = torch.cuda.memory_allocated(0) / (1024**3)
+            reserved = torch.cuda.memory_reserved(0) / (1024**3)
+            pipeline_status["pytorch_allocated_gb"] = round(allocated, 2)
+            pipeline_status["pytorch_reserved_gb"] = round(reserved, 2)
     except Exception:
         pipeline_status["vram_used_gb"] = 0
         pipeline_status["vram_total_gb"] = 0
     return pipeline_status
+
+@app.get("/api/system/processes")
+async def get_heavy_processes():
+    """Return top VRAM/RAM-consuming processes for the cleaner dialog."""
+    import psutil
+    procs = []
+    for p in psutil.process_iter(['pid', 'name', 'memory_info']):
+        try:
+            mi = p.info['memory_info']
+            if mi and mi.rss > 50 * 1024 * 1024:  # >50 MB
+                procs.append({
+                    "pid": p.info['pid'],
+                    "name": p.info['name'],
+                    "ram_mb": round(mi.rss / (1024 * 1024), 1),
+                })
+        except Exception:
+            pass
+    procs.sort(key=lambda x: x["ram_mb"], reverse=True)
+    return {"processes": procs[:20], "vram_used_gb": pipeline_status.get("vram_used_gb", 0),
+            "vram_total_gb": pipeline_status.get("vram_total_gb", 0)}
+
+@app.post("/api/system/kill-process")
+async def kill_process(request: Request):
+    """Force-kill a process by PID (used by VRAM cleaner)."""
+    try:
+        body = await request.json()
+        pid = body.get("pid")
+        if not pid:
+            raise HTTPException(status_code=400, detail="Missing pid")
+        import psutil, signal
+        psutil.Process(pid).send_signal(signal.SIGTERM)
+        return {"status": "ok", "pid": pid}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/token")
 async def get_ws_token(request: Request):
