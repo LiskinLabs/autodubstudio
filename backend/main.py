@@ -960,8 +960,8 @@ print('PYANNOTE_OK')
                 threading.Thread(target=_monitor_dir_size, args=([qwen3_cache_1, qwen3_cache_2], 2300, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                snapshot_download("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
-                snapshot_download("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
+                snapshot_download("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", max_workers=1)
+                snapshot_download("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", max_workers=1)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
@@ -971,7 +971,7 @@ print('PYANNOTE_OK')
                 threading.Thread(target=_monitor_dir_size, args=(f5_cache, 1300, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                snapshot_download("SWivid/F5-TTS")
+                snapshot_download("SWivid/F5-TTS", max_workers=1)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
@@ -981,7 +981,7 @@ print('PYANNOTE_OK')
                 threading.Thread(target=_monitor_dir_size, args=(f5_onnx_tr_cache, 500, 5, 95), daemon=True).start()
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
-                snapshot_download("patientxtr/F5_TTS_ONNX_Turkish")
+                snapshot_download("patientxtr/F5_TTS_ONNX_Turkish", max_workers=1)
                 with _model_download_lock:
                     _model_download_status[model_id] = {"done": True, "progress": 100, "error": None}
 
