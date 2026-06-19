@@ -113,6 +113,7 @@ html, body, #root {
 .win11-page {
   padding: 32px 48px 96px; max-width: 880px; margin: 0;
   animation: win11PageIn 200ms ease-out;
+  overflow-wrap: break-word; word-break: break-word;
 }
 @keyframes win11PageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -199,6 +200,12 @@ html, body, #root {
 .status-dot.yellow { background: var(--colorPaletteYellowForeground1); }
 .status-dot.red { background: var(--colorPaletteRedForeground1); }
 .status-separator { width: 1px; height: 14px; background: var(--colorNeutralStroke2); }
+
+/* StatusBar model-dot pulse — slower & more visible than Tailwind animate-pulse */
+@keyframes statusbar-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.3; transform: scale(1.6); }
+}
 
 /* ═══════════════════════════════════════════════════════════
    WIN11 CHAT
@@ -290,22 +297,76 @@ html, body, #root {
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE — Win11 Settings patterns
    ═══════════════════════════════════════════════════════════ */
+.win11-hamburger {
+  display: none;
+  background: transparent; border: none; cursor: pointer;
+  padding: 6px; border-radius: 4px; color: var(--colorNeutralForeground1);
+  transition: background 80ms;
+}
+.win11-hamburger:hover { background: var(--colorNeutralBackground1Hover); }
+
+/* Sidebar backdrop — always present in DOM, fades in/out */
+.win11-sidebar-backdrop {
+  position: fixed; inset: 0; z-index: 49;
+  background: rgba(0,0,0,0.3);
+  opacity: 0; pointer-events: none;
+  transition: opacity 250ms cubic-bezier(0.2, 0, 0, 1);
+}
+.win11-sidebar-backdrop.visible {
+  opacity: 1; pointer-events: auto;
+}
+@media (min-width: 769px) {
+  .win11-sidebar-backdrop { display: none !important; }
+}
+
 @media (max-width: 1000px) {
   .win11-page { padding: 24px 32px 64px; max-width: none; }
   .win11-page-title { font-size: 24px; }
   .win11-config-grid { grid-template-columns: 1fr !important; }
 }
-@media (max-width: 720px) {
+
+@media (max-width: 768px) {
+  .win11-hamburger { display: block; }
+
+  .win11-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 250ms cubic-bezier(0.2, 0, 0, 1);
+    box-shadow: 4px 0 12px rgba(0,0,0,0.15);
+  }
+
+  .win11-sidebar.open {
+    transform: translateX(0);
+  }
+
   .win11-page { padding: 16px 20px 48px; }
   .win11-page-title { font-size: 20px; }
   .win11-page-subtitle { font-size: 13px; }
   .win11-editor-split { flex-direction: column; }
-  .win11-sidebar { width: 220px !important; }
-}
-@media (max-width: 560px) {
-  .win11-sidebar { width: 56px !important; }
-  .win11-sidebar .nav-label { display: none; }
-  .win11-sidebar .nav-shortcut { display: none; }
-  .win11-nav-item { justify-content: center; padding: 10px 8px !important; }
-  .win11-nav-section { padding: 16px 8px 4px !important; font-size: 0; }
+
+  /* Bug 1+2: Force ALL inline grids inside .win11-page to single column */
+  .win11-page [style*="grid-template-columns"],
+  .win11-page [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Bug 3: Review editor header and rows — allow wrapping on small screens */
+  .win11-review-header, .win11-review-row {
+    flex-wrap: wrap;
+    gap: 4px 12px !important;
+  }
+  .win11-review-header > span, .win11-review-row > div {
+    min-width: 0;
+    width: auto !important;
+  }
+
+  /* Bug 4: Reduce hardcoded chat padding */
+  .win11-page [style*="padding"][style*="48px"] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
 }

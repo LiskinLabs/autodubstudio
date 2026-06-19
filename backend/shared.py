@@ -13,6 +13,8 @@ pipeline_status = {
         "tts": "idle",
         "mux": "idle",
     },
+    "translate_engine": "",  # google / deepl / gemma4 / deepseek / gemini
+    "tts_engine": "",        # f5-tts / f5-onnx / xttsv2 / qwen3-tts / edge-tts / azure
     "vram_used_gb": 0.0,
     "vram_total_gb": 0.0,
     "gpu_name": "",

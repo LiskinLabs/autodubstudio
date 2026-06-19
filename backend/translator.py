@@ -3,6 +3,70 @@ import os
 import re
 
 import torch
+
+# ── Translator log messages (multi-language) ──
+_T = {
+    "deepl_start": {
+        "ru": "🌐 DeepL API — профессиональный перевод...",
+        "en": "🌐 DeepL API — professional translation...",
+        "tr": "🌐 DeepL API — profesyonel çeviri...",
+    },
+    "deepl_segment_failed": {
+        "ru": "  ⚠ DeepL ошибка на сегменте: {e}. Переключаюсь на Google.",
+        "en": "  ⚠ DeepL failed for segment: {e}. Falling back to Google.",
+        "tr": "  ⚠ DeepL segment hatası: {e}. Google'a geçiliyor.",
+    },
+    "google_start": {
+        "ru": "🌍 Google Translate — быстрый базовый перевод...",
+        "en": "🌍 Google Translate — fast basic translation...",
+        "tr": "🌍 Google Translate — hızlı temel çeviri...",
+    },
+    "google_error": {
+        "ru": "  ⚠ Ошибка Google Translate: {e}. Использую оригинал.",
+        "en": "  ⚠ Google Translate error: {e}. Using original.",
+        "tr": "  ⚠ Google Translate hatası: {e}. Orijinal kullanılıyor.",
+    },
+    "google_multi_errors": {
+        "ru": "  ⚠ Google Translate ошибка в {n}/{total} сегментах",
+        "en": "  ⚠ Google Translate failed for {n}/{total} segments",
+        "tr": "  ⚠ Google Translate {n}/{total} segmentte başarısız",
+    },
+    "translation_done": {
+        "ru": "✅ Перевод завершен!",
+        "en": "✅ Translation complete!",
+        "tr": "✅ Çeviri tamamlandı!",
+    },
+    "gemma4_refine_start": {
+        "ru": "🧠 Gemma4 улучшает перевод (батчи по {batch}, {total} сегментов)...",
+        "en": "🧠 Gemma4 refining translation (batches of {batch}, {total} segments)...",
+        "tr": "🧠 Gemma4 çeviriyi iyileştiriyor ({batch}'li gruplar, {total} segment)...",
+    },
+    "gemma4_warmup": {
+        "ru": "  ⏳ Прогрев Gemma4...",
+        "en": "  ⏳ Warming up Gemma4...",
+        "tr": "  ⏳ Gemma4 ısınıyor...",
+    },
+    "gemma4_ready": {
+        "ru": "  ✅ Gemma4 загружен и готов",
+        "en": "  ✅ Gemma4 loaded and ready",
+        "tr": "  ✅ Gemma4 yüklendi ve hazır",
+    },
+    "gemma4_not_responding": {
+        "ru": "  ⚠ Gemma4 не отвечает — оставляю базовый перевод",
+        "en": "  ⚠ Gemma4 not responding — keeping base translation",
+        "tr": "  ⚠ Gemma4 yanıt vermiyor — temel çeviri korunuyor",
+    },
+    "gemma4_batch_failed": {
+        "ru": "  ⚠ Gemma4 batch ошибка ({n}/3): {e}.",
+        "en": "  ⚠ Gemma4 batch failed ({n}/3): {e}.",
+        "tr": "  ⚠ Gemma4 grup hatası ({n}/3): {e}.",
+    },
+    "gemma4_done": {
+        "ru": "✅ Перевод завершен (DeepL + Gemma4)!",
+        "en": "✅ Translation complete (DeepL + Gemma4)!",
+        "tr": "✅ Çeviri tamamlandı (DeepL + Gemma4)!",
+    },
+}
 from deep_translator import GoogleTranslator
 
 # LLM imports
@@ -303,14 +367,14 @@ class Translator:
                     continue
             raise RuntimeError("All LLM fallbacks failed for smart JSON translation.")
 
-    def _gemma4_refine(self, segments, target_lang, log_callback=None, check_cancelled=None):
+    def _gemma4_refine(self, segments, target_lang, log_callback=None, check_cancelled=None, _l=None):
         """Refine base translations (from DeepL or Google) using Gemma4 via Ollama."""
         import gc as _gc
         lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic"}
         lang_name = lang_names.get(target_lang, target_lang)
         batch_size = 4
         total = len(segments)
-        if log_callback: log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
+        if log_callback: log_callback(_l("gemma4_refine_start", batch=batch_size, total=total))
 
         # VRAM cleanup
         try:
@@ -329,16 +393,16 @@ class Translator:
         import time as _time; _time.sleep(1.5)
 
         # Warmup
-        if log_callback: log_callback("  ⏳ Прогрев Gemma4...")
+        if log_callback: log_callback(_l("gemma4_warmup"))
         warmup_ok = False
         try:
             warmup_prompt = f"Say 'ready' in {lang_name}. One word only."
             warmup_response = self._call_llm(warmup_prompt, is_json=False)
             if warmup_response and len(warmup_response.strip()) > 0:
                 warmup_ok = True
-                if log_callback: log_callback("  ✅ Gemma4 загружен и готов")
+                if log_callback: log_callback(_l("gemma4_ready"))
         except Exception:
-            if log_callback: log_callback("  ⚠ Gemma4 не отвечает — оставляю базовый перевод")
+            if log_callback: log_callback(_l("gemma4_not_responding"))
             for seg in segments:
                 seg["text"] = seg.get("translated_base", seg["text"])
             self.release_models()
@@ -388,10 +452,10 @@ JSON:"""
                         if new_text: batch[j]["text"] = new_text
             except Exception as e:
                 gemma4_failures += 1
-                if log_callback: log_callback(f"  ⚠ Gemma4 batch failed ({gemma4_failures}/3): {str(e)[:80]}.")
+                if log_callback: log_callback(_l("gemma4_batch_failed", n=gemma4_failures, e=str(e)[:80]))
                 for seg in batch: seg["text"] = seg.get("translated_base", seg["text"])
 
-        if log_callback: log_callback("✅ Перевод завершен (DeepL + Gemma4)!")
+        if log_callback: log_callback(_l("gemma4_done"))
         self.release_models()
         return segments
 
@@ -420,7 +484,8 @@ JSON:"""
         if self.device == "cuda":
             torch.cuda.empty_cache()
 
-    def smart_translate_segments(self, segments, target_lang, log_callback=None, check_cancelled=None):
+    def smart_translate_segments(self, segments, target_lang, log_callback=None, check_cancelled=None, ui_language="ru"):
+        _l = lambda k, **kw: _T.get(k, {}).get(ui_language, _T.get(k, {}).get("en", k)).format(**kw) if kw else _T.get(k, {}).get(ui_language, _T.get(k, {}).get("en", k))
         is_ollama = "ollama" in self.engine_name.lower()
         is_deepl = "deepl" in self.engine_name.lower() and self.deepl_key
         is_ai_refine = is_ollama or (("gemini" in self.engine_name.lower() and self.gemini_key) or
@@ -438,7 +503,7 @@ JSON:"""
         # ── Step 1: Fast base translation ──
         # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
         if is_deepl:
-            if log_callback: log_callback("🌐 DeepL API - профессиональный перевод...")
+            if log_callback: log_callback(_l("deepl_start"))
             import json as _json
             import urllib.error
             import urllib.request
@@ -470,13 +535,13 @@ JSON:"""
                         else:
                             raise Exception(f"HTTP {resp.status}")
                 except Exception as e:
-                    if log_callback: log_callback(f"  ⚠ DeepL failed for segment: {str(e)[:80]}. Falling back to Google.")
+                    if log_callback: log_callback(_l("deepl_segment_failed", e=str(e)[:80]))
                     try:
                         seg["translated_base"] = GoogleTranslator(source='auto', target=target_lang).translate(orig_text)
                     except Exception:
                         seg["translated_base"] = orig_text
         else:
-            if log_callback: log_callback("🌍 Google Translate - быстрый базовый перевод...")
+            if log_callback: log_callback(_l("google_start"))
             google_errors = 0
             for seg in segments:
                 if check_cancelled: check_cancelled()
@@ -489,10 +554,10 @@ JSON:"""
                 except Exception as e:
                     google_errors += 1
                     if log_callback and google_errors <= 2:
-                        log_callback(f"  ⚠ Google Translate error: {str(e)[:100]}. Using original.")
+                        log_callback(_l("google_error", e=str(e)[:100]))
                     seg["translated_base"] = orig_text  # fallback to original
             if google_errors > 0 and log_callback:
-                log_callback(f"  ⚠ Google Translate failed for {google_errors}/{len(segments)} segments")
+                log_callback(_l("google_multi_errors", n=google_errors, total=len(segments)))
 
         # ── Step 2: AI refinement (Gemma4/Gemini/DeepSeek) ──
         if is_ollama:
@@ -622,7 +687,7 @@ JSON:"""
         # ── DeepL + Gemma4 hybrid refinement ──
         if is_deepl and gemma4_available:
             if log_callback: log_callback("🧠 DeepL + Gemma4 — улучшаю перевод...")
-            return self._gemma4_refine(segments, target_lang, log_callback, check_cancelled)
+            return self._gemma4_refine(segments, target_lang, log_callback, check_cancelled, _l=_l)
 
         # ── Non-AI engines: just use base translation ──
         if not is_ai_refine:

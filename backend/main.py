@@ -20,8 +20,47 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# ── Logging to file ──
-LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "autodub_backend.log")
+# ── Logging to file (with fallback for installed app) ──
+def _resolve_log_path() -> str:
+    """Find a writable log location. Tries project dir first, then AppData."""
+    # Primary: next to the project root (works in dev mode)
+    candidate = os.path.join(os.path.dirname(os.path.dirname(__file__)), "autodub_backend.log")
+    try:
+        os.makedirs(os.path.dirname(candidate), exist_ok=True)
+        with open(candidate, "a", encoding="utf-8") as _f:
+            _f.write("")
+        return candidate
+    except (OSError, PermissionError):
+        pass
+    # Fallback: AppData/Local (works in installed app)
+    local_appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+    candidate = os.path.join(local_appdata, "AutoDub Studio", "autodub_backend.log")
+    try:
+        os.makedirs(os.path.dirname(candidate), exist_ok=True)
+        with open(candidate, "a", encoding="utf-8") as _f:
+            _f.write("")
+        return candidate
+    except (OSError, PermissionError):
+        pass
+    # Last resort: temp directory
+    candidate = os.path.join(tempfile.gettempdir(), "autodub_backend.log")
+    return candidate
+
+LOG_FILE = _resolve_log_path()
+
+# In-memory log buffer (ring buffer, last 5000 lines)
+_LOG_BUFFER: list[str] = []
+_LOG_BUFFER_MAX = 5000
+class _BufferHandler(logging.Handler):
+    """Captures log records into an in-memory ring buffer."""
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            _LOG_BUFFER.append(msg)
+            if len(_LOG_BUFFER) > _LOG_BUFFER_MAX:
+                del _LOG_BUFFER[:-5000]  # drop oldest
+        except Exception:
+            self.handleError(record)
 
 class SanitizingFormatter(logging.Formatter):
     """Apply secret/PII redaction to ALL log output before it hits disk or console."""
@@ -62,6 +101,7 @@ logging.basicConfig(
     handlers=[
         logging.FileHandler(LOG_FILE, encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
+        _BufferHandler(),
     ],
 )
 # Apply sanitizing formatter to ALL handlers
@@ -325,6 +365,19 @@ async def get_ws_token(request: Request):
     header for cross-scheme fetch() calls. In production, the Tauri app is the only client.
     """
     return {"token": WS_AUTH_TOKEN}
+
+@app.get("/api/ollama/status")
+async def ollama_status():
+    """Check if Ollama is running and accessible."""
+    try:
+        result = subprocess.run(
+            ["ollama", "list"], capture_output=True, text=True,
+            encoding='utf-8', errors='replace', timeout=5,
+            env=_safe_subprocess_env()
+        )
+        return {"available": result.returncode == 0, "models": result.stdout.strip()}
+    except Exception:
+        return {"available": False, "models": ""}
 
 @app.post("/api/ollama/start")
 async def start_ollama(request: Request):
@@ -659,18 +712,25 @@ def _monitor_file_progress(model_id: str, file_path: str, expected_size: int, st
 
 @app.get("/api/logs")
 async def get_logs(lines: int = 200, authorization: str = Header("")):
-    """Return recent backend log lines."""
+    """Return recent backend log lines (from file or in-memory buffer)."""
     if not verify_error_report_token(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
-        if os.path.exists(LOG_FILE):
+        recent: list[str] = []
+        total = 0
+        # Prefer file if it exists and has content
+        if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
             with open(LOG_FILE, "r", encoding="utf-8") as f:
                 all_lines = f.readlines()
-                recent = all_lines[-lines:] if len(all_lines) > lines else all_lines
-                return {"logs": recent, "total": len(all_lines)}
-    except Exception:
-        pass
-    return {"logs": [], "total": 0}
+                total = len(all_lines)
+                recent = [line.rstrip("\n") for line in all_lines[-lines:]]
+        # Fall back to in-memory buffer
+        if not recent and _LOG_BUFFER:
+            total = len(_LOG_BUFFER)
+            recent = _LOG_BUFFER[-lines:]
+        return {"logs": recent, "total": total, "log_file": LOG_FILE}
+    except Exception as e:
+        return {"logs": [], "total": 0, "error": str(e)}
 
 
 @app.get("/api/models/status")
@@ -922,7 +982,10 @@ sb_imports.LazyModule.__getattr__ = _safe_getattr
 
 from pyannote.audio import Pipeline
 import os
-Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.environ['HF_TOKEN'])
+try:
+    Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', token=os.environ['HF_TOKEN'])
+except TypeError:
+    Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=os.environ['HF_TOKEN'])
 print('PYANNOTE_OK')
 """],
                     capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800,

@@ -44,6 +44,10 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
   useEffect(() => {
     const nonEmpty = Object.entries(storedKeys).filter(([_, v]) => v).length > 0;
     if (nonEmpty) setKeys(prev => ({ ...prev, ...storedKeys }));
+    // Mark keys with values as "idle" (untested)
+    const initialStatus: Record<string, KeyStatus> = {};
+    Object.entries(storedKeys).forEach(([k, v]) => { if (v) initialStatus[k] = "idle"; });
+    if (Object.keys(initialStatus).length > 0) setKeyStatus(prev => ({ ...initialStatus, ...prev }));
   }, [storedKeys]);
 
   const debouncedSave = useCallback((newKeys: ApiKeys) => {
@@ -59,9 +63,33 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
 
   const renderStatus = (id: string) => {
     const s = keyStatus[id];
-    if (s === "testing") return <LoaderCircle style={{ fontSize: 14, marginLeft: 8, animation: "spin 1s linear infinite", color: "var(--colorPaletteYellowForeground1)" }} />;
-    if (s === "success") return <span className="status-dot green" style={{ marginLeft: 8 }} />;
-    if (s === "error") return <span className="status-dot red" style={{ marginLeft: 8 }} />;
+    if (s === "testing") return (
+      <span style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--colorPaletteYellowForeground1)" }}>
+        <LoaderCircle style={{ fontSize: 12, animation: "spin 1s linear infinite" }} /> {t("settings.keys.testing")}
+      </span>
+    );
+    if (s === "success") return (
+      <span style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "var(--colorPaletteGreenForeground1)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "var(--colorPaletteGreenBackground3)" }}>
+          <Check style={{ fontSize: 10 }} />
+        </span>
+        OK
+      </span>
+    );
+    if (s === "error") return (
+      <span style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: "var(--colorPaletteRedForeground1)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "var(--colorPaletteRedBackground3)" }}>
+          <X style={{ fontSize: 10 }} />
+        </span>
+        FAIL
+      </span>
+    );
+    if (keys[id as keyof ApiKeys]) return (
+      <span style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--colorNeutralForeground3)" }}>
+        <span className="status-dot" style={{ background: "var(--colorNeutralStroke2)" }} />
+        {t("settings.keys.untested")}
+      </span>
+    );
     return null;
   };
 
@@ -71,10 +99,12 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
       setKeyStatus(prev => ({ ...prev, [id]: "testing" }));
       try {
         const res = await fetch(url, options);
-        setKeyStatus(prev => ({ ...prev, [id]: res.ok ? "success" : "error" }));
-      } catch { setKeyStatus(prev => ({ ...prev, [id]: "error" })); }
+        const ok = res.ok;
+        setKeyStatus(prev => ({ ...prev, [id]: ok ? "success" : "error" }));
+        return ok;
+      } catch { setKeyStatus(prev => ({ ...prev, [id]: "error" })); return false; }
     };
-    const promises = [];
+    const promises: Promise<boolean>[] = [];
     if (keys.deepl) promises.push(testApi("deepl", "DeepL", `${keys.deepl.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com"}/v2/usage`, { headers: { Authorization: `DeepL-Auth-Key ${keys.deepl}` } }));
     if (keys.deepseek) promises.push(testApi("deepseek", "DeepSeek", "https://api.deepseek.com/models", { headers: { Authorization: `Bearer ${keys.deepseek}` } }));
     if (keys.openai) promises.push(testApi("openai", "OpenAI", "https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${keys.openai}` } }));
@@ -84,9 +114,16 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
       promises.push(testApi(keys.gemini ? "gemini" : "google", "Google", `https://generativelanguage.googleapis.com/v1beta/models?key=${gkey}`, {}));
     }
     if (promises.length === 0) { setIsTesting(false); setTestResult(t("settings.keys.no_keys")); return; }
-    await Promise.all(promises);
-    setIsTesting(false); setTestResult("success");
-    notifyToast.success(t("settings.keys.all_ok"));
+    const results = await Promise.all(promises);
+    const allOk = results.every(r => r);
+    setIsTesting(false);
+    if (allOk) {
+      setTestResult("success");
+      notifyToast.success(t("settings.keys.all_ok"));
+    } else {
+      setTestResult(t("settings.keys.failed"));
+      notifyToast.error(t("settings.keys.failed"));
+    }
   };
 
   // ═══ General ═══

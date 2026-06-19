@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { Badge, Button, Dialog, DialogTrigger, DialogSurface, DialogTitle, DialogBody, DialogActions } from "@fluentui/react-components";
-import { DismissRegular as DismissIcon } from "@fluentui/react-icons";
-import { useSettings } from "../store";
+import { Button, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, Tooltip } from "@fluentui/react-components";
+import { ArrowSyncRegular as Restart } from "@fluentui/react-icons";
+import { invoke } from "@tauri-apps/api/core";
 import UpdateChecker from "./UpdateChecker";
 import ModelDownloader from "./ModelDownloader";
 import pkg from "../../package.json";
@@ -12,24 +12,89 @@ interface GpuInfo { cuda_available: boolean; gpu_name: string; vram_used_gb: num
 interface PipelineStatus {
   active: boolean; step: string; step_index: number; total_steps: number;
   vram_used_gb: number; vram_total_gb: number; gpu_name: string;
+  pytorch_allocated_gb?: number; pytorch_reserved_gb?: number;
   models: Record<string, "idle" | "running" | "done" | "error">;
+  translate_engine?: string;
+  tts_engine?: string;
 }
 
-type ModelDef = { key: string; label: string; type: "local" | "internet" | "paid" };
+type ModelType = "local" | "internet" | "paid" | "free";
+
+type ModelDef = { key: string; label: string; type: ModelType; desc: string };
 
 const MODEL_LIST: ModelDef[] = [
-  { key: "demucs",    label: "Demucs",    type: "local" },
-  { key: "whisper",   label: "Whisper",   type: "local" },
-  { key: "pyannote",  label: "Pyannote",  type: "local" },
-  { key: "translate", label: "Translate", type: "paid" },
-  { key: "tts",       label: "TTS",       type: "local" },
-  { key: "mux",       label: "Mux",       type: "local" },
+  { key: "demucs",    label: "Demucs",    type: "local", desc: "Voice isolation" },
+  { key: "whisper",   label: "Whisper",   type: "local", desc: "Speech recognition" },
+  { key: "pyannote",  label: "Pyannote",  type: "local", desc: "Speaker diarization" },
+  { key: "translate", label: "Translate", type: "paid",  desc: "Text translation" },
+  { key: "tts",       label: "TTS",       type: "local", desc: "Speech synthesis" },
+  { key: "mux",       label: "Mux",       type: "local", desc: "Audio/video merge" },
 ];
 
+// Dynamic engine info — reflects actual pipeline configuration
+const ENGINE_META: Record<string, { label: string; type: ModelType }> = {
+  // Translate engines
+  "google":                   { label: "Google",  type: "free" },
+  "google translate (free)":  { label: "Google",  type: "free" },
+  "deepl":                    { label: "DeepL",   type: "paid" },
+  "gemma4":                   { label: "Gemma4",  type: "local" },
+  "deepseek":                 { label: "DeepSeek", type: "paid" },
+  "gemini":                   { label: "Gemini",  type: "paid" },
+  // TTS engines
+  "f5-tts":                   { label: "F5",      type: "local" },
+  "f5-onnx":                  { label: "F5-ONNX", type: "local" },
+  "xttsv2":                   { label: "XTTS",    type: "local" },
+  "qwen3-tts":                { label: "Qwen3",   type: "local" },
+  "edge-tts":                 { label: "Edge",    type: "free" },
+  "azure":                    { label: "Azure",   type: "paid" },
+};
+
+function getModelLabel(key: string, pipeline: PipelineStatus): string {
+  if (key === "translate") {
+    const eng = (pipeline.translate_engine || "").toLowerCase();
+    const meta = ENGINE_META[eng];
+    return meta ? `⇄ ${meta.label}` : "Translate";
+  }
+  if (key === "tts") {
+    const eng = (pipeline.tts_engine || "").toLowerCase();
+    const meta = ENGINE_META[eng];
+    return meta ? `🎙 ${meta.label}` : "TTS";
+  }
+  return MODEL_LIST.find(m => m.key === key)?.label || key;
+}
+
+function getModelType(key: string, pipeline: PipelineStatus): ModelType {
+  if (key === "translate") {
+    const eng = (pipeline.translate_engine || "").toLowerCase();
+    return ENGINE_META[eng]?.type || "paid";
+  }
+  if (key === "tts") {
+    const eng = (pipeline.tts_engine || "").toLowerCase();
+    return ENGINE_META[eng]?.type || "local";
+  }
+  return MODEL_LIST.find(m => m.key === key)?.type || "local";
+}
+
+function getModelDesc(key: string, pipeline: PipelineStatus): string {
+  if (key === "translate") {
+    const eng = (pipeline.translate_engine || "").toLowerCase();
+    const meta = ENGINE_META[eng];
+    return meta ? `${meta.label} translation` : "Text translation";
+  }
+  if (key === "tts") {
+    const eng = (pipeline.tts_engine || "").toLowerCase();
+    const meta = ENGINE_META[eng];
+    return meta ? `${meta.label} speech synthesis` : "Speech synthesis";
+  }
+  return MODEL_LIST.find(m => m.key === key)?.desc || key;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  idle: "Waiting", running: "Active", done: "Completed", error: "Error",
+};
+
 const TYPE_ICON: Record<string, string> = {
-  local: "⬇",      // локальная модель
-  internet: "🌐",  // нужен интернет
-  paid: "💲",      // платный API
+  local: "⬇", internet: "🌐", paid: "💲", free: "🆓",
 };
 
 function fmt(n: number): string {
@@ -38,30 +103,69 @@ function fmt(n: number): string {
   return `${n.toFixed(1)} GB`;
 }
 
-function ModelDot({ state, label, modelType }: { state: string; label: string; modelType: string }) {
-  const dotColor =
+function fmtPct(pct: number): string {
+  if (pct <= 0) return "0%";
+  return `${(pct * 100).toFixed(0)}%`;
+}
+
+// ── VRAM color: green < 70%, yellow 70-85%, red > 85% ──
+function vramColor(pct: number): string {
+  if (pct > 0.85) return "var(--colorPaletteRedForeground1)";
+  if (pct > 0.70) return "var(--colorPaletteYellowForeground1)";
+  return "var(--colorPaletteGreenForeground1)";
+}
+
+function ModelDot({ state, label, modelType, desc }: { state: string; label: string; modelType: ModelType; desc: string }) {
+  const baseColor =
     state === "running" ? "var(--colorPaletteGreenForeground1)" :
     state === "done"    ? "var(--colorPaletteGreenForeground1)" :
     state === "error"   ? "var(--colorPaletteRedForeground1)" :
     "var(--colorNeutralForeground4)";
 
-  const anim = state === "running" ? "animate-pulse" : "";
   const opacity = state === "idle" ? 0.35 : 1;
+  const statusLabel = STATUS_LABELS[state] || state;
+  const tooltip = `${desc}\nStatus: ${statusLabel}`;
 
   return (
-    <span title={`${label} [${modelType}] — ${state}`} style={{ display: "flex", alignItems: "center", gap: 3, opacity, transition: "opacity 300ms" }}>
-      <span className={anim} style={{
-        width: 6, height: 6, borderRadius: "50%", background: dotColor,
-        display: "inline-block", flexShrink: 0,
-      }} />
-      <span style={{ fontSize: 9, fontWeight: 500, whiteSpace: "nowrap" }}>{label}</span>
-      <span style={{ fontSize: 8, opacity: 0.5 }}>{TYPE_ICON[modelType] || ""}</span>
-    </span>
+    <Tooltip content={tooltip} relationship="label" showDelay={300}>
+      <span style={{ display: "flex", alignItems: "center", gap: 3, opacity, transition: "opacity 300ms", cursor: "default" }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: "50%", background: baseColor,
+          display: "inline-block", flexShrink: 0,
+          ...(state === "running" ? { animation: "statusbar-pulse 1.8s ease-in-out infinite" } : {}),
+        }} />
+        <span style={{ fontSize: 9, fontWeight: 500, whiteSpace: "nowrap" }}>{label}</span>
+        <span style={{ fontSize: 8, opacity: 0.5 }}>{TYPE_ICON[modelType] || ""}</span>
+      </span>
+    </Tooltip>
+  );
+}
+
+function OllamaDot() {
+  const [online, setOnline] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        const r = await fetch(`${BACKEND}/api/ollama/status`);
+        if (!cancelled && r.ok) { const d = await r.json(); setOnline(d.available === true); }
+      } catch { if (!cancelled) setOnline(false); }
+    }
+    check();
+    const iv = setInterval(check, 10000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
+  return (
+    <Tooltip content={online ? "Ollama online" : "Ollama offline"} relationship="label" showDelay={300}>
+      <span style={{ display: "flex", alignItems: "center", gap: 3, opacity: online ? 0.6 : 0.35, fontSize: 9, padding: "0 4px", transition: "opacity 300ms", cursor: "default" }}>
+        <span className={`status-dot ${online ? "green" : "red"}`} style={{ width: 5, height: 5 }} />
+        Ollama
+      </span>
+    </Tooltip>
   );
 }
 
 const StatusBar: React.FC = () => {
-  const { t } = useSettings();
   const [gpu, setGpu] = useState<GpuInfo>({ cuda_available: false, gpu_name: "", vram_used_gb: 0, vram_total_gb: 0 });
   const [pipeline, setPipeline] = useState<PipelineStatus>({
     active: false, step: "", step_index: 0, total_steps: 6,
@@ -86,9 +190,15 @@ const StatusBar: React.FC = () => {
     return () => clearInterval(iv);
   }, [fetchStatus]);
 
-  const hasVram = gpu.vram_total_gb > 0;
-  const vramPct = hasVram ? gpu.vram_used_gb / gpu.vram_total_gb : 0;
-  const vramColor = vramPct > 0.9 ? "var(--colorPaletteRedForeground1)" : vramPct > 0.7 ? "var(--colorPaletteYellowForeground1)" : "var(--colorPaletteGreenForeground1)";
+  // ── Merge VRAM: prefer pipeline during active dubbing (more accurate) ──
+  const activeVramUsed = pipeline.active && pipeline.vram_used_gb > 0 ? pipeline.vram_used_gb : gpu.vram_used_gb;
+  const activeVramTotal = pipeline.active && pipeline.vram_total_gb > 0 ? pipeline.vram_total_gb : gpu.vram_total_gb;
+  const hasVram = activeVramTotal > 0;
+  const vramPct = hasVram ? Math.min(activeVramUsed / activeVramTotal, 1.0) : 0;
+  const vramPctDisplay = hasVram ? fmtPct(vramPct) : "—";
+  const gpuName = gpu.cuda_available
+    ? (gpu.gpu_name?.replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "") || "GPU")
+    : "CPU";
 
   // VRAM cleaner dialog
   const [cleanerOpen, setCleanerOpen] = useState(false);
@@ -113,16 +223,18 @@ const StatusBar: React.FC = () => {
     setCleanerOpen(false);
   };
 
-  const vramHigh = vramPct > 0.85;
+  // Show cleaner button when VRAM > 75% (earlier threshold)
+  const vramHigh = vramPct > 0.75;
+  const vramCritical = vramPct > 0.90;
 
   return (<>
     {/* VRAM Cleaner Dialog */}
     <Dialog open={cleanerOpen} onOpenChange={(_, d) => setCleanerOpen(d.open)}>
       <DialogSurface>
-        <DialogTitle>VRAM Cleaner — {t("settings.gpu_limit") || "GPU Memory"}</DialogTitle>
+        <DialogTitle>VRAM Cleaner — GPU Memory</DialogTitle>
         <DialogBody>
           <div style={{ fontSize: 13, marginBottom: 12, color: "var(--colorNeutralForeground2)" }}>
-            VRAM: {fmt(gpu.vram_used_gb)} / {fmt(gpu.vram_total_gb)} ({(vramPct*100).toFixed(0)}%)
+            VRAM: {fmt(activeVramUsed)} / {fmt(activeVramTotal)} ({vramPctDisplay})
           </div>
           <div style={{ maxHeight: 300, overflowY: "auto" }}>
             {processes.map(p => (
@@ -151,17 +263,16 @@ const StatusBar: React.FC = () => {
       borderTop: "1px solid var(--colorNeutralStroke2)",
       gap: 0,
     }}>
-      {/* GPU / VRAM */}
+      {/* GPU / VRAM — dynamically reads from THIS PC's hardware */}
       <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", whiteSpace: "nowrap" }}>
         <span className={`status-dot ${gpu.cuda_available ? "green" : "yellow"}`} />
-        <span style={{ opacity: 0.7, fontSize: 10 }}>
-          {gpu.cuda_available ? (gpu.gpu_name?.replace("NVIDIA GeForce ", "").replace(" Laptop GPU", "") || "GPU") : "CPU"}
-        </span>
+        <span style={{ opacity: 0.7, fontSize: 10 }}>{gpuName}</span>
         {hasVram && (
           <>
             <span style={{ opacity: 0.3, margin: "0 2px" }}>|</span>
-            <span style={{ fontWeight: 600, color: vramColor, fontSize: 10 }}>
-              {fmt(gpu.vram_used_gb)}/{fmt(gpu.vram_total_gb)}
+            <span title={`VRAM used: ${activeVramUsed.toFixed(2)} GB / ${activeVramTotal.toFixed(2)} GB`}
+              style={{ fontWeight: 600, color: vramColor(vramPct), fontSize: 10 }}>
+              {fmt(activeVramUsed)}/{fmt(activeVramTotal)}
             </span>
           </>
         )}
@@ -173,39 +284,64 @@ const StatusBar: React.FC = () => {
       {pipeline.active && (
         <>
           <span style={{ fontSize: 10, opacity: 0.6, whiteSpace: "nowrap", padding: "0 4px" }}>
-            {pipeline.step_index}/{pipeline.total_steps}
+            Step {pipeline.step_index}/{pipeline.total_steps}
           </span>
           <span className="status-separator" style={{ margin: "0 4px" }} />
         </>
       )}
 
-      {/* Model indicators */}
+      {/* Model indicators with hover tooltips */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {MODEL_LIST.map(m => (
-          <ModelDot key={m.key} state={pipeline.models[m.key] || "idle"} label={m.label} modelType={m.type} />
+          <ModelDot key={m.key} state={pipeline.models[m.key] || "idle"}
+            label={getModelLabel(m.key, pipeline)}
+            modelType={getModelType(m.key, pipeline)}
+            desc={getModelDesc(m.key, pipeline)} />
         ))}
       </div>
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Ollama status — simple dot */}
-      <span style={{ display: "flex", alignItems: "center", gap: 3, opacity: 0.5, fontSize: 9, padding: "0 4px" }}>
-        <span className="status-dot red" style={{ width: 5, height: 5 }} />
-        Ollama
-      </span>
-
-      <UpdateChecker />
-      <ModelDownloader />
-
-      {/* VRAM high warning */}
+      {/* VRAM Cleaner button — always visible when VRAM is high */}
       {vramHigh && (
-        <span onClick={() => { fetchProcesses(); setCleanerOpen(true); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 3, padding: "0 6px", opacity: 0.8 }}
-          title="VRAM pressure — click to clean">
-          <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--colorPaletteRedForeground1)", display: "inline-block" }} />
-          <span style={{ fontSize: 9, color: "var(--colorPaletteRedForeground1)", fontWeight: 600 }}>{(vramPct*100).toFixed(0)}%</span>
+        <span onClick={() => { fetchProcesses(); setCleanerOpen(true); }}
+          title="High VRAM usage — click to clean up background processes"
+          style={{
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, marginRight: 4,
+            background: vramCritical ? "var(--colorPaletteRedBackground2)" : "var(--colorPaletteYellowBackground2)",
+            border: `1px solid ${vramCritical ? "var(--colorPaletteRedBorder1)" : "var(--colorPaletteYellowBorder1)"}`,
+            transition: "all 200ms",
+          }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: vramCritical ? "var(--colorPaletteRedForeground1)" : "var(--colorPaletteYellowForeground1)",
+            display: "inline-block",
+            animation: vramCritical ? "statusbar-pulse 0.9s ease-in-out infinite" : "none",
+          }} />
+          <span style={{
+            fontSize: 9, fontWeight: 700,
+            color: vramCritical ? "var(--colorPaletteRedForeground1)" : "var(--colorPaletteYellowForeground1)",
+          }}>{vramPctDisplay}</span>
         </span>
       )}
+
+      <Tooltip content="Restart backend & clear Python cache" relationship="label" showDelay={300}>
+        <span onClick={async () => {
+          try {
+            await invoke("restart_backend");
+          } catch {}
+        }}
+        style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "0 4px", opacity: 0.4, transition: "opacity 150ms" }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
+        >
+          <Restart style={{ fontSize: 12 }} />
+        </span>
+      </Tooltip>
+      <OllamaDot />
+      <UpdateChecker />
+      <ModelDownloader />
 
       <span style={{ opacity: 0.25, marginLeft: 4, fontSize: 9 }}>v{pkg.version}</span>
     </div>

@@ -56,6 +56,7 @@
       "../../engine.py",
       "../../live_engine.py",
       "../../f5_worker.py",
+      "../../f5_onnx_worker.py",
       "../../qwen3_worker.py",
       "../../xtts_worker.py",
       "../../lip_sync_worker.py",

@@ -34,9 +34,10 @@ def main():
     print(f"Device: {device}")
 
     try:
+        # Use token= (huggingface_hub >= 1.0 dropped use_auth_token)
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token
+            token=hf_token,
         )
         if torch.cuda.is_available():
             pipeline.to(device)

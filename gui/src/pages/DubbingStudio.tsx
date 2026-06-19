@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, type DragEvent, type ChangeEvent } from "react";
-import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader } from "@fluentui/react-components";
+import { useState, useCallback, useEffect, type DragEvent } from "react";
+import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
@@ -8,6 +8,7 @@ import {
   InfoRegular as Info,
   SquareRegular as Square,
   FastForwardRegular as FastForward,
+  ClipboardPasteRegular as CopyIcon,
 } from "@fluentui/react-icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -25,6 +26,7 @@ interface Config {
   translatorModel: string; pipelineMode: PipelineMode;
   autoMux: boolean; voiceCloning: boolean; audioSeparation: boolean;
   exportSrt: boolean; keepIntermediate: boolean; autoOpenFolder: boolean;
+  demucsModel: string;
 }
 
 const PIPELINE_STEPS = ["source", "demucs", "whisper", "translate", "tts", "mux"] as const;
@@ -36,7 +38,7 @@ const STEP_T_KEY: Record<StepKey, string> = {
 
 const LANG_T_KEY: Record<string, string> = {
   ru: "lang.ru", tr: "lang.tr", en: "lang.en", es: "lang.es", fr: "lang.fr",
-  de: "lang.de", ar: "lang.ar", zh: "lang.ja", ja: "lang.ja", ko: "lang.ko",
+  de: "lang.de", ar: "lang.ar", zh: "lang.zh", ja: "lang.ja", ko: "lang.ko",
   it: "lang.it", pt: "lang.pt", pl: "lang.pl", hi: "lang.hi",
 };
 const LANGS = ["ru", "tr", "en", "es", "fr", "de", "ar", "zh", "ja", "ko", "it", "pt", "pl", "hi"];
@@ -44,7 +46,7 @@ const LANGS = ["ru", "tr", "en", "es", "fr", "de", "ar", "zh", "ja", "ko", "it",
 const TTS_BY_LANG: Record<string, string[]> = {
   "ru": ["qwen3-tts", "xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
   "en": ["qwen3-tts", "xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
-  "tr": ["f5-tts", "f5-onnx", "xttsv2", "azure", "edge-tts"],
+  "tr": ["xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
   "es": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
   "fr": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
   "de": ["xttsv2", "azure", "edge-tts"],
@@ -90,19 +92,15 @@ function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) =
 }
 
 export default function DubbingStudio() {
-  const { t, settings } = useSettings();
+  const { t, settings, lang } = useSettings();
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [activeStep, setActiveStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [fileName, setFileName] = useState("");
-  const [translatedSrt, setTranslatedSrt] = useState<string>("");
   const [logs, setLogs] = useState<string[]>([]);
-  const [originalSegments, setOriginalSegments] = useState<string[]>([]);
-  const [_translatedSegments, setTranslatedSegments] = useState<string[]>([]);
   const [editedSegments, setEditedSegments] = useState<any[]>([]);
-  void _translatedSegments;
 
   const onProgress = useCallback((val: number) => setProgress(val), []);
   const onLog = useCallback((text: string) => {
@@ -115,10 +113,9 @@ export default function DubbingStudio() {
     else if (lower.includes("сборка") || lower.includes("ffmpeg") || lower.includes("mux")) setActiveStep(6);
   }, []);
 
-  const onReviewReady = useCallback((orig: string[], trans: string[], segments: any[]) => {
-    setOriginalSegments(orig); setTranslatedSegments(trans);
-    setEditedSegments(segments); setPipelineState("review");
-    setTranslatedSrt(trans.join("\n\n"));
+  const onReviewReady = useCallback((_orig: string[], _trans: string[], segments: any[]) => {
+    setEditedSegments(segments);
+    setPipelineState("review");
   }, []);
 
   const [outputPath, setOutputPath] = useState("");
@@ -138,6 +135,7 @@ export default function DubbingStudio() {
     translatorModel: "gemma2", pipelineMode: "automatic",
     autoMux: true, voiceCloning: true, audioSeparation: true,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
+    demucsModel: "htdemucs_ft",
   });
 
   useEffect(() => { checkConnection(); }, [checkConnection]);
@@ -184,7 +182,10 @@ export default function DubbingStudio() {
       whisper_model: JSON.parse(localStorage.getItem("autodub_models") || "{}")?.whisperModel || "large-v3",
       device: "cuda", translation_engine: config.translationEngine, dub_engine: config.voiceModel,
       gemini_key: settings.geminiKey, deepseek_key: settings.deepseekKey, deepl_key: settings.deeplKey,
-      manual_mode: config.pipelineMode === "manual"
+      hf_key: settings.hfKey,
+      manual_mode: config.pipelineMode === "manual",
+      ui_language: lang || "ru",
+      demucs_model: config.demucsModel,
     });
   }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog]);
 
@@ -275,29 +276,22 @@ export default function DubbingStudio() {
           <div className="win11-card">
             <div className="win11-card-header">{t("dubbing.mode")}</div>
             <div className="win11-card-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {(["automatic", "manual"] as const).map(mode => {
-                  const isActive = config.pipelineMode === mode;
-                  return (
-                    <div key={mode}
-                      className="cursor-pointer"
-                      style={{
-                        padding: 16, borderRadius: 8, border: `1px solid ${isActive ? "var(--colorBrandStroke1)" : "var(--colorNeutralStroke2)"}`,
-                        background: isActive ? "var(--colorBrandBackground2)" : "var(--colorNeutralBackground3)",
-                      }}
-                      onClick={() => updateConfig("pipelineMode", mode)}>
-                      <div className="flex items-start gap-3">
-                        <input type="radio" name="mode" checked={isActive} readOnly style={{ marginTop: 2 }} />
-                        <div>
-                          <div className="font-medium text-sm">{t(`dubbing.mode.${mode === "automatic" ? "auto" : "manual"}_label` as any)}</div>
-                          <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground3)", lineHeight: 1.4 }}>
-                            {t(`dubbing.mode.${mode === "automatic" ? "auto" : "manual"}_desc` as any)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <RadioGroup
+                value={config.pipelineMode}
+                onChange={(_, data) => updateConfig("pipelineMode", data.value as PipelineMode)}
+                layout="horizontal"
+              >
+                {(["automatic", "manual"] as const).map(mode => (
+                  <Radio
+                    key={mode}
+                    value={mode}
+                    label={t(`dubbing.mode.${mode === "automatic" ? "auto" : "manual"}_label` as any)}
+                    style={{ flex: 1 }}
+                  />
+                ))}
+              </RadioGroup>
+              <div className="text-xs mt-3" style={{ color: "var(--colorNeutralForeground3)", lineHeight: 1.4 }}>
+                {t(`dubbing.mode.${config.pipelineMode === "automatic" ? "auto" : "manual"}_desc` as any)}
               </div>
             </div>
           </div>
@@ -329,8 +323,16 @@ export default function DubbingStudio() {
                   <div className="win11-form-label-text">{t("dubbing.adv.demucs")}</div>
                   <div className="win11-form-label-desc">{t("dubbing.adv.demucs_desc")}</div>
                 </div>
-                <div className="win11-form-control">
+                <div className="win11-form-control" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <Switch checked={config.audioSeparation} onChange={(_, data) => updateConfig("audioSeparation", data.checked)} />
+                  {config.audioSeparation && (
+                    <Select value={config.demucsModel} onChange={(e) => updateConfig("demucsModel", e.target.value)}
+                      style={{ width: 180 }}>
+                      <option value="htdemucs_ft">htdemucs_ft — {t("dubbing.adv.demucs_ft")}</option>
+                      <option value="htdemucs">htdemucs — {t("dubbing.adv.demucs_bal")}</option>
+                      <option value="htdemucs_6s">htdemucs_6s — {t("dubbing.adv.demucs_6s")}</option>
+                    </Select>
+                  )}
                 </div>
               </div>
               <div className="win11-form-row">
@@ -426,8 +428,27 @@ export default function DubbingStudio() {
           <div className="win11-card" style={{ marginBottom: 24 }}>
             <div className="win11-card-header">
               <div className="flex items-center justify-between">
-                <span>{t("dubbing.log.title")}</span>
-                <Badge appearance="outline" size="small" className="font-mono">{logs.length} {t("dubbing.log.entries")}</Badge>
+                <div className="flex items-center gap-2">
+                  <span>{t("dubbing.log.title")}</span>
+                  <Badge appearance="outline" size="small" className="font-mono">{logs.length} {t("dubbing.log.entries")}</Badge>
+                </div>
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  icon={<CopyIcon />}
+                  disabled={logs.length === 0}
+                  title={t("dubbing.log.copy")}
+                  onClick={() => {
+                    const text = logs.join("\n");
+                    navigator.clipboard.writeText(text).then(() => {
+                      notifyToast.success(t("dubbing.log.copied"));
+                    }).catch(() => {
+                      notifyToast.error(t("dubbing.log.copy_failed"));
+                    });
+                  }}
+                >
+                  {t("dubbing.log.copy")}
+                </Button>
               </div>
             </div>
             <div className="win11-card-body">
@@ -476,7 +497,7 @@ export default function DubbingStudio() {
           <Card appearance="filled" style={{ marginBottom: 24 }}>
             <CardHeader
               header={
-                <div style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                <div className="win11-review-header" style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
                   <span style={{ width: 80, flexShrink: 0 }}>{t("dubbing.review.speaker") || "Speaker"}</span>
                   <span style={{ width: 120, flexShrink: 0 }}>{t("dubbing.review.time") || "Time"}</span>
                   <span style={{ flex: 1 }}>{t("dubbing.review.original")}</span>
@@ -492,7 +513,7 @@ export default function DubbingStudio() {
               {editedSegments.map((seg, i) => {
                 const speakerColor = SPEAKER_COLORS[seg.speaker as string] || SPEAKER_COLORS["default"];
                 return (
-                  <div key={i} style={{
+                  <div key={i} className="win11-review-row" style={{
                     display: "flex", gap: 0, alignItems: "flex-start",
                     padding: "8px 16px",
                     borderBottom: "1px solid var(--colorNeutralStroke2)",
@@ -500,7 +521,7 @@ export default function DubbingStudio() {
                     background: i % 2 === 0 ? "var(--colorNeutralBackground1)" : "var(--colorNeutralBackground2)",
                   }}>
                     {/* Speaker — Fluent UI Badge */}
-                    <span style={{ width: 80, flexShrink: 0, paddingTop: 1 }}>
+                    <span className="win11-review-speaker" style={{ width: 80, flexShrink: 0, paddingTop: 1 }}>
                       <Badge
                         appearance="filled"
                         color="brand"
@@ -514,7 +535,7 @@ export default function DubbingStudio() {
                       </Badge>
                     </span>
                     {/* Timestamp */}
-                    <span style={{
+                    <span className="win11-review-time" style={{
                       width: 120, flexShrink: 0,
                       fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
                       color: "var(--colorNeutralForeground3)", paddingTop: 3,
@@ -531,7 +552,6 @@ export default function DubbingStudio() {
                         const updated = [...editedSegments];
                         updated[i] = { ...updated[i], trans: e.target.value };
                         setEditedSegments(updated);
-                        setTranslatedSrt(updated.map((s: any) => s.trans).join("\n\n"));
                       }}
                       style={{
                         flex: 1, border: "none", background: "transparent",

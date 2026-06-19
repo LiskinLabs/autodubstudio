@@ -69,10 +69,10 @@ function AIChat() {
   };
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 48px - 36px)" }}>
+    <div className="flex flex-col" style={{ height: "100%" }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3 shrink-0"
-        style={{ padding: "12px 48px", borderBottom: "1px solid var(--colorNeutralStroke2)", background: "var(--colorNeutralBackground1)" }}>
+        style={{ padding: "12px max(20px, min(48px, 4vw))", borderBottom: "1px solid var(--colorNeutralStroke2)", background: "var(--colorNeutralBackground1)" }}>
         <div className="flex items-center gap-3 flex-wrap">
           {isConnected && (
             <div className="flex items-center gap-2" style={{ padding: "4px 8px", borderRadius: 8, background: "var(--colorNeutralBackground2)", border: "1px solid var(--colorNeutralStroke2)" }}>
@@ -100,7 +100,7 @@ function AIChat() {
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "12px 48px" }}>
+        <div style={{ padding: "12px max(20px, min(48px, 4vw))" }}>
           <div className="flex gap-3 p-4 rounded-lg" style={{ background: "var(--colorPaletteYellowBackground2)", border: "1px solid var(--colorPaletteYellowBorder1)" }}>
             <AlertTriangle style={{ fontSize: 18, color: "var(--colorPaletteYellowForeground1)" }} />
             <span className="text-sm font-medium">{error}</span>
@@ -109,7 +109,7 @@ function AIChat() {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: "24px 48px" }}>
+      <div className="flex-1 overflow-y-auto" style={{ padding: "24px max(20px, min(48px, 4vw))" }}>
         {!isConnected ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div style={{ padding: 20, borderRadius: 16, background: "var(--colorNeutralBackground3)" }}>
@@ -166,7 +166,7 @@ function AIChat() {
 
       {/* Input */}
       {isConnected && (
-        <div className="shrink-0" style={{ padding: "16px 48px 24px", borderTop: "1px solid var(--colorNeutralStroke2)" }}>
+        <div className="shrink-0" style={{ padding: "16px max(20px, min(48px, 4vw)) 24px", borderTop: "1px solid var(--colorNeutralStroke2)" }}>
           <div className="flex items-end gap-3" style={{ maxWidth: 768, margin: "0 auto" }}>
             <Textarea ref={textareaRef} value={input}
               onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}

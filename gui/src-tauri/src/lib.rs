@@ -31,6 +31,58 @@ fn kill_port_8000() {
         .status();
 }
 
+/// Tauri command: kill all Python processes, clear caches, backend auto-restarts
+#[tauri::command]
+fn restart_backend() -> String {
+    // 1. Kill all python.exe processes
+    #[cfg(target_os = "windows")]
+    {
+        let _ = StdCommand::new("cmd")
+            .args(["/c", "taskkill /F /IM python.exe 2>nul"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = StdCommand::new("sh")
+            .args(["-c", "pkill -9 python 2>/dev/null; pkill -9 python3 2>/dev/null; true"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
+    // 2. Clear Python bytecode cache
+    let proj_dir = std::path::PathBuf::from(
+        std::env::var("USERPROFILE").unwrap_or_default()
+    ).join("Desktop").join("AutoDubStudio");
+
+    fn clear_pycache(dir: &std::path::Path) {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if path.file_name().map_or(false, |n| n == "__pycache__") {
+                        let _ = std::fs::remove_dir_all(&path);
+                        println!("[AutoDub] Cleared: {}", path.display());
+                    } else {
+                        clear_pycache(&path);
+                    }
+                }
+            }
+        }
+    }
+    clear_pycache(&proj_dir);
+
+    // Also clear AppData caches
+    if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        let ad = std::path::PathBuf::from(appdata).join("AutoDub Studio");
+        clear_pycache(&ad);
+    }
+
+    "ok".to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -48,7 +100,17 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .invoke_handler(tauri::generate_handler![restart_backend])
         .setup(|app| {
+            // ── Clean Python caches on startup ──
+            #[cfg(target_os = "windows")]
+            {
+                let _ = StdCommand::new("cmd")
+                    .args(["/c", "for /d /r \"%USERPROFILE%\\Desktop\\AutoDubStudio\" %d in (__pycache__) do @if exist \"%d\" rd /s /q \"%d\" 2>nul"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
             let window = app.get_webview_window("main").unwrap();
 
             // Windows 11 Mica effect

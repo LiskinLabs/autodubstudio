@@ -11,6 +11,7 @@ import {
   KeyRegular as Key,
   PersonRegular as Person,
   BoardRegular as Cpu,
+  NavigationRegular as Hamburger,
 } from "@fluentui/react-icons";
 import StatusBar from "./components/StatusBar";
 import CommandPalette from "./components/CommandPalette";
@@ -47,6 +48,7 @@ const SETTINGS_NAV: NavEntry[] = [
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("dubbing");
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { t, theme, themeLight, themeDark, setTheme } = useSettings();
 
   const dark = isThemeDark(theme);
@@ -76,9 +78,19 @@ const App: React.FC = () => {
 
       {/* ── Win11 Mica Titlebar ── */}
       <div className="titlebar titlebar-surface flex items-center shrink-0 select-none"
-        style={{ height: 48, padding: "0 16px 0 24px", gap: 16 }}>
-        <div className="flex items-center gap-3">
-          <img src="/logo-icon.png" alt="" style={{ width: 20, height: 20, opacity: 0.8 }} />
+        style={{ height: 48, padding: "0 16px 0 16px", gap: 16 }}>
+        
+        <div className="flex items-center gap-2">
+          {/* Hamburger Menu Button (visible only on small screens) */}
+          <button
+            className="win11-hamburger no-drag"
+            onClick={() => setSidebarOpen(p => !p)}
+            aria-label={t("app.toggle_menu") || "Toggle Menu"}
+          >
+            <Hamburger style={{ fontSize: 16 }} />
+          </button>
+          
+          <img src="/logo-icon.png" alt="" style={{ width: 20, height: 20, opacity: 0.8, marginLeft: 8 }} />
           <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7 }}>AutoDub Studio</span>
         </div>
 
@@ -97,9 +109,16 @@ const App: React.FC = () => {
       </div>
 
       {/* ── Body: Sidebar + Content ── */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+        
+        {/* Backdrop for mobile sidebar */}
+        <div 
+          className={`win11-sidebar-backdrop z-40 ${sidebarOpen ? "visible" : ""}`} 
+          onClick={() => setSidebarOpen(false)}
+        />
+
         {/* ── Win11 Settings Sidebar (acrylic) ── */}
-        <nav className="win11-sidebar flex flex-col shrink-0 overflow-y-auto" role="navigation"
+        <nav className={`win11-sidebar flex flex-col shrink-0 overflow-y-auto z-50 ${sidebarOpen ? "open" : ""}`} role="navigation"
           style={{
             width: 280, padding: "8px 0 16px",
             background: "var(--colorNeutralBackground2)",
@@ -112,7 +131,7 @@ const App: React.FC = () => {
               role="tab" id={`tab-${item.id}`}
               aria-selected={activeTab === item.id}
               className={`win11-nav-item${activeTab === item.id ? " active" : ""}`}
-              onClick={() => setActiveTab(item.id)}>
+              onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}>
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{t(item.labelKey as any)}</span>
             </button>
@@ -127,7 +146,7 @@ const App: React.FC = () => {
                 role="tab" id={`tab-${item.id}`}
                 aria-selected={isActive}
                 className={`win11-nav-item${isActive ? " active" : ""}`}
-                onClick={() => setActiveTab(item.id)}>
+                onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}>
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-label">{t(item.labelKey as any)}</span>
                 {isActive && (

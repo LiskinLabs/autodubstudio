@@ -18,6 +18,34 @@ PREPROCESS_ONNX = os.path.join(MODEL_DIR, "F5_Preprocess-4096-tr.onnx")
 TRANSFORMER_ONNX = os.path.join(MODEL_DIR, "F5_Transformer-4096-tr.onnx")
 DECODE_ONNX = os.path.join(MODEL_DIR, "F5_Decode-4096-tr.onnx")
 
+# Fallback: HuggingFace cache (for installed app where models/ is not bundled)
+_HF_CACHE = os.path.expanduser("~/.cache/huggingface/hub/models--patientxtr--F5_TTS_ONNX_Turkish/snapshots")
+def _find_hf_snapshot():
+    """Find the latest snapshot directory in HF cache. Returns path or None."""
+    if not os.path.isdir(_HF_CACHE):
+        return None
+    for entry in sorted(os.listdir(_HF_CACHE), reverse=True):
+        snap = os.path.join(_HF_CACHE, entry)
+        if os.path.isdir(snap) and len(entry) == 40:  # SHA hash
+            return snap
+    return None
+
+def _resolve_model_path(local_path, filename):
+    """Return the actual model path, checking local first, then HF cache."""
+    if os.path.exists(local_path):
+        return local_path
+    snap = _find_hf_snapshot()
+    if snap:
+        hf_path = os.path.join(snap, filename)
+        if os.path.exists(hf_path):
+            return hf_path
+    return local_path  # Return original (will fail with clear error)
+
+VOCAB_PATH = _resolve_model_path(VOCAB_PATH, "vocab.txt")
+PREPROCESS_ONNX = _resolve_model_path(PREPROCESS_ONNX, "F5_Preprocess-4096-tr.onnx")
+TRANSFORMER_ONNX = _resolve_model_path(TRANSFORMER_ONNX, "F5_Transformer-4096-tr.onnx")
+DECODE_ONNX = _resolve_model_path(DECODE_ONNX, "F5_Decode-4096-tr.onnx")
+
 
 def load_vocab(path):
     """Load character-level vocab for Turkish F5-TTS."""
@@ -101,25 +129,39 @@ def main():
             # Text to IDs
             text_ids = text_to_ids(gen_text, c2i)
 
-            # Step 1: Preprocess
+            # Estimate max_duration: ~15 chars per second of speech, min 3s
+            max_dur = max(3, int(len(gen_text) / 15.0) + 2)
+
+            # Step 1: Preprocess — extracts features from ref audio + text
             pre_inputs = {
-                "ref_audio": ref_wav[np.newaxis, :],
-                "text_ids": text_ids,
+                "audio": ref_wav[np.newaxis, np.newaxis, :],  # [1, 1, audio_len]
+                "text_ids": text_ids,                           # [1, text_len]
+                "max_duration": np.array(max_dur, dtype=np.int64),  # scalar
             }
             pre_outputs = pre_sess.run(None, pre_inputs)
-            # Output: hidden_states, ref_features, mask
+            # Outputs: noise, rope_cos, rope_sin, cat_mel_text,
+            #          cat_mel_text_drop, qk_rotated_empty, ref_signal_len
 
-            # Step 2: Transformer
-            tr_inputs = {
-                "hidden_states": pre_outputs[0],
-                "ref_features": pre_outputs[1],
-                "mask": pre_outputs[2] if len(pre_outputs) > 2 else np.ones((1, pre_outputs[0].shape[1]), dtype=np.bool_),
-            }
-            tr_outputs = tr_sess.run(None, tr_inputs)
+            # Step 2: Transformer — iterative denoising (diffusion)
+            denoised = pre_outputs[0]  # noise (initial)
+            nfe_step = 32  # number of function evaluation steps
+            for step in range(nfe_step):
+                tr_inputs = {
+                    "noise": denoised,
+                    "rope_cos": pre_outputs[1],
+                    "rope_sin": pre_outputs[2],
+                    "cat_mel_text": pre_outputs[3],
+                    "cat_mel_text_drop": pre_outputs[4],
+                    "qk_rotated_empty": pre_outputs[5],
+                    "time_step": np.array(step, dtype=np.int32),
+                }
+                tr_outputs = tr_sess.run(None, tr_inputs)
+                denoised = tr_outputs[0]  # updated denoised
 
-            # Step 3: Decode
+            # Step 3: Decode — mel to waveform
             dec_inputs = {
-                "mel": tr_outputs[0],
+                "denoised": denoised,
+                "ref_signal_len": pre_outputs[6],
             }
             dec_outputs = dec_sess.run(None, dec_inputs)
             audio = dec_outputs[0].flatten()

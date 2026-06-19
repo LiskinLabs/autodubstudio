@@ -50,7 +50,7 @@ export default function LiveSubtitles() {
       <div className="win11-card">
         <div className="win11-card-header">{t("live.config")}</div>
         <div className="win11-card-body">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+          <div className="win11-config-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
             <Field label={t("live.engine_label")} style={{ gridColumn: "1 / -1", padding: "8px 0" }}>
               <Select value={config.translationEngine} onChange={(e: ChangeEvent<HTMLSelectElement>) => updateConfig("translationEngine", e.target.value)}>
                 <option value="deepseek">{t("live.engine.deepseek")}</option>
@@ -79,7 +79,7 @@ export default function LiveSubtitles() {
           <h2 className="font-semibold" style={{ fontSize: 16 }}>{t("live.audio_status")}</h2>
           <Badge appearance="tint" color={statusBadge.color} size="small">{statusBadge.label}</Badge>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
           {[
             { icon: <Mic style={{ fontSize: 18 }} />, title: t("live.status_audio"), desc: isCapturing ? t("live.status_audio.active") : t("live.status_audio.idle") },
             { icon: <AudioLines style={{ fontSize: 18 }} />, title: t("live.status_engine"), desc: isCapturing ? t("live.status_engine.active") : t("live.status_engine.idle") },
