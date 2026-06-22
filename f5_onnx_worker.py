@@ -64,7 +64,7 @@ def text_to_ids(text, c2i):
             ids.append(c2i[ch])
         else:
             ids.append(0)  # UNK token
-    return np.array([ids], dtype=np.int64)
+    return np.array([ids], dtype=np.int32)
 
 
 def main():
@@ -136,7 +136,7 @@ def main():
             pre_inputs = {
                 "audio": ref_wav[np.newaxis, np.newaxis, :],  # [1, 1, audio_len]
                 "text_ids": text_ids,                           # [1, text_len]
-                "max_duration": np.array(max_dur, dtype=np.int64),  # scalar
+                "max_duration": np.array(max_dur, dtype=np.int32),  # scalar
             }
             pre_outputs = pre_sess.run(None, pre_inputs)
             # Outputs: noise, rope_cos, rope_sin, cat_mel_text,
