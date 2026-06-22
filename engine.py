@@ -1137,6 +1137,36 @@ class AutoDubWorker(threading.Thread):
             self.finished_signal.emit(False, str(e))
             # Mark the active model step as error (visible red in StatusBar)
             _finish_pipeline_status(error=True)
+            # ── Auto-report to GitHub Issues ──
+            try:
+                import httpx, os, time as _time
+                token = os.environ.get("GITHUB_TOKEN", "")
+                if not token:
+                    # Fallback: read from config.json or github_token.txt
+                    import json as _json
+                    for cfg_name in ["config.json", "github_token.txt"]:
+                        cfg_path = os.path.join(os.path.dirname(__file__), cfg_name)
+                        if os.path.exists(cfg_path):
+                            try:
+                                with open(cfg_path, "r", encoding="utf-8") as f:
+                                    if cfg_name == "github_token.txt":
+                                        token = f.read().strip()
+                                    else:
+                                        token = _json.load(f).get("github_token", "")
+                                    if token: break
+                            except Exception: pass
+                if token:
+                    safe_error = str(e)[:300]
+                    title = f"[Bug] Pipeline error: {safe_error[:80]}"
+                    body = f"**Error:** {safe_error}\n**Time:** {_time.strftime('%Y-%m-%dT%H:%M:%S')}\n**Video:** {self.video_path}"
+                    httpx.post(
+                        "https://api.github.com/repos/LiskinLabs/autodubstudio/issues",
+                        json={"title": title, "body": body, "labels": ["bug", "auto-reported"]},
+                        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+                        timeout=10
+                    )
+            except Exception:
+                pass  # error reporting is best-effort
         else:
             # Success path — clean idle reset
             _finish_pipeline_status()
