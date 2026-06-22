@@ -1111,8 +1111,8 @@ class AutoDubWorker(threading.Thread):
                             self._run_subprocess(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                             clip = AudioSegment.from_file(stretched_cp)
                             all_created_files.append(stretched_cp)
-                        # Смягчаем границы: fade-in/out по 8ms — убирает щелчки и резкие обрывы
-                        clip = clip.fade_in(8).fade_out(8)
+                        # Смягчаем границы: fade-in/out по 50ms — плавные переходы без обрывов
+                        clip = clip.fade_in(50).fade_out(50)
                         tts_only = tts_only.overlay(clip, position=int(start_t * 1000))
                         final_audio = final_audio.overlay(clip, position=int(start_t * 1000))
                         all_created_files.append(cp)
