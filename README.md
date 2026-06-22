@@ -1,8 +1,8 @@
-# 🎬 AutoBud Studio v0.0.1 Beta
+# 🎬 AutoDub Studio v0.0.1 Beta
 
-**AI-Powered Video Dubbing Pipeline** — Windows 11 desktop app for professional video dubbing using local AI.
+**Yapay Zeka Destekli Video Dublaj Sistemi** — Yerel yapay zeka kullanarak profesyonel video dublajı için Windows 11 masaüstü uygulaması.
 
-> **YZ Destekli Video Dublaj Uygulaması** — Transkripsiyon → Çeviri → Seslendirme (14 dil) → MKV
+> Transkripsiyon → Çeviri → Seslendirme (14 dil) → MKV
 > Hepsi yerel. Hepsi ücretsiz. Arayüz: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
 
 <p align="center">
@@ -11,212 +11,172 @@
 
 ---
 
-## 🪟 Windows 11 Native
+## 🪟 Windows 11 Yerel Görünümü
 
-- **Fluent UI v9** — Microsoft's official React component library
-- **Mica effect** — native Windows 11 window transparency
-- **3 themes** — Light, Dark, Dim (Teams Dark)
-- **Win11 Settings layout** — sidebar navigation, card-based content, form rows
-- **Indistinguishable from native Windows apps**
+- **Fluent UI v9** — Microsoft'un resmi React bileşen kütüphanesi
+- **Mica efekti** — Yerel Windows 11 pencere şeffaflığı
+- **3 Tema** — Açık, Koyu, Loş (Teams Koyu)
+- **Win11 Ayarlar düzeni** — Kenar çubuğu navigasyonu, kart tabanlı içerik, form satırları
+- **Yerel Windows uygulamalarından farksız**
 
 ---
 
-## 🚀 Features
+## 🚀 Özellikler
 
-### Pipeline
+### İşlem Akışı (Pipeline)
 
-| Step | Tech | Status | Description |
-|------|------|--------|-------------|
-| 📥 **Download** | yt-dlp | ✅ | YouTube / TikTok / Vimeo URL or local file |
-| 🎵 **Vocal Isolation** | Demucs (htdemucs_ft) | ✅ | 4-model ensemble, best quality |
-| 📝 **Transcription** | Faster-Whisper (large-v3) | ✅ | 99 languages, CUDA, checkpoint caching |
-| 👥 **Diarization** | Pyannote 3.1 | ✅ | Speaker ID on clean vocals (HF token required) |
-| 🧠 **AI Translation** | DeepSeek + Google fallback | ✅ | Smart refinement with graceful degradation |
-| 🎙️ **TTS** | XTTS v2 | ✅ | Voice cloning, 10 languages, per-speaker reference |
-| 🎙️ **TTS** | F5-TTS PyTorch | ✅ | Zero-shot cloning (slower, higher quality) |
-| 🎙️ **TTS** | F5-TTS ONNX | ⚠️ | Turkish only, dtype issue in v0.0.1 |
-| 🎙️ **TTS** | Qwen3-TTS | ⚠️ | .venv dependency conflict on Windows |
-| 🎬 **Assembly** | FFmpeg MKV | ✅ | 2 dub tracks + original + subtitles |
+| Adım | Teknoloji | Durum | Açıklama |
+|------|-----------|-------|----------|
+| 📥 **İndirme** | yt-dlp | ✅ | YouTube / TikTok / Vimeo URL veya yerel dosya |
+| 🎵 **Vokal Ayrıştırma** | Demucs (htdemucs_ft) | ✅ | 4 model birleşimi, en iyi kalite |
+| 📝 **Transkripsiyon** | Faster-Whisper (large-v3) | ✅ | 99 dil, CUDA, önbelleğe alma |
+| 👥 **Diarization (Konuşmacı Ayrımı)** | Pyannote 3.1 | ✅ | Temiz vokallerde konuşmacı tespiti (HF token gereklidir) |
+| 🧠 **Yapay Zeka Çeviri** | DeepSeek + Google Yedekleme | ✅ | Akıllı düzeltme ve hata toleransı |
+| 🎙️ **Seslendirme (TTS)** | XTTS v2 | ✅ | Ses klonlama, 10 dil, konuşmacı bazlı referans |
+| 🎙️ **Seslendirme (TTS)** | F5-TTS PyTorch | ✅ | Sıfır atış klonlama (daha yavaş, daha yüksek kalite) |
+| 🎙️ **Seslendirme (TTS)** | F5-TTS ONNX | ⚠️ | Sadece Türkçe, v0.0.1'de veri tipi sorunu |
+| 🎙️ **Seslendirme (TTS)** | Qwen3-TTS | ⚠️ | Windows'da .venv bağımlılık çakışması |
+| 🎬 **Birleştirme** | FFmpeg MKV | ✅ | 2 dublaj kanalı + orijinal + altyazılar |
 
-### Audio Tracks in Output .mkv
-| Track | Content |
-|-------|---------|
-| Original Audio | Unmodified source |
-| **Dub** | Background(100%) + Original voice(25%) + TTS(100%) |
-| **Clean** | Background(100%) + TTS(100%) — no original voice |
-| Subtitles | Original + Translated (SRT) |
+### Çıktı (.mkv) İçindeki Ses Kanalları
+| Kanal | İçerik |
+|-------|--------|
+| Orijinal Ses | Değiştirilmemiş kaynak |
+| **Dublaj** | Arka plan (%100) + Orijinal ses (%25) + TTS (%100) |
+| **Temiz Ses** | Arka plan (%100) + TTS (%100) — orijinal ses yok |
+| Altyazılar | Orijinal + Çevrilmiş (SRT) |
 
-### 14 Languages
+### 14 Dil Desteği
 🇷🇺 🇹🇷 🇬🇧 🇸🇦 🇪🇸 🇫🇷 🇩🇪 🇨🇳 🇯🇵 🇰🇷 🇮🇹 🇵🇹 🇵🇱 🇮🇳
 
-### UI
-- **Fluent UI v9** — native Windows 11 components
-- **3 UI languages** — EN, RU, TR (full i18n, 300+ keys)
-- **Command Palette** — Ctrl+K search & navigation
-- **Keyboard shortcuts** — Ctrl+1/2/3/, for tabs
-- **Page transitions** — Win11-style slide animations
-- **GPU/VRAM/RAM monitor** — real-time in status bar (per-model indicators)
-- **Virtual log viewer** — 60fps at any log volume, sticky scroll
-- **VRAM Cleaner** — auto-detect high GPU pressure, one-click process kill
-- **ARIA accessibility** — screen reader support
+### Kullanıcı Arayüzü
+- **Fluent UI v9** — Yerel Windows 11 bileşenleri
+- **3 Arayüz Dili** — EN, RU, TR (tam yerelleştirme, 300+ anahtar)
+- **Komut Paleti** — Ctrl+K ile arama ve gezinme
+- **Klavye kısayolları** — Sekmeler için Ctrl+1/2/3/ vb.
+- **Sayfa geçişleri** — Win11 tarzı kaydırma animasyonları
+- **GPU/VRAM/RAM izleme** — Durum çubuğunda gerçek zamanlı göstergeler
+- **Sanal Log Görüntüleyici** — Herhangi bir log hacminde 60fps, yapışkan kaydırma
+- **VRAM Temizleyici** — Yüksek GPU baskısını otomatik algılama, tek tıkla işlem sonlandırma
+- **ARIA erişilebilirliği** — Ekran okuyucu desteği
 
-### Smart Features
-- **Auto-updater** — background download with progress
-- **Crash reports** — auto-submit to GitHub Issues
-- **Model Manager** — download/delete AI models with progress
-- **Advanced settings** — 6 toggles (SRT export, keep temp files, etc.)
-- **Live Subtitles** — real-time translation overlay
-- **AI Chat** — local LLM via Ollama with Markdown rendering
-- **DeepL + Gemma4 Hybrid** — DeepL base translation + Gemma4 AI refinement
-- **Speaker Diarization** — color-coded speaker badges in review mode
-- **Row-based Review Editor** — side-by-side original/translation per segment
+### Akıllı Özellikler
+- **Otomatik güncelleyici** — Arka planda ilerleme durumuyla indirme
+- **Hata raporları** — GitHub Issues'a otomatik gönderme
+- **Model Yöneticisi** — İlerleme durumuyla yapay zeka modellerini indirme/silme
+- **Gelişmiş ayarlar** — 6 aç/kapat seçeneği (SRT dışa aktarma, geçici dosyaları tutma vb.)
+- **Canlı Altyazılar** — Gerçek zamanlı çeviri arayüzü
+- **Yapay Zeka Sohbet** — Markdown işleme ile Ollama üzerinden yerel LLM
+- **DeepL + Gemma4 Hibrit** — DeepL tabanlı çeviri + Gemma4 ile yapay zeka düzeltmesi
+- **Satır bazlı İnceleme Editörü** — Her segment için orijinal/çeviri yan yana
 
-### Security
-- API keys in Tauri Secure Store (OS keychain)
-- WebSocket token auth (regenerated each startup)
-- Safe Subprocess Environment (keys not inherited)
-- Log redaction (secrets filtered)
-- CORS, CSP, path validation, SSRF protection
-- Origin validation on sensitive endpoints
+### Güvenlik
+- API anahtarları Tauri Secure Store'da (İşletim sistemi anahtarlığı)
+- WebSocket token doğrulaması (Her başlangıçta yeniden oluşturulur)
+- Güvenli Alt İşlem (Subprocess) Ortamı (Anahtarlar aktarılmaz)
+- Log gizleme (Gizli bilgiler filtrelenir)
+- CORS, CSP, yol doğrulama, SSRF koruması
+- Hassas uç noktalarda Origin doğrulaması
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Mimari
 
 ```
 AutoDubStudio/
 ├── backend/
-│   ├── main.py              # FastAPI + WebSocket + 15 endpoints
-│   ├── translator.py        # 6 engines + Gemma4 refinement
-│   ├── shared.py            # Shared state (no circular imports)
-│   ├── workers.py           # Background tasks
-│   ├── agent.py             # AI agent
-│   └── vram_manager.py      # VRAM optimization
-├── engine.py                # Main pipeline (AutoDubWorker)
-├── live_engine.py           # Live subtitles
-├── f5_worker.py             # F5-TTS PyTorch (marduk-ra Turkish)
-├── f5_onnx_worker.py        # F5-TTS ONNX (patientxtr Turkish)
-├── *_worker.py              # TTS workers (qwen3, xtts, lip_sync, diarization)
+│   ├── main.py              # FastAPI + WebSocket + 15 uç nokta
+│   ├── translator.py        # 6 motor + Gemma4 düzeltme
+│   ├── shared.py            # Paylaşılan durum (döngüsel içe aktarma yok)
+│   ├── workers.py           # Arka plan görevleri
+│   ├── agent.py             # Yapay zeka ajanı
+│   └── vram_manager.py      # VRAM optimizasyonu
+├── engine.py                # Ana işlem akışı (AutoDubWorker)
+├── live_engine.py           # Canlı altyazılar
+├── f5_worker.py             # F5-TTS PyTorch (marduk-ra Türkçe)
+├── f5_onnx_worker.py        # F5-TTS ONNX (patientxtr Türkçe)
+├── *_worker.py              # TTS görevlileri (qwen3, xtts, lip_sync, diarization)
 ├── gui/
 │   ├── src/
-│   │   ├── App.tsx          # Win11 layout (Mica titlebar + sidebar + content)
-│   │   ├── main.tsx         # FluentProvider root
-│   │   ├── theme.ts         # Fluent themes (Light/Dark/Dim)
-│   │   ├── index.css        # Win11 styles (scrollbar, forms, cards, animations)
-│   │   ├── store.ts         # i18n (300+ keys, 3 languages) + Tauri Store
+│   │   ├── App.tsx          # Win11 düzeni (Mica başlık çubuğu + kenar çubuğu + içerik)
+│   │   ├── main.tsx         # FluentProvider kökü
+│   │   ├── theme.ts         # Fluent temaları (Light/Dark/Dim)
+│   │   ├── index.css        # Win11 stilleri
+│   │   ├── store.ts         # i18n (3 dilde) + Tauri Store
 │   │   ├── pages/           # DubbingStudio, LiveSubtitles, AIChat, Settings
 │   │   ├── components/      # StatusBar, CommandPalette, ModelDownloader...
 │   │   ├── hooks/           # useOllama, usePipelineWebSocket, useModelStatus...
 │   │   └── lib/             # errorReporter, toast, utils
-│   └── src-tauri/           # Rust: Mica, watchdog, single-instance, updater
-└── config.json              # GitHub token for crash reports
+│   └── src-tauri/           # Rust: Mica, otomatik güncelleyici vb.
+└── config.json              # Çökme raporları için GitHub token
 ```
 
 ---
 
-## 📦 Setup
+## 📦 Kurulum
 
-### Requirements
+### Gereksinimler
 - Windows 10/11
 - Python 3.12 · Node.js 20+ · Rust · Ollama · FFmpeg
-- NVIDIA GPU 4+ GB VRAM (recommended)
+- NVIDIA GPU 4+ GB VRAM (önerilen)
 
-### Dev
+### Geliştirme
 
 ```bash
 git clone https://github.com/LiskinLabs/autodubstudio.git
 cd AutoDubStudio
 
-# Backend
+# Arka uç (Backend)
 uv sync
 python backend/main.py
 
-# Frontend (separate terminal)
+# Ön uç (Frontend) - Yeni bir terminalde
 cd gui
 npm install
 npm run tauri dev
 ```
 
-### Build .exe
+### Uygulamayı Derleme (.exe / .msi)
 
 ```bash
 cd gui
 npm run tauri build
-# Installer: gui/src-tauri/target/release/bundle/nsis/
+# Yükleyiciler: gui/src-tauri/target/release/bundle/nsis/ ve msi/
 ```
 
 ---
 
-## 🛠️ Design System
+## 🗺️ Yol Haritası (Roadmap)
 
-See [`gui/DESIGN.md`](gui/DESIGN.md) — full Fluent UI v9 design system documentation.
+### v0.0.1 ✅ Mevcut Durum
+- [x] Tam Fluent UI v9 geçişi
+- [x] Win11 Ayarlar duyarlı düzeni
+- [x] Canlı göstergeli GPU/VRAM/RAM monitörü
+- [x] F5-TTS ONNX Türkçe desteği
+- [x] DeepL + Gemma4 hibrit çeviri
+- [x] Konuşmacı ayrımı (Diarization)
+- [x] VRAM Temizleyici
+- [x] Akıllı TTS referans seçimi
+- [x] Otomatik hata raporlama (GitHub Issues)
 
-- **100% Fluent UI v9** — zero custom UI components
-- **Design tokens** — `colorNeutralBackground1`, `colorBrandForeground1`
-- **typographyStyles** — Win11 Type Ramp
-- **Minimal CSS** — only scrollbars, drag regions, animations, layout
+### v0.0.1'de Bilinen Sorunlar
+- ⚠️ ONNX TTS: Veri tipi uyumsuzluğu (int32/int64) — XTTS kullanın
+- ⚠️ Qwen3 TTS: Windows bağımlılık çakışması — XTTS kullanın
 
----
-
-## 🗺️ Roadmap
-
-### v0.0.1 ✅ Current
-- [x] Full Fluent UI v9 migration (Card, Badge, Dialog, ProgressBar)
-- [x] Win11 Settings responsive layout (3 breakpoints)
-- [x] GPU/VRAM/RAM monitor with per-model live indicators
-- [x] Advanced settings (6 options)
-- [x] i18n audit (100% EN/RU/TR, 300+ keys)
-- [x] Backend crash-loop + zombie process cleanup
-- [x] Page state preservation (no unmount on tab switch)
-- [x] F5-TTS ONNX Turkish support (2 F5 variants)
-- [x] DeepL + Gemma4 hybrid translation
-- [x] Speaker diarization with colored badges
-- [x] Row-based review editor
-- [x] VRAM Cleaner with process kill dialog
-- [x] Smart TTS reference selection (word density × duration)
-- [x] Audio mixing: Dub + Clean tracks with crossfade
-- [x] Auto error reporting to GitHub Issues
-- [x] First-run dependency wizard (Python, uv, Ollama, FFmpeg)
-
-### Known Issues in v0.0.1
-- ⚠️ ONNX TTS: model dtype mismatch (int32/int64) — use XTTS instead
-- ⚠️ Qwen3 TTS: .venv dependency conflict on Windows — use XTTS instead
-- ⚠️ First 30s of videos with music intros: no speech → no subtitles
-- ⚠️ Pyannote 3.1: max ~3 speakers on movie trailers
-- ⚠️ SmartScreen warning on install (unsigned .exe)
-
-### v0.0.2 📋 Planned
-- [ ] System tray minimize
-- [ ] Config presets (save/load settings)
-- [ ] TTS voice preview
-- [ ] Pipeline history (recent projects)
-- [ ] Collapsible sidebar
-- [ ] Context menu (right-click)
-- [ ] Hotkeys for pipeline (Ctrl+Enter start, Escape stop)
-- [ ] Dark/light schedule (auto-switch by time)
-
-### v0.1.0 🎯 Future
-- [ ] Publish on GitHub Releases
-- [ ] Auto-update from GitHub
-- [ ] Code signing
-- [ ] MSI installer
-- [ ] Mac/Linux support
+### v0.1.0 🎯 Gelecek
+- [ ] GitHub Releases üzerinden yayınlama
+- [ ] GitHub'dan otomatik güncelleme
+- [ ] Kod imzalama (Code signing)
+- [ ] Mac/Linux desteği
 
 ---
 
-## 🔗 Links
+## 🤝 Yazar
 
-- **GitHub:** https://github.com/LiskinLabs/autodubstudio
-- **GitLab:** https://gitlab.com/LiskinLabs/autodubstudio
-
----
-
-## 🤝 Author
-
-**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer
-Teknorob Robot ve Otomasyon — Bursa, TR
+**Silvestr Liskin** — Kıdemli Otomasyon Mühendisi / Endüstriyel Robot Programcısı  
+Teknorob Robot ve Otomasyon — Bursa, TR  
 [GitHub](https://github.com/LiskinLabs) · [LinkedIn](https://www.linkedin.com/in/silvestr-liskin-ab712920b)
 
 ---
 
-MIT License
+MIT Lisansı
