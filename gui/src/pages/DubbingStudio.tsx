@@ -198,6 +198,9 @@ export default function DubbingStudio() {
 
   const handleReset = useCallback(() => {
     setPipelineState("idle"); setActiveStep(0); setProgress(0); setFileName(""); setYoutubeUrl("");
+    setLogs([]); setEditedSegments([]); setOutputPath("");
+    // Сброс бекенда — индикаторы моделей станут серыми
+    fetch("http://127.0.0.1:8000/api/pipeline/reset", { method: "POST" }).catch(() => {});
   }, []);
 
   const handleSelectFile = async () => {

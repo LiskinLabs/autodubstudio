@@ -244,28 +244,33 @@ def _set_model_status(model: str, state: str):
         pass
 
 def _finish_pipeline_status(error: bool = False):
-    """Finalize pipeline status. On error, mark active model red; else reset all to idle."""
+    """Finalize pipeline status. Reset models to idle (gray indicators).
+    On error: mark the running model as 'error' (red) for diagnostics."""
     try:
         from shared import pipeline_status
         pipeline_status["active"] = False
         pipeline_status["step"] = ""
         pipeline_status["step_index"] = 0
+        step_order = ["demucs", "whisper", "pyannote", "translate", "tts", "mux"]
         if error:
-            # Find the running/pending model and mark it as error
+            # Mark the currently running model as 'error' (visible red in StatusBar)
             found = False
-            step_order = ["demucs", "whisper", "pyannote", "translate", "tts", "mux"]
             for m in step_order:
                 if pipeline_status["models"].get(m) == "running":
                     pipeline_status["models"][m] = "error"
                     found = True
                     break
             if not found:
-                # Fallback: mark the next pending model
                 for m in step_order:
                     if pipeline_status["models"].get(m) == "idle":
                         pipeline_status["models"][m] = "error"
                         break
+            # Остальные модели — idle (серые)
+            for m in step_order:
+                if pipeline_status["models"].get(m) not in ("error",):
+                    pipeline_status["models"][m] = "idle"
         else:
+            # Успех/отмена — все модели idle (серые индикаторы)
             for k in pipeline_status["models"]:
                 pipeline_status["models"][k] = "idle"
     except Exception:

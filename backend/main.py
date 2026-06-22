@@ -227,7 +227,7 @@ app.add_middleware(
 )
 
 # ── Shared state (imported by engine.py without circular import) ──
-from shared import pipeline_status
+from shared import pipeline_status, reset_pipeline_status
 
 # ── WebSocket auth token (generated fresh each backend startup) ──
 WS_AUTH_TOKEN = secrets.token_urlsafe(32)
@@ -343,6 +343,12 @@ async def get_pipeline_status():
         pipeline_status["vram_used_gb"] = 0
         pipeline_status["vram_total_gb"] = 0
     return pipeline_status
+
+@app.post("/api/pipeline/reset")
+async def reset_pipeline():
+    """Сброс индикаторов пайплайна в idle (серые). Вызывается при 'New Project'."""
+    reset_pipeline_status()
+    return {"status": "ok", "message": "Pipeline status reset"}
 
 # Safe-to-terminate process names (browsers, media, chat apps)
 SAFE_TO_KILL = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe",
