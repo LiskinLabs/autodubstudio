@@ -193,7 +193,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.about.partner': 'In partnership with',
     'settings.about.links': 'Links & Resources',
     'settings.about.github': 'GitHub Repository',
-    'settings.about.website': 'LinkedIn Profile',
+    'settings.about.website': 'LiskinLabs Website',
 
     'settings.title': 'Settings',
     'settings.subtitle': 'Configure your local environment, AI models, and cloud API integrations.',
@@ -297,6 +297,15 @@ const translations: Record<Language, Record<string, string>> = {
     'status.ollama': 'Ollama Connected',
     'status.ollama_off': 'Ollama Offline',
     'status.vram': 'VRAM: Auto',
+
+    // StatusBar VRAM Cleaner & Restart
+    'statusbar.vram_cleaner.title': 'VRAM Cleaner — GPU Memory',
+    'statusbar.vram_cleaner.vram': 'VRAM:',
+    'statusbar.vram_cleaner.kill': 'Kill Selected',
+    'statusbar.vram_high_tooltip': 'High VRAM usage — click to clean up background processes',
+    'statusbar.restart_tooltip': 'Restart backend & clear Python cache',
+    'statusbar.restarted': 'Backend restarted successfully',
+    'statusbar.restart_error': 'Failed to restart backend',
 
     // Command Palette
     'cmd.placeholder': 'Type a command or search...',
@@ -530,6 +539,14 @@ const translations: Record<Language, Record<string, string>> = {
     'status.ollama': 'Ollama Подключен',
     'status.ollama_off': 'Ollama Отключен',
     'status.vram': 'VRAM: Авто',
+
+    'statusbar.vram_cleaner.title': 'Очистка VRAM — Память GPU',
+    'statusbar.vram_cleaner.vram': 'VRAM:',
+    'statusbar.vram_cleaner.kill': 'Завершить выбранное',
+    'statusbar.vram_high_tooltip': 'Высокое использование VRAM — нажмите чтобы очистить фоновые процессы',
+    'statusbar.restart_tooltip': 'Перезапустить бекенд и очистить кэш Python',
+    'statusbar.restarted': 'Бекенд успешно перезапущен',
+    'statusbar.restart_error': 'Не удалось перезапустить бекенд',
 
     // Additional settings
     'settings.gpu_limit': 'Лимит памяти GPU',
@@ -959,6 +976,14 @@ const translations: Record<Language, Record<string, string>> = {
     'status.ollama': 'Ollama Bağlı',
     'status.ollama_off': 'Ollama Çevrimdışı',
     'status.vram': 'VRAM: Otomatik',
+
+    'statusbar.vram_cleaner.title': 'VRAM Temizleyici — GPU Belleği',
+    'statusbar.vram_cleaner.vram': 'VRAM:',
+    'statusbar.vram_cleaner.kill': 'Seçileni Sonlandır',
+    'statusbar.vram_high_tooltip': 'Yüksek VRAM kullanımı — arka plan işlemlerini temizlemek için tıklayın',
+    'statusbar.restart_tooltip': 'Arka ucu yeniden başlat ve Python önbelleğini temizle',
+    'statusbar.restarted': 'Arka uç başarıyla yeniden başlatıldı',
+    'statusbar.restart_error': 'Arka uç yeniden başlatılamadı',
 
     // Additional settings
     'settings.gpu_limit': 'GPU Bellek Sınırı',
