@@ -134,17 +134,13 @@ pub fn run() {
             };
 
             std::thread::spawn(move || {
-                // ── Check if backend is already running ──
+                // ── ВСЕГДА перезапускаем бекенд при старте приложения ──
+                // Это гарантирует что пользователь всегда работает со свежим кодом
+                // Старый процесс на порту 8000 убивается, даже если отвечает
                 if is_backend_alive() {
-                    println!("[AutoDub] Backend already running on port 8000 — monitoring");
-                    // Just monitor: keep checking if it's alive
-                    loop {
-                        std::thread::sleep(Duration::from_secs(10));
-                        if !is_backend_alive() {
-                            println!("[AutoDub] Backend died — will restart");
-                            break;
-                        }
-                    }
+                    println!("[AutoDub] Killing stale backend on port 8000...");
+                    kill_port_8000();
+                    std::thread::sleep(Duration::from_millis(500));
                 }
 
                 let mut restart_count = 0u32;
