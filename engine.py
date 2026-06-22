@@ -679,6 +679,26 @@ class AutoDubWorker(threading.Thread):
             else:
                 self.log_signal.emit(_pipeline_t("demucs_skip", self.ui_language))
 
+            # ── Если no_vocals.wav не создался (6-source модель) — собираем из стемов ──
+            if not os.path.exists(no_vocals_path) and os.path.exists(vocals_path):
+                demucs_track_dir = os.path.join(demucs_out_dir, demucs_model, base_name)
+                # Ищем все не-вокальные стемы (drums, bass, other, piano, guitar)
+                stem_parts = []
+                for fname in sorted(os.listdir(demucs_track_dir)) if os.path.exists(demucs_track_dir) else []:
+                    if fname.endswith(".wav") and fname != "vocals.wav":
+                        stem_parts.append(os.path.join(demucs_track_dir, fname))
+                if stem_parts:
+                    # Микшируем все не-вокальные стемы в один no_vocals.wav
+                    concat_inputs = []
+                    for sp in stem_parts:
+                        concat_inputs.extend(["-i", sp])
+                    filter_parts = [f"[{i}:a]" for i in range(len(stem_parts))]
+                    self._run_subprocess(["ffmpeg", "-y"] + concat_inputs +
+                        ["-filter_complex", f"{''.join(filter_parts)}amix=inputs={len(stem_parts)}:duration=longest",
+                         no_vocals_path], check=True, timeout=60,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self.log_signal.emit(f"  > Собрал no_vocals из {len(stem_parts)} стемов")
+
             _set_model_status("demucs", "done")
             self.progress_signal.emit(15)
 
@@ -884,18 +904,35 @@ class AutoDubWorker(threading.Thread):
                         tts_segments.append((idx, tseg, clip_path))
 
                 if use_f5 or use_f5_onnx or use_xtts:
+                    # ── Выбор лучшего референс-аудио для каждого спикера ──
+                    # НЕ просто самый длинный сегмент (может быть с пыхтением/молчанием).
+                    # Критерии: высокая плотность слов (активная речь), чистая длина 3-8 сек.
                     speaker_refs = {}
                     for s in segments:
                         spk = s.get("speaker", "SPEAKER_00")
                         dur = s["end"] - s["start"]
-                        if spk not in speaker_refs or dur > speaker_refs[spk]["dur"]:
-                            speaker_refs[spk] = {"dur": dur, "start": s["start"], "end": s["end"], "text": s["text"]}
+                        text = s.get("text", "").strip()
+                        word_count = len(text.split())
+                        # Оценка качества: плотность слов × штраф за слишком короткий/длинный
+                        if dur > 0.5 and word_count > 0:
+                            wps = word_count / dur  # слов в секунду
+                            # Идеальная длительность для референса: 3-8 секунд
+                            if 3.0 <= dur <= 8.0:
+                                dur_bonus = 1.0
+                            elif dur < 3.0:
+                                dur_bonus = dur / 3.0  # штраф за короткий
+                            else:
+                                dur_bonus = max(0.3, 8.0 / dur)  # штраф за длинный
+                            score = wps * dur_bonus
+                            if spk not in speaker_refs or score > speaker_refs[spk]["score"]:
+                                speaker_refs[spk] = {"dur": dur, "start": s["start"], "end": s["end"], "text": text, "score": score, "wps": wps}
 
                     for spk, ref in speaker_refs.items():
                         ref_path = os.path.join(self.out_dir, f"ref_{spk}.wav")
                         vocals_full[int(ref["start"]*1000):int(ref["end"]*1000)].export(ref_path, format="wav")
                         ref["path"] = ref_path
                         all_created_files.append(ref_path)
+                        self.log_signal.emit(f"  > Ref {spk}: {ref['wps']:.1f} wps, {ref['dur']:.1f}s, score={ref['score']:.2f}")
 
                 if use_f5 or use_f5_onnx or use_xtts:
                     tasks = []
@@ -1074,6 +1111,8 @@ class AutoDubWorker(threading.Thread):
                             self._run_subprocess(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                             clip = AudioSegment.from_file(stretched_cp)
                             all_created_files.append(stretched_cp)
+                        # Смягчаем границы: fade-in/out по 8ms — убирает щелчки и резкие обрывы
+                        clip = clip.fade_in(8).fade_out(8)
                         tts_only = tts_only.overlay(clip, position=int(start_t * 1000))
                         final_audio = final_audio.overlay(clip, position=int(start_t * 1000))
                         all_created_files.append(cp)
@@ -1096,10 +1135,10 @@ class AutoDubWorker(threading.Thread):
                         orig_audio_path], check=True, timeout=60,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     all_created_files.append(orig_audio_path)
-                    # Микшируем: no_vocals (100%) + оригинальный голос (15%)
+                    # Микшируем: no_vocals (100%) + оригинальный голос (25%)
                     # Громкость задана через volume, amix без weights (веса уже учтены)
                     self._run_subprocess(["ffmpeg", "-y", "-i", no_vocals_path, "-i", orig_audio_path,
-                        "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=0.15[voc];[bg][voc]amix=inputs=2:duration=first",
+                        "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=0.25[voc];[bg][voc]amix=inputs=2:duration=first",
                         ducked_path], check=True, timeout=30,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 else:
