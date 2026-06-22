@@ -256,14 +256,31 @@ pub fn run() {
                         cmd.stdout(Stdio::from(f)).stderr(Stdio::from(f2));
                     }
 
-                    // Pass GitHub token
+                    // Pass GitHub token — приоритет: config.json → github_token.txt
+                    let mut github_token = String::new();
+                    // 1. config.json (пользователь может переопределить)
                     let config_path = backend_dir.join("config.json");
                     if let Ok(config_str) = std::fs::read_to_string(&config_path) {
                         if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_str) {
-                            if let Some(token) = config.get("github_token").and_then(|v| v.as_str()) {
-                                cmd.env("GITHUB_TOKEN", token);
+                            if let Some(t) = config.get("github_token").and_then(|v| v.as_str()) {
+                                if !t.is_empty() {
+                                    github_token = t.to_string();
+                                }
                             }
                         }
+                    }
+                    // 2. Fallback: github_token.txt (вшит в инсталлятор, не в git)
+                    if github_token.is_empty() {
+                        let token_file = backend_dir.join("github_token.txt");
+                        if let Ok(t) = std::fs::read_to_string(&token_file) {
+                            let trimmed = t.trim();
+                            if !trimmed.is_empty() {
+                                github_token = trimmed.to_string();
+                            }
+                        }
+                    }
+                    if !github_token.is_empty() {
+                        cmd.env("GITHUB_TOKEN", &github_token);
                     }
 
                     #[cfg(target_os = "windows")]

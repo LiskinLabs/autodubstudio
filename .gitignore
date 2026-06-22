@@ -24,6 +24,7 @@ models/
 .env*
 *.pem
 *.key
+github_token.txt
 
 # Node / GUI
 gui/node_modules/

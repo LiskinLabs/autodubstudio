@@ -699,8 +699,20 @@ class AutoDubWorker(threading.Thread):
                 diar_json = os.path.join(self.out_dir, f"{base_name}_diarization.json")
                 try:
                     diar_script = os.path.join(os.path.dirname(__file__), "diarization_worker.py")
+                    # Pyannote НЕ умеет читать .mp4 — нужен WAV.
+                    # Используем vocals.wav (Demucs) если есть, иначе извлекаем аудио из видео
+                    diar_audio = vocals_path if os.path.exists(vocals_path) else None
+                    if diar_audio is None:
+                        # Извлекаем аудиодорожку во временный WAV для диаризации
+                        diar_audio = os.path.join(self.out_dir, f"{base_name}_diar_audio.wav")
+                        if not os.path.exists(diar_audio):
+                            self._run_subprocess(
+                                ["ffmpeg", "-y", "-i", self.video_path, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", diar_audio],
+                                check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                            )
+                        all_created_files.append(diar_audio)
                     self._run_subprocess(
-                        [sys.executable, diar_script, transcribe_path, diar_json],
+                        [sys.executable, diar_script, diar_audio, diar_json],
                         check=True, timeout=600,
                         env={"HF_TOKEN": self.hf_key},
                     )
