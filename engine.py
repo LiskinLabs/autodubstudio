@@ -1109,28 +1109,38 @@ class AutoDubWorker(threading.Thread):
                         ducked_path], check=True, timeout=30,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-                # ── Final Dub: background(atmosphere) + TTS voice ──
-                # ducked_path = фон + 15% оригинала (без TTS)
-                # clean_tts_path = TTS голос (без фона)
-                # Микшируем их вместе → полноценная дорожка дубляжа
+                # ── Final mix: две дорожки дубляжа ──
+                # 1. Dub = фон + 15% оригинала + TTS (полный микс с оригинальным голосом)
+                # 2. Clean = фон + TTS (без оригинального голоса — чище)
                 dub_final_path = os.path.join(self.out_dir, f"{base_name}_{lang}_dub_final.wav")
+                clean_final_path = os.path.join(self.out_dir, f"{base_name}_{lang}_clean_final.wav")
+
+                # Dub = ducked (фон + 15% оригинала) + TTS голос
                 self._run_subprocess(["ffmpeg", "-y",
                     "-i", ducked_path, "-i", clean_tts_path,
                     "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=1.0[tts];[bg][tts]amix=inputs=2:duration=first",
                     dub_final_path], check=True, timeout=30,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                all_created_files.append(dub_final_path)
 
-                ffmpeg_inputs.extend(["-i", dub_final_path, "-i", clean_tts_path, "-i", srt_path])
-                all_created_files.extend([ducked_path, clean_tts_path, dub_final_path])
+                # Clean = фон (no_vocals или тишина) + TTS голос (без оригинала)
+                clean_bg = no_vocals_path if os.path.exists(no_vocals_path) else ducked_path
+                self._run_subprocess(["ffmpeg", "-y",
+                    "-i", clean_bg, "-i", clean_tts_path,
+                    "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=1.0[tts];[bg][tts]amix=inputs=2:duration=first",
+                    clean_final_path], check=True, timeout=30,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                all_created_files.extend([dub_final_path, clean_final_path])
+
+                ffmpeg_inputs.extend(["-i", dub_final_path, "-i", clean_final_path, "-i", srt_path])
+                all_created_files.extend([ducked_path, clean_tts_path, dub_final_path, clean_final_path])
 
                 ffmpeg_maps.extend(["-map", f"{file_idx}:a:0", "-map", f"{file_idx+1}:a:0", "-map", f"{file_idx+2}:s:0"])
                 lang_names = {"ru": "Russian", "tr": "Turkish", "en": "English", "ar": "Arabic",
                               "es": "Spanish", "fr": "French", "de": "German"}
                 lang_display = lang_names.get(lang, lang.upper())
                 # Человеческие названия дорожек (видны в плеере: VLC, MPC, Media Player)
-                dub_label = {"ru": "Дубляж (голос + фон)", "tr": "Dublaj (ses + arka plan)", "en": "Dubbed (voice + background)"}.get(lang, f"{lang_display} Dub")
-                clean_label = {"ru": "Только голос (без фона)", "tr": "Sadece Ses (arka plansız)", "en": "Voice Only (no background)"}.get(lang, f"{lang_display} Voice")
+                dub_label = {"ru": "Дубляж (голос + фон + оригинал)", "tr": "Dublaj (ses + fon + orijinal)", "en": "Dub (voice + bg + original)"}.get(lang, f"{lang_display} Dub")
+                clean_label = {"ru": "Дубляж чистовой (голос + фон)", "tr": "Dublaj temiz (ses + fon)", "en": "Dub Clean (voice + bg)"}.get(lang, f"{lang_display} Clean")
                 sub_label = {"ru": "Субтитры", "tr": "Altyazı", "en": "Subtitles"}.get(lang, f"{lang_display} Subtitles")
 
                 metadata.extend([
