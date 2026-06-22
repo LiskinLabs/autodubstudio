@@ -64,7 +64,7 @@ def text_to_ids(text, c2i):
             ids.append(c2i[ch])
         else:
             ids.append(0)  # UNK token
-    return np.array([ids], dtype=np.int64)
+    return np.array([ids], dtype=np.int32)
 
 
 def main():
