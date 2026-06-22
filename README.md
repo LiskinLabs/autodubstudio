@@ -25,16 +25,26 @@
 
 ### Pipeline
 
-| Step | Tech | Description |
-|------|------|-------------|
-| 📥 **Download** | yt-dlp | YouTube / TikTok / Vimeo URL or local file |
-| 🎵 **Vocal Isolation** | Demucs (htdemucs) | Separate voice from background |
-| 📝 **Transcription** | Faster-Whisper (tiny→large-v3) | Speech recognition with checkpoints |
-| 👥 **Diarization** | Pyannote 3.1 | Speaker identification (HF token) |
-| 🧠 **AI Translation** | 5 engines | Gemma 4, Gemini, DeepSeek, Google, DeepL |
-| 🎙️ **TTS** | 6 engines | Qwen3-TTS, XTTSv2, F5-TTS, **F5-TTS ONNX**, Edge-TTS, Azure |
-| 👄 **Lip-Sync** | FFmpeg Audio Swap | Replace audio track |
-| 🎬 **Assembly** | FFmpeg MKV | Multi-track: original + dub + subtitles |
+| Step | Tech | Status | Description |
+|------|------|--------|-------------|
+| 📥 **Download** | yt-dlp | ✅ | YouTube / TikTok / Vimeo URL or local file |
+| 🎵 **Vocal Isolation** | Demucs (htdemucs_ft) | ✅ | 4-model ensemble, best quality |
+| 📝 **Transcription** | Faster-Whisper (large-v3) | ✅ | 99 languages, CUDA, checkpoint caching |
+| 👥 **Diarization** | Pyannote 3.1 | ✅ | Speaker ID on clean vocals (HF token required) |
+| 🧠 **AI Translation** | DeepSeek + Google fallback | ✅ | Smart refinement with graceful degradation |
+| 🎙️ **TTS** | XTTS v2 | ✅ | Voice cloning, 10 languages, per-speaker reference |
+| 🎙️ **TTS** | F5-TTS PyTorch | ✅ | Zero-shot cloning (slower, higher quality) |
+| 🎙️ **TTS** | F5-TTS ONNX | ⚠️ | Turkish only, dtype issue in v0.0.1 |
+| 🎙️ **TTS** | Qwen3-TTS | ⚠️ | .venv dependency conflict on Windows |
+| 🎬 **Assembly** | FFmpeg MKV | ✅ | 2 dub tracks + original + subtitles |
+
+### Audio Tracks in Output .mkv
+| Track | Content |
+|-------|---------|
+| Original Audio | Unmodified source |
+| **Dub** | Background(100%) + Original voice(25%) + TTS(100%) |
+| **Clean** | Background(100%) + TTS(100%) — no original voice |
+| Subtitles | Original + Translated (SRT) |
 
 ### 14 Languages
 🇷🇺 🇹🇷 🇬🇧 🇸🇦 🇪🇸 🇫🇷 🇩🇪 🇨🇳 🇯🇵 🇰🇷 🇮🇹 🇵🇹 🇵🇱 🇮🇳
@@ -163,9 +173,17 @@ See [`gui/DESIGN.md`](gui/DESIGN.md) — full Fluent UI v9 design system documen
 - [x] Speaker diarization with colored badges
 - [x] Row-based review editor
 - [x] VRAM Cleaner with process kill dialog
-- [x] WebSocket deadlock fix (isConnected)
-- [x] Log viewer sticky scroll + missing CSS fix
-- [x] Progress bar pipeline stage emissions
+- [x] Smart TTS reference selection (word density × duration)
+- [x] Audio mixing: Dub + Clean tracks with crossfade
+- [x] Auto error reporting to GitHub Issues
+- [x] First-run dependency wizard (Python, uv, Ollama, FFmpeg)
+
+### Known Issues in v0.0.1
+- ⚠️ ONNX TTS: model dtype mismatch (int32/int64) — use XTTS instead
+- ⚠️ Qwen3 TTS: .venv dependency conflict on Windows — use XTTS instead
+- ⚠️ First 30s of videos with music intros: no speech → no subtitles
+- ⚠️ Pyannote 3.1: max ~3 speakers on movie trailers
+- ⚠️ SmartScreen warning on install (unsigned .exe)
 
 ### v0.0.2 📋 Planned
 - [ ] System tray minimize
