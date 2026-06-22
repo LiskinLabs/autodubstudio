@@ -136,7 +136,7 @@ class TranscribeThread(QThread):
                 translated = GoogleTranslator(source='auto', target=t_lang).translate(text)
                 return f"{text}\n---\n{translated}"
         except Exception as e:
-                self.log_signal.emit(f"⚠️ Microphone error: {e}")
+            self.log_signal.emit(f"⚠️ Microphone error: {e}")
             return text
 
     def run(self):

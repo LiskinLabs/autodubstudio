@@ -45,22 +45,22 @@ const LANG_T_KEY: Record<string, string> = {
 const LANGS = ["ru", "tr", "en", "es", "fr", "de", "ar", "zh", "ja", "ko", "it", "pt", "pl", "hi"];
 
 const TTS_BY_LANG: Record<string, string[]> = {
-  "ru": ["qwen3-tts", "xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
-  "en": ["qwen3-tts", "xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
-  "tr": ["xttsv2", "f5-tts", "f5-onnx", "azure", "edge-tts"],
-  "es": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
-  "fr": ["qwen3-tts", "xttsv2", "azure", "edge-tts"],
+  "ru": ["xttsv2", "f5-tts", "azure", "edge-tts"],
+  "en": ["xttsv2", "f5-tts", "azure", "edge-tts"],
+  "tr": ["xttsv2", "f5-tts", "azure", "edge-tts"],
+  "es": ["xttsv2", "azure", "edge-tts"],
+  "fr": ["xttsv2", "azure", "edge-tts"],
   "de": ["xttsv2", "azure", "edge-tts"],
   "ar": ["xttsv2", "azure", "edge-tts"],
-  "zh": ["qwen3-tts", "f5-tts", "azure", "edge-tts"],
+  "zh": ["f5-tts", "azure", "edge-tts"],
   "ja": ["azure", "edge-tts"], "ko": ["azure", "edge-tts"],
   "it": ["xttsv2", "azure", "edge-tts"], "pt": ["xttsv2", "azure", "edge-tts"],
   "pl": ["xttsv2", "azure", "edge-tts"], "hi": ["azure", "edge-tts"]
 };
 
 const TTS_T_KEY: Record<string, string> = {
-  "qwen3-tts": "dubbing.voice.qwen3_full", "xttsv2": "dubbing.voice.xttsv2_full",
-  "f5-tts": "dubbing.voice.f5tts_full", "f5-onnx": "dubbing.voice.f5onnx_full",
+  "xttsv2": "dubbing.voice.xttsv2_full",
+  "f5-tts": "dubbing.voice.f5tts_full",
   "azure": "dubbing.voice.azure_cloud", "edge-tts": "dubbing.voice.edge_cloud",
 };
 

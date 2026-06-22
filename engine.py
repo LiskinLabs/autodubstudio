@@ -602,18 +602,14 @@ class AutoDubWorker(threading.Thread):
             TTS_COMPAT = {
                 "edge-tts": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
                 "azure": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
-                "qwen3-tts": {"ru", "en", "es", "fr", "zh"},
                 "xttsv2": {"ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi"},
-                "f5-tts": {"ru", "en", "tr", "ar", "zh"},
-                "f5-onnx": {"ru", "en", "tr", "ar", "zh"},
+                "f5-tts": {"tr"},
             }
             # Fallback for display names if sent instead of IDs
             DISPLAY_TO_ID = {
                 "Edge-TTS (Cloud, Free, Fast)": "edge-tts",
-                "Qwen3-TTS Local": "qwen3-tts",
                 "XTTSv2 Local": "xttsv2",
                 "F5-TTS Local": "f5-tts",
-                "F5-TTS ONNX Local": "f5-onnx",
                 "Azure OpenAI (Cloud)": "azure"
             }
             engine_id = self.dub_engine.lower()
@@ -621,6 +617,11 @@ class AutoDubWorker(threading.Thread):
                 engine_id = DISPLAY_TO_ID[self.dub_engine]
 
             for lang, _ in self.langs.items():
+                if engine_id == "f5-tts" and lang != "tr":
+                    self.log_signal.emit(f"⚠️ F5-TTS поддерживает только турецкий. Авто-переключение на XTTSv2 для языка '{lang}'.")
+                    engine_id = "xttsv2"
+                    self.dub_engine = "XTTSv2 Local"
+                
                 compat = TTS_COMPAT.get(engine_id, set())
                 if lang not in compat:
                     err = f"❌ {self.dub_engine} не поддерживает язык '{lang}'. Совместимые языки: {sorted(compat)}"
@@ -891,8 +892,12 @@ class AutoDubWorker(threading.Thread):
                 _set_pipeline_step("tts", 4)
                 _set_model_status("tts", "running")
                 _set_engine_info("tts", engine_id)
+                if "f5-onnx" in engine_id:
+                    self.log_signal.emit("⚠️ ONNX TTS (int32/int64) is unstable. Falling back to XTTS v2...")
+                    engine_id = "xttsv2"
+
                 use_f5 = "f5-tts" in engine_id
-                use_f5_onnx = "f5-onnx" in engine_id
+                use_f5_onnx = False
                 use_xtts = "xttsv2" in engine_id
                 use_qwen = "qwen3-tts" in engine_id
                 audio_clips = []

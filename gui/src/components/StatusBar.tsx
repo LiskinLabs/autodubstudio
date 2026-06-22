@@ -44,9 +44,7 @@ const ENGINE_META: Record<string, { label: string; type: ModelType }> = {
   "gemini":                   { label: "Gemini",  type: "paid" },
   // TTS engines
   "f5-tts":                   { label: "F5",      type: "local" },
-  "f5-onnx":                  { label: "F5-ONNX", type: "local" },
   "xttsv2":                   { label: "XTTS",    type: "local" },
-  "qwen3-tts":                { label: "Qwen3",   type: "local" },
   "edge-tts":                 { label: "Edge",    type: "free" },
   "azure":                    { label: "Azure",   type: "paid" },
 };

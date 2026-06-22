@@ -16,7 +16,6 @@ TEST_CONFIGS = [
     ("tr", "Google Translate (Free)", "default", "xttsv2", "htdemucs_ft"),
     ("tr", "Google Translate (Free)", "default", "f5-tts", "htdemucs_ft"),
     ("tr", "Google Translate (Free)", "default", "edge-tts", "htdemucs_ft"),
-    ("tr", "Google Translate (Free)", "default", "f5-onnx", "htdemucs_ft"),
     ("tr", "DeepSeek API", "deepseek-chat", "xttsv2", "htdemucs_ft"),
     ("tr", "DeepSeek API", "deepseek-chat", "f5-tts", "htdemucs_ft"),
     ("tr", "DeepSeek API", "deepseek-chat", "edge-tts", "htdemucs_ft"),
