@@ -69,7 +69,7 @@ def main():
         print(f"Model loaded! VRAM used: {used_vram:.1f} GB")
     except Exception as e:
         print(f"❌ Model load failed: {e}")
-        os._exit(2)
+        sys.exit(2)
 
     v = load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=device)
     print("Vocoder loaded!")
@@ -125,7 +125,7 @@ def main():
 
     print(f"\nDone: {success} ok, {failed} failed, {len(tasks)} total [F5TTS_Base @ {device}]")
     # Tolerate up to 10% segment failures — don't block video assembly
-    os._exit(0 if failed <= len(tasks) * 0.10 else 1)
+    sys.exit(0 if failed <= len(tasks) * 0.10 else 1)
 
 
 if __name__ == "__main__":
@@ -133,4 +133,4 @@ if __name__ == "__main__":
         main()
     except Exception:
         print(traceback.format_exc())
-        os._exit(3)
+        sys.exit(3)

@@ -22,6 +22,8 @@ export function usePipelineWebSocket(
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
+  const authFailCountRef = useRef(0);  // Защита от бесконечного цикла реконнекта
+  const MAX_AUTH_FAILURES = 5;
 
   // Use ref for callbacks to avoid re-triggering useEffect on every render
   const callbacksRef = useRef({ onProgress, onLog, onReviewReady, onFinished });
@@ -53,15 +55,23 @@ export function usePipelineWebSocket(
         ws.send(JSON.stringify({ auth: token }));
         // Mark as connected — if auth fails, onclose will reset it
         setIsConnected(true);
+        // Reset auth fail counter on successful connection
+        authFailCountRef.current = 0;
       };
 
       ws.onmessage = (event) => {
         try {
           const data: PipelineEvent = JSON.parse(event.data);
 
-          // Handle auth confirmation (first message after auth is either info or error)
+          // Handle auth confirmation — с защитой от бесконечного цикла реконнекта
           if (data.type === 'error' && data.message?.includes('Authentication')) {
             console.error('WebSocket auth failed:', data.message);
+            authFailCountRef.current += 1;
+            if (authFailCountRef.current >= MAX_AUTH_FAILURES) {
+              console.error('Max auth failures reached — stopping reconnect attempts');
+              callbacksRef.current.onLog('[SYSTEM] Backend authentication failed. Please restart the application.');
+              return;  // Не закрываем WS — backend его сам закроет, но НЕ реконнектимся
+            }
             ws.close();
             return;
           }

@@ -31,26 +31,14 @@ fn kill_port_8000() {
         .status();
 }
 
-/// Tauri command: kill all Python processes, clear caches, backend auto-restarts
+/// Tauri command: kill ONLY project Python processes (backend on port 8000), clear caches, backend auto-restarts
+/// Безопасно завершает ТОЛЬКО процессы бекенда AutoDub, не трогая другие Python-процессы на ПК
 #[tauri::command]
 fn restart_backend() -> String {
-    // 1. Kill all python.exe processes
-    #[cfg(target_os = "windows")]
-    {
-        let _ = StdCommand::new("cmd")
-            .args(["/c", "taskkill /F /IM python.exe 2>nul"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = StdCommand::new("sh")
-            .args(["-c", "pkill -9 python 2>/dev/null; pkill -9 python3 2>/dev/null; true"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
+    // 1. Kill ONLY process holding port 8000 (our backend), NOT all python.exe
+    kill_port_8000();
+    // Small delay to let port be released
+    std::thread::sleep(Duration::from_millis(500));
 
     // 2. Clear Python bytecode cache
     let proj_dir = std::path::PathBuf::from(
@@ -190,16 +178,38 @@ pub fn run() {
                     let local_appdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
                     let uv_env_dir = std::path::PathBuf::from(&local_appdata).join("AutoDub Studio").join(".venv");
 
+                    // Приоритет поиска Python: .venv → другие venv → AppData .venv → uv run
+                    // Поддерживаем множественные venv (основной .venv, .venv-f5, .venv-qwen3-tts и др.)
                     let python_exe = backend_dir.join(".venv").join("Scripts").join("python.exe");
                     let python_exe_local = uv_env_dir.join("Scripts").join("python.exe");
 
+                    // Ищем любой доступный venv в папке проекта
+                    let find_any_venv = || {
+                        if let Ok(entries) = std::fs::read_dir(&backend_dir) {
+                            for entry in entries.flatten() {
+                                let name = entry.file_name();
+                                let name_str = name.to_string_lossy();
+                                if name_str.starts_with(".venv") {
+                                    let py = entry.path().join("Scripts").join("python.exe");
+                                    if py.exists() { return Some(py); }
+                                }
+                            }
+                        }
+                        None
+                    };
+
                     let (program, args): (String, Vec<String>) = if python_exe.exists() {
                         (python_exe.to_string_lossy().to_string(),
+                         vec!["backend/main.py".to_string()])
+                    } else if let Some(any_venv) = find_any_venv() {
+                        println!("[AutoDub] Using alternative venv: {}", any_venv.display());
+                        (any_venv.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
                     } else if python_exe_local.exists() {
                         (python_exe_local.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
                     } else {
+                        // Проверяем uv — если не установлен, ПРОПУСКАЕМ (без автоустановки)
                         #[cfg(target_os = "windows")]
                         let uv_check = StdCommand::new("uv").arg("--version").creation_flags(CREATE_NO_WINDOW).status();
                         #[cfg(not(target_os = "windows"))]
@@ -211,15 +221,13 @@ pub fn run() {
                         } else if uv_path.exists() {
                             uv_path.to_string_lossy().to_string()
                         } else {
-                            println!("[AutoDub] uv not found, installing it...");
-                            #[cfg(target_os = "windows")]
-                            let _ = StdCommand::new("powershell")
-                                .args(["-ExecutionPolicy", "ByPass", "-c", "irm https://astral.sh/uv/install.ps1 | iex"])
-                                .creation_flags(CREATE_NO_WINDOW)
-                                .status();
-                            uv_path.to_string_lossy().to_string()
+                            eprintln!("[AutoDub] uv not found. Please install uv manually: https://docs.astral.sh/uv/");
+                            // Не устанавливаем uv без согласия пользователя — безопасность
+                            std::thread::sleep(Duration::from_secs(30));
+                            continue;
                         };
 
+                        // uv run должен запускаться из КОРНЯ проекта (где pyproject.toml), не из backend/
                         (uv_cmd,
                          vec!["run".to_string(), "python".to_string(), "backend/main.py".to_string()])
                     };

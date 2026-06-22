@@ -109,9 +109,15 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
     if (keys.deepseek) promises.push(testApi("deepseek", "DeepSeek", "https://api.deepseek.com/models", { headers: { Authorization: `Bearer ${keys.deepseek}` } }));
     if (keys.openai) promises.push(testApi("openai", "OpenAI", "https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${keys.openai}` } }));
     if (keys.huggingface) promises.push(testApi("huggingface", "HuggingFace", "https://huggingface.co/api/whoami-v2", { headers: { Authorization: `Bearer ${keys.huggingface}` } }));
+    // Безопасность: API ключ передаётся через заголовок X-Goog-Api-Key, НЕ через URL
+    // (query parameters логируются прокси-серверами и балансировщиками)
     if (keys.gemini || keys.google) {
       const gkey = keys.gemini || keys.google;
-      promises.push(testApi(keys.gemini ? "gemini" : "google", "Google", `https://generativelanguage.googleapis.com/v1beta/models?key=${gkey}`, {}));
+      const id = keys.gemini ? "gemini" : "google";
+      promises.push(testApi(id, "Google",
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        { headers: { "X-Goog-Api-Key": gkey } }
+      ));
     }
     if (promises.length === 0) { setIsTesting(false); setTestResult(t("settings.keys.no_keys")); return; }
     const results = await Promise.all(promises);

@@ -167,10 +167,17 @@ class Translator:
                 if OpenAI is None:
                     raise RuntimeError("openai package is not installed")
                 from openai import AzureOpenAI
+                azure_endpoint = getattr(self, "azure_endpoint", "") or ""
+                # Безопасность: SSRF защита — разрешаем ТОЛЬКО официальные Azure OpenAI endpoints
+                import re as _re
+                if azure_endpoint and not _re.match(r'^https://[a-zA-Z0-9_-]+\.openai\.azure\.com/', azure_endpoint):
+                    raise RuntimeError(
+                        "Invalid Azure endpoint. Expected format: https://<resource>.openai.azure.com/"
+                    )
                 client = AzureOpenAI(
                     api_key=self.azure_key,
                     api_version="2024-02-01",
-                    azure_endpoint=getattr(self, "azure_endpoint", "")
+                    azure_endpoint=azure_endpoint
                 )
                 response = client.chat.completions.create(
                     model=getattr(self, "azure_model", "gpt-4o"),
@@ -715,7 +722,7 @@ JSON:"""
 
 Rules:
 - Output a JSON object with "segments" array
-- Each segment: {"text": "improved translation", "skip_dub": false, "gender": "male"}
+- Each segment: {{"text": "improved translation", "skip_dub": false, "gender": "male"}}
 - For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
 - Keep names/brands/tech terms unchanged
 - If the Draft is already perfect, copy it as-is
@@ -813,7 +820,7 @@ Fix grammar, word choice, and conversational flow. Keep names/brands/tech terms 
 
 CRITICAL RULES:
 - Output a JSON object with a "segments" array
-- Each segment: {"text": "improved translation", "skip_dub": false, "gender": "male"}
+- Each segment: {{"text": "improved translation", "skip_dub": false, "gender": "male"}}
 - For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
 - ONLY set "skip_dub": true if the 'Original' text is CLEARLY spoken in {lang_name} and doesn't need translation.
 - If the 'Original' text is in any other language, YOU MUST SET "skip_dub": false.

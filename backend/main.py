@@ -522,7 +522,9 @@ async def websocket_pipeline(websocket: WebSocket):
                     except Exception as e:
                         import traceback
                         logger.error(f"Failed to start pipeline: {e}\n{traceback.format_exc()}")
-                        await websocket.send_json({"type": "error", "message": f"Server error: {e}"})
+                        # Безопасность: не передаём сырой exception текст на фронтенд (может содержать пути/секреты)
+                        safe_msg = redact_secrets(str(e)[:120])
+                        await websocket.send_json({"type": "error", "message": f"Server error: {safe_msg}"})
 
                 elif data.get("action") == "resume":
                     if PIPELINE_BUSY and active_worker:
@@ -954,10 +956,24 @@ async def delete_model(model_id: str):
 
 
 @app.post("/api/models/preload/{model_id}")
-async def preload_model(model_id: str, hf_token: str = ""):
-    """Trigger model download via the actual ML library (auto-caches)."""
+async def preload_model(model_id: str, request: Request, hf_token: str = ""):
+    """Trigger model download via the actual ML library (auto-caches).
+
+    hf_token принимается из query params (GET) или POST body для безопасности
+    (query параметры логируются серверами, POST body — нет).
+    """
     if model_id not in VALID_MODEL_IDS:
         raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}")
+
+    # Также принимаем hf_token из POST body (безопаснее чем query param)
+    try:
+        body = await request.json()
+        body_token = body.get("hf_token", "")
+        if body_token:
+            hf_token = body_token
+    except Exception:
+        pass  # body не JSON — используем query param значение
+
     token = hf_token or os.environ.get("HF_TOKEN", os.environ.get("HUGGINGFACE_TOKEN", ""))
 
     with _model_download_lock:

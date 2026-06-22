@@ -65,7 +65,8 @@
       "../../*.bat",
       "../../teknorob.png",
       "../../pyproject.toml",
-      "../../uv.lock"
+      "../../uv.lock",
+      "../../config.json"
     ]
   },
   "plugins": {

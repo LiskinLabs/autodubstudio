@@ -180,7 +180,7 @@ def main():
             sf.write(out_path, silence, 24000)
 
     print(f"\nDone: {success} ok, {failed} failed, {len(tasks)} total [F5-TTS-ONNX Turkish]")
-    os._exit(0 if failed == 0 else 1)
+    sys.exit(0 if failed == 0 else 1)
 
 
 if __name__ == "__main__":
@@ -188,4 +188,4 @@ if __name__ == "__main__":
         main()
     except Exception:
         print(traceback.format_exc())
-        os._exit(3)
+        sys.exit(3)

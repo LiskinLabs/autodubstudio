@@ -94,10 +94,14 @@ export function useModelStatus(hfToken?: string) {
     setModelStatus(prev => ({ ...prev, [modelId]: { done: false, progress: -1 } }));
     isPollingRef.current = true;
     try {
-      const params = new URLSearchParams();
-      if (hfToken) params.set('hf_token', hfToken);
-      const url = `${BACKEND}/api/models/preload/${modelId}${params.toString() ? '?' + params.toString() : ''}`;
-      await fetch(url, { method: 'POST' });
+      // Безопасность: HF токен передаётся в теле POST запроса, НЕ в URL (query params логируются)
+      const body = hfToken ? JSON.stringify({ hf_token: hfToken }) : undefined;
+      const url = `${BACKEND}/api/models/preload/${modelId}`;
+      await fetch(url, {
+        method: 'POST',
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body,
+      });
     } catch { /* backend handles it */ }
     setTimeout(() => fetchStatus(), 500);
   }, [fetchStatus, hfToken]);
