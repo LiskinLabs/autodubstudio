@@ -102,6 +102,27 @@ def test_config(lang, trans_engine, trans_model, tts_engine, demucs_model, keys)
     worker.start()
     worker.join(timeout=600)
 
+    # Rename output MKV to include engine names to avoid overwriting
+    if result.get("success"):
+        mkv_path = os.path.join(OUT_DIR, f"test_20s_{lang.upper()}.mkv")
+        if os.path.exists(mkv_path):
+            import re
+            safe_trans = re.sub(r'[^a-zA-Z0-9_]', '', trans_engine.replace(" ", "_"))
+            safe_tts = re.sub(r'[^a-zA-Z0-9_]', '', tts_engine.replace(" ", "_"))
+            new_name = f"test_20s_{lang.upper()}_{safe_trans}_{safe_tts}.mkv"
+            new_path = os.path.join(OUT_DIR, new_name)
+            if os.path.exists(new_path):
+                try:
+                    os.remove(new_path)
+                except Exception:
+                    pass
+            try:
+                os.rename(mkv_path, new_path)
+                result["message"] = result["message"].replace(mkv_path, new_path)
+            except Exception:
+                pass
+
+
     if worker.is_alive():
         worker.requestInterruption()
         worker.join(timeout=10)
