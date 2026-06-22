@@ -31,42 +31,42 @@ fn kill_port_8000() {
         .status();
 }
 
-/// Tauri command: kill ONLY project Python processes (backend on port 8000), clear caches, backend auto-restarts
-/// Безопасно завершает ТОЛЬКО процессы бекенда AutoDub, не трогая другие Python-процессы на ПК
+/// Tauri command: kill backend on port 8000, clear caches async, backend auto-restarts
+/// Возвращает мгновенно — очистка кэша в фоне, UI не фризится
 #[tauri::command]
 fn restart_backend() -> String {
-    // 1. Kill ONLY process holding port 8000 (our backend), NOT all python.exe
+    // 1. Kill backend on port 8000 (fast, synchronous)
     kill_port_8000();
-    // Small delay to let port be released
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(300));
 
-    // 2. Clear Python bytecode cache
-    let proj_dir = std::path::PathBuf::from(
-        std::env::var("USERPROFILE").unwrap_or_default()
-    ).join("Desktop").join("AutoDubStudio");
-
-    fn clear_pycache(dir: &std::path::Path) {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    if path.file_name().map_or(false, |n| n == "__pycache__") {
-                        let _ = std::fs::remove_dir_all(&path);
-                        println!("[AutoDub] Cleared: {}", path.display());
-                    } else {
-                        clear_pycache(&path);
+    // 2. Clear Python bytecode cache in BACKGROUND (non-blocking)
+    std::thread::spawn(|| {
+        fn clear_pycache(dir: &std::path::Path) {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if path.file_name().map_or(false, |n| n == "__pycache__") {
+                            let _ = std::fs::remove_dir_all(&path);
+                            println!("[AutoDub] Cleared: {}", path.display());
+                        } else {
+                            clear_pycache(&path);
+                        }
                     }
                 }
             }
         }
-    }
-    clear_pycache(&proj_dir);
-
-    // Also clear AppData caches
-    if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
-        let ad = std::path::PathBuf::from(appdata).join("AutoDub Studio");
-        clear_pycache(&ad);
-    }
+        // Desktop project cache
+        let proj_dir = std::path::PathBuf::from(
+            std::env::var("USERPROFILE").unwrap_or_default()
+        ).join("Desktop").join("AutoDubStudio");
+        clear_pycache(&proj_dir);
+        // AppData installed cache
+        if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+            let ad = std::path::PathBuf::from(appdata).join("AutoDub Studio");
+            clear_pycache(&ad);
+        }
+    });
 
     "ok".to_string()
 }

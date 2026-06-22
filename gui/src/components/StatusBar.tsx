@@ -347,6 +347,11 @@ const StatusBar: React.FC = () => {
         <span onClick={async () => {
           if (isRestarting) return;
           setIsRestarting(true);
+          // Мгновенный сброс индикаторов → серые (не ждём бекенд)
+          setPipeline(prev => ({
+            ...prev, active: false, step: "", step_index: 0,
+            models: { demucs: "idle", whisper: "idle", pyannote: "idle", translate: "idle", tts: "idle", mux: "idle" },
+          }));
           try {
             await invoke("restart_backend");
             notifyToast.success(t("statusbar.restarted") || "Backend restarted successfully", { duration: 3000 });
