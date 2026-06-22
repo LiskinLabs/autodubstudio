@@ -1042,14 +1042,24 @@ class AutoDubWorker(threading.Thread):
                 # Dub track: background 100% (no_vocals) + original voice 15%
                 ducked_path = os.path.join(self.out_dir, f"{base_name}_{lang}_ducked.wav")
                 if os.path.exists(no_vocals_path):
-                    self._run_subprocess(["ffmpeg", "-y", "-i", no_vocals_path, "-i", self.video_path,
-                        "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=0.15[voc];[bg][voc]amix=inputs=2:duration=first:weights=1.0:0.15",
-                        ducked_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    # Сначала извлекаем аудио из видео в WAV (для совместимости с amix)
+                    orig_audio_path = os.path.join(self.out_dir, f"{base_name}_orig_audio.wav")
+                    self._run_subprocess(["ffmpeg", "-y", "-i", self.video_path, "-vn", "-acodec", "pcm_s16le",
+                        orig_audio_path], check=True, timeout=60,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    all_created_files.append(orig_audio_path)
+                    # Микшируем: no_vocals (100%) + оригинальный голос (15%)
+                    # Громкость задана через volume, amix без weights (веса уже учтены)
+                    self._run_subprocess(["ffmpeg", "-y", "-i", no_vocals_path, "-i", orig_audio_path,
+                        "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=0.15[voc];[bg][voc]amix=inputs=2:duration=first",
+                        ducked_path], check=True, timeout=30,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 else:
                     # Fallback: no Demucs separation — mix original audio 70% + dub
                     self._run_subprocess(["ffmpeg", "-y", "-i", self.video_path, "-i", dub_path,
                         "-filter_complex", "[0:a]volume=0.7[bg];[1:a]volume=1.0[dub];[bg][dub]amix=inputs=2:duration=first",
-                        ducked_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        ducked_path], check=True, timeout=30,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 ffmpeg_inputs.extend(["-i", ducked_path, "-i", clean_tts_path, "-i", srt_path])
                 all_created_files.extend([ducked_path, clean_tts_path])
 
