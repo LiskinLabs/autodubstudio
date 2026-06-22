@@ -179,6 +179,8 @@ from starlette.responses import JSONResponse
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests with bodies larger than MAX_BODY_SIZE."""
     async def dispatch(self, request, call_next):
+        if request.headers.get("transfer-encoding", "").lower() == "chunked":
+            return JSONResponse({"detail": "Chunked encoding not supported"}, status_code=411)
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_BODY_SIZE:
             return JSONResponse(
@@ -259,9 +261,25 @@ async def get_gpu_status():
         cuda_available = torch.cuda.is_available()
         if cuda_available:
             gpu_name = torch.cuda.get_device_name(0)
-            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
-            vram_used_gb = round((total_bytes - free_bytes) / (1024**3), 2)
-            vram_total_gb = round(total_bytes / (1024**3), 2)
+            vram_used_gb = 0.0
+            vram_total_gb = 0.0
+            
+            # Try nvidia-smi first for accurate Windows Task Manager equivalent
+            import subprocess, shutil
+            try:
+                smi_path = shutil.which("nvidia-smi") or r"C:\Windows\System32\nvidia-smi.exe"
+                out = subprocess.check_output(
+                    [smi_path, "--query-gpu=memory.used,memory.total", "--format=csv,nounits,noheader"],
+                    stderr=subprocess.STDOUT, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+                )
+                used_mb, total_mb = map(float, out.strip().split(","))
+                vram_used_gb = round(used_mb / 1024.0, 2)
+                vram_total_gb = round(total_mb / 1024.0, 2)
+            except Exception:
+                # Fallback to torch (can be slightly off on Windows WDDM)
+                free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+                vram_used_gb = round((total_bytes - free_bytes) / (1024**3), 2)
+                vram_total_gb = round(total_bytes / (1024**3), 2)
         else:
             gpu_name = ""
             vram_used_gb = 0.0
@@ -271,12 +289,25 @@ async def get_gpu_status():
         gpu_name = ""
         vram_used_gb = 0.0
         vram_total_gb = 0.0
+    try:
+        import psutil
+        cpu_pct = psutil.cpu_percent()
+        ram = psutil.virtual_memory()
+        sys_ram_used_gb = round(ram.used / (1024**3), 2)
+        sys_ram_total_gb = round(ram.total / (1024**3), 2)
+    except Exception:
+        cpu_pct = 0.0
+        sys_ram_used_gb = 0.0
+        sys_ram_total_gb = 0.0
 
     return {
         "cuda_available": cuda_available,
         "gpu_name": gpu_name,
         "vram_used_gb": vram_used_gb,
         "vram_total_gb": vram_total_gb,
+        "sys_cpu_pct": cpu_pct,
+        "sys_ram_used_gb": sys_ram_used_gb,
+        "sys_ram_total_gb": sys_ram_total_gb,
     }
 
 @app.get("/api/pipeline/status")
@@ -285,11 +316,23 @@ async def get_pipeline_status():
     try:
         import torch
         if torch.cuda.is_available():
-            # Use driver-level memory info (matches Task Manager "Dedicated GPU Memory")
-            free_bytes, total_bytes = torch.cuda.mem_get_info(0)
-            used_bytes = total_bytes - free_bytes
-            pipeline_status["vram_used_gb"] = round(used_bytes / (1024**3), 2)
-            pipeline_status["vram_total_gb"] = round(total_bytes / (1024**3), 2)
+            # Use nvidia-smi for accurate driver-level memory info (matches Task Manager)
+            import subprocess, shutil
+            try:
+                smi_path = shutil.which("nvidia-smi") or r"C:\Windows\System32\nvidia-smi.exe"
+                out = subprocess.check_output(
+                    [smi_path, "--query-gpu=memory.used,memory.total", "--format=csv,nounits,noheader"],
+                    stderr=subprocess.STDOUT, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+                )
+                used_mb, total_mb = map(float, out.strip().split(","))
+                pipeline_status["vram_used_gb"] = round(used_mb / 1024.0, 2)
+                pipeline_status["vram_total_gb"] = round(total_mb / 1024.0, 2)
+            except Exception:
+                free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+                used_bytes = total_bytes - free_bytes
+                pipeline_status["vram_used_gb"] = round(used_bytes / (1024**3), 2)
+                pipeline_status["vram_total_gb"] = round(total_bytes / (1024**3), 2)
+            
             pipeline_status["gpu_name"] = torch.cuda.get_device_name(0)
             # Also report PyTorch-specific allocations
             allocated = torch.cuda.memory_allocated(0) / (1024**3)
@@ -411,7 +454,7 @@ async def stop_ollama(request: Request):
                 try:
                     proc.terminate()
                     proc.wait(timeout=3)
-                except:
+                except Exception:
                     pass
         return {"status": "ok", "message": "Ollama stopped"}
     except Exception as e:
@@ -419,6 +462,7 @@ async def stop_ollama(request: Request):
         raise HTTPException(status_code=500, detail="Failed to stop Ollama")
 
 active_worker = None
+active_worker_lock = threading.Lock()
 
 @app.websocket("/ws/pipeline")
 async def websocket_pipeline(websocket: WebSocket):
@@ -434,7 +478,7 @@ async def websocket_pipeline(websocket: WebSocket):
         await websocket.close(code=4001, reason="Auth timeout")
         return
 
-    global active_worker
+    global active_worker, active_worker_lock
 
     event_queue = Queue()
 
@@ -461,18 +505,24 @@ async def websocket_pipeline(websocket: WebSocket):
 
                 if data.get("action") == "start":
                     cfg = data.get("config", {})
-                    if active_worker and active_worker.is_alive():
-                        await websocket.send_json({"type": "error", "message": "Pipeline already running"})
-                        continue
+                    try:
+                        with active_worker_lock:
+                            if active_worker and active_worker.is_alive():
+                                await websocket.send_json({"type": "error", "message": "Pipeline already running"})
+                                continue
 
-                    active_worker = AutoDubWorker(cfg)
-                    active_worker.progress_signal.connect(on_progress)
-                    active_worker.log_signal.connect(on_log)
-                    active_worker.finished_signal.connect(on_finished)
-                    active_worker.manual_edit_signal.connect(on_manual_edit)
+                            active_worker = AutoDubWorker(cfg)
+                            active_worker.progress_signal.connect(on_progress)
+                            active_worker.log_signal.connect(on_log)
+                            active_worker.finished_signal.connect(on_finished)
+                            active_worker.manual_edit_signal.connect(on_manual_edit)
 
-                    active_worker.start()
-                    await websocket.send_json({"type": "info", "message": "Pipeline started"})
+                            active_worker.start()
+                        await websocket.send_json({"type": "info", "message": "Pipeline started"})
+                    except Exception as e:
+                        import traceback
+                        logger.error(f"Failed to start pipeline: {e}\n{traceback.format_exc()}")
+                        await websocket.send_json({"type": "error", "message": f"Server error: {e}"})
 
                 elif data.get("action") == "resume":
                     if PIPELINE_BUSY and active_worker:
@@ -538,9 +588,10 @@ async def websocket_live(websocket: WebSocket):
                     _live_stop_event = threading.Event()
 
                     # Start live capture in a background thread
+                    loop = asyncio.get_running_loop()
                     _live_thread = threading.Thread(
                         target=_run_live_capture,
-                        args=(websocket, config, _live_stop_event),
+                        args=(websocket, config, _live_stop_event, loop),
                         daemon=True,
                     )
                     _live_thread.start()
@@ -560,7 +611,7 @@ async def websocket_live(websocket: WebSocket):
         print("Live subtitles client disconnected")
 
 
-def _run_live_capture(websocket, config, stop_event):
+def _run_live_capture(websocket, config, stop_event, loop):
     """Background thread: capture system audio, transcribe, translate, stream subtitles."""
     import queue as qmod
 
@@ -639,7 +690,6 @@ def _run_live_capture(websocket, config, stop_event):
                                 try:
                                     import asyncio
 
-                                    loop = asyncio.get_event_loop()
                                     if loop.is_running():
                                         asyncio.run_coroutine_threadsafe(
                                             websocket.send_json(
@@ -663,7 +713,6 @@ def _run_live_capture(websocket, config, stop_event):
         try:
             import asyncio
 
-            loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.run_coroutine_threadsafe(
                     websocket.send_json({"type": "status", "active": False}), loop
@@ -1168,7 +1217,7 @@ async def set_github_token(data: dict, authorization: str = Header("")):
         GITHUB_TOKEN = token
         print("[CONFIG] GitHub token configured — crash reporting enabled")
         # Send any pending crash report
-        send_pending_crash_report()
+        await send_pending_crash_report()
         return {"status": "ok"}
     return {"status": "error", "message": "No token provided"}
 

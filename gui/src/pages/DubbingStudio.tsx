@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type DragEvent } from "react";
-import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
@@ -9,6 +9,7 @@ import {
   SquareRegular as Square,
   FastForwardRegular as FastForward,
   ClipboardPasteRegular as CopyIcon,
+  FolderOpenRegular,
 } from "@fluentui/react-icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -63,15 +64,16 @@ const TTS_T_KEY: Record<string, string> = {
   "azure": "dubbing.voice.azure_cloud", "edge-tts": "dubbing.voice.edge_cloud",
 };
 
-// Win11-friendly speaker color palette
-const SPEAKER_COLORS: Record<string, { bg: string; text: string }> = {
-  SPEAKER_00: { bg: "#3b82f6", text: "#fff" }, // blue
-  SPEAKER_01: { bg: "#ef4444", text: "#fff" }, // red
-  SPEAKER_02: { bg: "#10b981", text: "#fff" }, // green
-  SPEAKER_03: { bg: "#f59e0b", text: "#000" }, // amber
-  SPEAKER_04: { bg: "#8b5cf6", text: "#fff" }, // violet
-  SPEAKER_05: { bg: "#ec4899", text: "#fff" }, // pink
-  default:    { bg: "#6b7280", text: "#fff" }, // gray
+// Fluent UI v9 semantic badge colors
+type BadgeColor = "brand" | "danger" | "important" | "informative" | "severe" | "subtle" | "success" | "warning";
+const SPEAKER_BADGE_COLORS: Record<string, BadgeColor> = {
+  SPEAKER_00: "informative", // Blue
+  SPEAKER_01: "danger",      // Red
+  SPEAKER_02: "success",     // Green
+  SPEAKER_03: "warning",     // Yellow/Amber
+  SPEAKER_04: "important",   // Gray/Dark
+  SPEAKER_05: "severe",      // Dark Orange/Red
+  default:    "subtle",      // Light Gray
 };
 
 function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) => string }) {
@@ -386,7 +388,7 @@ export default function DubbingStudio() {
                 <span className="text-sm font-medium" style={{ color: "var(--colorNeutralForeground2)" }}>
                   {pipelineState === "done" ? t("dubbing.status.done") : `${t("dubbing.status.processing")} ${activeStep}/${PIPELINE_STEPS.length}`}
                 </span>
-                <span className="font-mono font-bold" style={{ fontSize: 20, color: "var(--colorBrandForeground1)" }}>{progress}%</span>
+                <span className="font-mono font-semibold" style={{ fontSize: 20, color: "var(--colorBrandForeground1)" }}>{progress}%</span>
               </div>
               <ProgressBar thickness="large" value={progress} max={100} color="brand" />
             </div>
@@ -397,11 +399,7 @@ export default function DubbingStudio() {
             <div>
               {pipelineState === "running" && (
                 <span className="text-xs flex items-center gap-2" style={{ color: "var(--colorNeutralForeground3)" }}>
-                  <span className="animate-spin" style={{
-                    display: "inline-block", width: 10, height: 10,
-                    border: "2px solid var(--colorBrandForeground1)",
-                    borderTopColor: "transparent", borderRadius: "50%",
-                  }} />
+                  <Spinner size="extra-tiny" />
                   {activeStep}/{PIPELINE_STEPS.length} — {t(STEP_T_KEY[PIPELINE_STEPS[Math.max(0, activeStep - 1)] || "source"] as any)}
                 </span>
               )}
@@ -461,13 +459,12 @@ export default function DubbingStudio() {
           {/* Done actions */}
           {pipelineState === "done" && (
             <div className="flex gap-4 animate-fade-in">
-              <Button appearance="primary" size="large" className="flex-1" onClick={async () => {
+              <Button appearance="primary" size="large" icon={<FolderOpenRegular />} disabled={!outputPath} onClick={async () => {
                 if (outputPath) {
                   try {
-                    // Open the containing folder with the file selected
-                    const folder = outputPath.replace(/[\\/][^\\/]+$/, "");
-                    await openPath(folder);
-                  } catch (e) { console.error("Failed to open folder:", e); }
+                    // Open the video file directly
+                    await openPath(outputPath);
+                  } catch (e) { console.error("Failed to open file:", e); }
                 }
               }}>{t("dubbing.btn.open")}</Button>
               <Button appearance="secondary" size="large" onClick={handleReset}>{t("dubbing.btn.new")}</Button>
@@ -497,7 +494,7 @@ export default function DubbingStudio() {
           <Card appearance="filled" style={{ marginBottom: 24 }}>
             <CardHeader
               header={
-                <div className="win11-review-header" style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                <div className="win11-review-header" style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600 }}>
                   <span style={{ width: 80, flexShrink: 0 }}>{t("dubbing.review.speaker") || "Speaker"}</span>
                   <span style={{ width: 120, flexShrink: 0 }}>{t("dubbing.review.time") || "Time"}</span>
                   <span style={{ flex: 1 }}>{t("dubbing.review.original")}</span>
@@ -511,7 +508,6 @@ export default function DubbingStudio() {
               borderTop: "1px solid var(--colorNeutralStroke2)",
             }}>
               {editedSegments.map((seg, i) => {
-                const speakerColor = SPEAKER_COLORS[seg.speaker as string] || SPEAKER_COLORS["default"];
                 return (
                   <div key={i} className="win11-review-row" style={{
                     display: "flex", gap: 0, alignItems: "flex-start",
@@ -524,12 +520,8 @@ export default function DubbingStudio() {
                     <span className="win11-review-speaker" style={{ width: 80, flexShrink: 0, paddingTop: 1 }}>
                       <Badge
                         appearance="filled"
-                        color="brand"
+                        color={SPEAKER_BADGE_COLORS[seg.speaker as string] || SPEAKER_BADGE_COLORS["default"]}
                         size="small"
-                        style={{
-                          background: speakerColor.bg, color: speakerColor.text,
-                          fontWeight: 600,
-                        }}
                       >
                         {seg.speaker || "?"}
                       </Badge>
@@ -546,25 +538,18 @@ export default function DubbingStudio() {
                       color: "var(--colorNeutralForeground2)", whiteSpace: "pre-wrap",
                     }}>{seg.orig}</span>
                     {/* Editable translation */}
-                    <input
+                    <Input
                       value={seg.trans}
-                      onChange={(e) => {
+                      appearance="underline"
+                      onChange={(_, data) => {
                         const updated = [...editedSegments];
-                        updated[i] = { ...updated[i], trans: e.target.value };
+                        updated[i] = { ...updated[i], trans: data.value };
                         setEditedSegments(updated);
                       }}
                       style={{
-                        flex: 1, border: "none", background: "transparent",
-                        color: "var(--colorBrandForeground1)",
+                        flex: 1,
                         fontFamily: "'Segoe UI Variable', 'Segoe UI', 'Inter', sans-serif",
-                        fontSize: 12, lineHeight: 1.55, outline: "none",
-                        padding: "1px 4px", borderRadius: 3,
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.background = "var(--colorNeutralBackground3)";
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.background = "transparent";
+                        fontSize: 12,
                       }}
                     />
                   </div>

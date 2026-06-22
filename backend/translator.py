@@ -6,6 +6,47 @@ import torch
 
 # ── Translator log messages (multi-language) ──
 _T = {
+
+    "gemma4_smart_start": {
+        "ru": "🧠 Gemma4 умный перевод (пачка по {batch}, {total} фрагментов)...",
+        "en": "🧠 Gemma4 smart translation (batch of {batch}, {total} segments)...",
+        "tr": "🧠 Gemma4 akıllı çeviri ({batch} parti, {total} parça)...",
+    },
+    "vram_cleaned": {
+        "ru": "  🧹 VRAM очищена, свободно: {free} MB",
+        "en": "  🧹 VRAM cleaned, free: {free} MB",
+        "tr": "  🧹 VRAM temizlendi, boş: {free} MB",
+    },
+    "hybrid_refine_start": {
+        "ru": "🤝 DeepL + Gemma4 - двойной перевод...",
+        "en": "🤝 DeepL + Gemma4 - dual translation...",
+        "tr": "🤝 DeepL + Gemma4 - çift çeviri...",
+    },
+    "smart_done": {
+        "ru": "✅ Перевод завершен!",
+        "en": "✅ Translation complete!",
+        "tr": "✅ Çeviri tamamlandı!",
+    },
+    "smart_batch_progress": {
+        "ru": "  -> Шаг {start}-{end} из {total}...",
+        "en": "  -> Step {start}-{end} of {total}...",
+        "tr": "  -> Adım {start}-{end} / {total}...",
+    },
+    "smart_mismatch": {
+        "ru": "  ⚠️ Ошибка ИИ ответа ({parsed}/{batch}), частичное слияние",
+        "en": "  ⚠️ AI response mismatch ({parsed}/{batch}), partial merge",
+        "tr": "  ⚠️ YZ yanıt hatası ({parsed}/{batch}), kısmi birleştirme",
+    },
+    "smart_batch_failed": {
+        "ru": "  ❌ Сбой ИИ перевода: {e}. Работает базовая версия.",
+        "en": "  ❌ AI translation failed: {e}. Using base version.",
+        "tr": "  ❌ YZ çeviri hatası: {e}. Temel sürüm kullanılıyor.",
+    },
+    "smart_engine_start": {
+        "ru": "🧠 {engine} умный перевод (пачка по {batch}, {total} фрагментов)...",
+        "en": "🧠 {engine} smart translation (batch of {batch}, {total} segments)...",
+        "tr": "🧠 {engine} akıllı çeviri ({batch} parti, {total} parça)...",
+    },
     "deepl_start": {
         "ru": "🌐 DeepL API — профессиональный перевод...",
         "en": "🌐 DeepL API — professional translation...",
@@ -72,9 +113,13 @@ from deep_translator import GoogleTranslator
 # LLM imports
 try:
     from google import genai
+except ImportError:
+    genai = None
+
+try:
     from openai import OpenAI
 except ImportError:
-    pass
+    OpenAI = None
 
 class Translator:
     def __init__(self, engine_name, gemini_key="", deepseek_key="", deepl_key="", device="cpu", gguf_model_path=None):
@@ -98,6 +143,8 @@ class Translator:
             prompt = f"Translate this subtitle to {lang_name}. Output only the translation.\n{text}"
 
             if "gemini" in self.engine_name.lower() and self.gemini_key:
+                if genai is None:
+                    raise RuntimeError("google-genai package is not installed")
                 client = genai.Client(api_key=self.gemini_key)
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
@@ -106,9 +153,27 @@ class Translator:
                 return response.text.strip()
 
             elif "deepseek" in self.engine_name.lower() and self.deepseek_key:
+                if OpenAI is None:
+                    raise RuntimeError("openai package is not installed")
                 client = OpenAI(api_key=self.deepseek_key, base_url="https://api.deepseek.com")
                 response = client.chat.completions.create(
                     model="deepseek-chat",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024
+                )
+                return response.choices[0].message.content.strip()
+
+            elif "azure" in self.engine_name.lower() and hasattr(self, "azure_key") and getattr(self, "azure_key"):
+                if OpenAI is None:
+                    raise RuntimeError("openai package is not installed")
+                from openai import AzureOpenAI
+                client = AzureOpenAI(
+                    api_key=self.azure_key,
+                    api_version="2024-02-01",
+                    azure_endpoint=getattr(self, "azure_endpoint", "")
+                )
+                response = client.chat.completions.create(
+                    model=getattr(self, "azure_model", "gpt-4o"),
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1024
                 )
@@ -212,6 +277,19 @@ class Translator:
                 contents=prompt
             )
             return response.text
+
+        elif "openai" in self.engine_name.lower() and hasattr(self, "openai_key") and getattr(self, "openai_key"):
+            if OpenAI is None:
+                raise RuntimeError("openai package is not installed")
+            client = OpenAI(api_key=self.openai_key)
+            kwargs = {}
+            if is_json: kwargs["response_format"] = {"type": "json_object"}
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[{"role": "user", "content": prompt}],
+                **kwargs
+            )
+            return response.choices[0].message.content
 
         elif "deepseek" in self.engine_name.lower() and self.deepseek_key:
             client = OpenAI(api_key=self.deepseek_key, base_url="https://api.deepseek.com")
@@ -568,7 +646,7 @@ JSON:"""
             lang_name = lang_names.get(target_lang, target_lang)
 
             if log_callback:
-                log_callback(f"🧠 Gemma4 улучшает перевод (батчи по {batch_size}, {total} сегментов)...")
+                log_callback(_l("gemma4_smart_start", batch=batch_size, total=total))
 
             # ── VRAM cleanup: aggressively free GPU memory before loading Gemma4 ──
             try:
@@ -582,7 +660,7 @@ JSON:"""
                     torch.cuda.reset_peak_memory_stats()
                     free_mb = torch.cuda.mem_get_info()[0] / 1024**2
                     if log_callback:
-                        log_callback(f"  🧹 VRAM очищена, свободно: {free_mb:.0f} MB")
+                        log_callback(_l("vram_cleaned", free=f"{free_mb:.0f}"))
             except Exception:
                 pass
 
@@ -599,7 +677,7 @@ JSON:"""
 
             # ── Warmup: load Gemma4 into GPU once (60-120s), then stay via keep_alive ──
             if log_callback:
-                log_callback("  ⏳ Прогрев Gemma4 (загрузка в GPU, до 5 мин)...")
+                log_callback(_l("gemma4_warmup"))
             warmup_ok = False
             try:
                 warmup_prompt = f"Say 'ready' in {lang_name}. One word only."
@@ -607,10 +685,10 @@ JSON:"""
                 if warmup_response and len(warmup_response.strip()) > 0:
                     warmup_ok = True
                     if log_callback:
-                        log_callback("  ✅ Gemma4 загружен и готов")
+                        log_callback(_l("gemma4_ready"))
             except Exception:
                 if log_callback:
-                    log_callback("  ⚠ Gemma4 не отвечает — использую Google Translate для этого прогона")
+                    log_callback(_l("gemma4_not_responding"))
                 # Gemma4 is down; fall back to Google Translate base translation
                 for seg in segments:
                     seg["text"] = seg.get("translated_base", seg["text"])
@@ -637,7 +715,8 @@ JSON:"""
 
 Rules:
 - Output a JSON object with "segments" array
-- Each segment: {{"text": "improved translation", "skip_dub": false}}
+- Each segment: {"text": "improved translation", "skip_dub": false, "gender": "male"}
+- For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
 - Keep names/brands/tech terms unchanged
 - If the Draft is already perfect, copy it as-is
 
@@ -649,7 +728,7 @@ JSON:"""
                 # Circuit breaker: skip Gemma4 if it failed 3 times in a row
                 if gemma4_failures >= 3:
                     if log_callback and gemma4_failures == 3:
-                        log_callback("  ⚡ Gemma4 недоступен — использую Google Translate для оставшихся батчей")
+                        log_callback(_l("gemma4_not_responding"))
                     gemma4_failures += 1  # Keep incrementing to avoid re-logging
                     # Fall back to Google Translate base for this batch
                     for seg in batch:
@@ -667,6 +746,9 @@ JSON:"""
                             new_text = p_seg.get("text", "").strip()
                             if new_text:
                                 batch[i]["text"] = new_text
+                            batch[i]["skip_dub"] = p_seg.get("skip_dub", False)
+                            if "gender" in p_seg:
+                                batch[i]["gender"] = p_seg.get("gender", "unknown").lower()
                     elif parsed:
                         if log_callback:
                             log_callback(f"  ⚠ Gemma4 mismatch ({len(parsed)}/{len(batch)}), partial merge")
@@ -680,20 +762,20 @@ JSON:"""
                     if log_callback:
                         log_callback(f"  ⚠ Gemma4 batch failed ({gemma4_failures}/3): {str(e)[:80]}. Using Google Translate.")
 
-            if log_callback: log_callback("✅ Перевод завершен!")
+            if log_callback: log_callback(_l("smart_done"))
             self.release_models()
             return segments
 
         # ── DeepL + Gemma4 hybrid refinement ──
         if is_deepl and gemma4_available:
-            if log_callback: log_callback("🧠 DeepL + Gemma4 — улучшаю перевод...")
+            if log_callback: log_callback(_l("hybrid_refine_start"))
             return self._gemma4_refine(segments, target_lang, log_callback, check_cancelled, _l=_l)
 
         # ── Non-AI engines: just use base translation ──
         if not is_ai_refine:
             for seg in segments:
                 seg["text"] = seg.get("translated_base", seg["text"])
-            if log_callback: log_callback("✅ Перевод завершен!")
+            if log_callback: log_callback(_l("smart_done"))
             self.release_models()
             return segments
 
@@ -707,13 +789,13 @@ JSON:"""
 
             batch_size = 5
             total_segments = len(segments)
-            if log_callback: log_callback(f"🧠 {self.engine_name} улучшает перевод (батчи по {batch_size}, {total_segments} сегментов)...")
+            if log_callback: log_callback(_l("smart_engine_start", engine=self.engine_name, batch=batch_size, total=total_segments))
 
             for batch_start in range(0, total_segments, batch_size):
                 batch_end = min(batch_start + batch_size, total_segments)
                 batch = segments[batch_start:batch_end]
 
-                if log_callback: log_callback(f"  -> Батч {batch_start + 1}-{batch_end} из {total_segments}...")
+                if log_callback: log_callback(_l("smart_batch_progress", start=batch_start+1, end=batch_end, total=total_segments))
 
                 # Build dialogue with original + draft translation
                 dialogue = []
@@ -731,9 +813,11 @@ Fix grammar, word choice, and conversational flow. Keep names/brands/tech terms 
 
 CRITICAL RULES:
 - Output a JSON object with a "segments" array
-- Each segment: {{"text": "improved translation", "skip_dub": false}}
-- If original is already in {lang_name}, copy it unchanged and set "skip_dub": true
-- If the Draft is already perfect, copy it as-is
+- Each segment: {"text": "improved translation", "skip_dub": false, "gender": "male"}
+- For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
+- ONLY set "skip_dub": true if the 'Original' text is CLEARLY spoken in {lang_name} and doesn't need translation.
+- If the 'Original' text is in any other language, YOU MUST SET "skip_dub": false.
+- If the Draft is already perfect, copy it as-is.
 
 Dialogue:
 {full_text}
@@ -752,19 +836,21 @@ JSON:"""
                             if new_text:
                                 batch[i]["text"] = new_text
                             batch[i]["skip_dub"] = p_seg.get("skip_dub", False)
+                            if "gender" in p_seg:
+                                batch[i]["gender"] = p_seg.get("gender", "unknown").lower()
                     elif parsed:
                         if log_callback:
-                            log_callback(f"  ⚠ Размер не совпал ({len(parsed)}/{len(batch)}), частичное слияние")
+                            log_callback(_l("smart_mismatch", parsed=len(parsed), batch=len(batch)))
                         for i in range(min(len(parsed), len(batch))):
                             new_text = parsed[i].get("text", "").strip()
                             if new_text:
                                 batch[i]["text"] = new_text
 
                 except Exception as e:
-                    if log_callback: log_callback(f"  ⚠ Батч не удался: {str(e)[:100]}. Оставляю базовый перевод.")
+                    if log_callback: log_callback(_l("smart_batch_failed", e=str(e)[:100]))
                     for seg in batch:
                         seg["text"] = seg.get("translated_base", seg["text"])
 
-            if log_callback: log_callback("✅ Перевод завершен!")
+            if log_callback: log_callback(_l("smart_done"))
             self.release_models()
             return segments

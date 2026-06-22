@@ -20,9 +20,26 @@ export function usePipelineWebSocket(
 ) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Use ref for callbacks to avoid re-triggering useEffect on every render
+  const callbacksRef = useRef({ onProgress, onLog, onReviewReady, onFinished });
+  useEffect(() => {
+    callbacksRef.current = { onProgress, onLog, onReviewReady, onFinished };
+  }, [onProgress, onLog, onReviewReady, onFinished]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const connect = useCallback(async () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (!isMountedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
     try {
       // Fetch WebSocket auth token from backend
@@ -55,24 +72,24 @@ export function usePipelineWebSocket(
 
           switch (data.type) {
             case 'progress':
-              if (data.data !== undefined) onProgress(data.data);
+              if (data.data !== undefined) callbacksRef.current.onProgress(data.data);
               break;
             case 'log':
-              if (data.data) onLog(data.data);
+              if (data.data) callbacksRef.current.onLog(data.data);
               break;
             case 'review_ready':
               if (data.original && data.translated && data.segments) {
-                onReviewReady(data.original, data.translated, data.segments);
+                callbacksRef.current.onReviewReady(data.original, data.translated, data.segments);
               }
               break;
             case 'finished':
-              onFinished(!!data.success, data.message || '');
+              callbacksRef.current.onFinished(!!data.success, data.message || '');
               break;
             case 'error':
-              onLog(`[ERROR] ${data.message}`);
+              callbacksRef.current.onLog(`[ERROR] ${data.message}`);
               break;
             case 'info':
-              onLog(`[INFO] ${data.message}`);
+              callbacksRef.current.onLog(`[INFO] ${data.message}`);
               break;
           }
         } catch (err) {
@@ -81,6 +98,7 @@ export function usePipelineWebSocket(
       };
 
       ws.onclose = () => {
+        if (!isMountedRef.current) return;
         console.log('Disconnected from Pipeline WebSocket');
         setIsConnected(false);
         wsRef.current = null;
@@ -90,16 +108,19 @@ export function usePipelineWebSocket(
           (window as any).__pipelineToast = undefined;
         }
         // Auto-reconnect after 3s
-        setTimeout(() => connect(), 3000);
+        if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = window.setTimeout(() => connect(), 3000);
       };
 
       wsRef.current = ws;
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error('Failed to connect WebSocket:', err);
       // Retry after 3s
-      setTimeout(() => connect(), 3000);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = window.setTimeout(() => connect(), 3000);
     }
-  }, [onProgress, onLog, onReviewReady, onFinished]);
+  }, []); // dependencies removed, callbacks handled by ref
 
   useEffect(() => {
     connect();

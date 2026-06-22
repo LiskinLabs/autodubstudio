@@ -51,9 +51,9 @@ export function captureLog(message: string) {
 export function getRecentLogs(): string[] {
   try {
     const stored = JSON.parse(localStorage.getItem(ERROR_LOG_KEY) || '[]');
-    return [...stored.slice(-50), ...logBuffer.slice(-50)];
+    return stored.slice(-100);
   } catch {
-    return logBuffer.slice(-50);
+    return logBuffer.slice(-100);
   }
 }
 
@@ -136,16 +136,30 @@ export async function reportErrorToGitHub(error: Error, componentStack?: string)
 }
 
 // ─── Global error handler ───
+let lastReportTime = 0;
+const REPORT_COOLDOWN_MS = 30000;
+const reportedSignatures = new Set<string>();
+
 export function initGlobalErrorHandler() {
   window.addEventListener('unhandledrejection', (event) => {
     const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
     captureLog(`[UNHANDLED] ${error.message}`);
+    
+    const sig = error.message;
+    if (reportedSignatures.has(sig) || Date.now() - lastReportTime < REPORT_COOLDOWN_MS) return;
+    reportedSignatures.add(sig);
+    lastReportTime = Date.now();
     reportErrorToGitHub(error);
   });
 
   window.addEventListener('error', (event) => {
     const error = event.error instanceof Error ? event.error : new Error(event.message);
     captureLog(`[GLOBAL] ${error.message} @ ${event.filename}:${event.lineno}`);
+    
+    const sig = error.message;
+    if (reportedSignatures.has(sig) || Date.now() - lastReportTime < REPORT_COOLDOWN_MS) return;
+    reportedSignatures.add(sig);
+    lastReportTime = Date.now();
     reportErrorToGitHub(error);
   });
 

@@ -23,7 +23,13 @@ const FALLBACK_MAP: Record<string, string> = {
 export function useOllama() {
   const [models, setModels] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const isConnectedRef = useRef<boolean>(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const updateConnected = useCallback((val: boolean) => {
+    setIsConnected(val);
+    isConnectedRef.current = val;
+  }, []);
 
   const checkConnection = useCallback(async (): Promise<string[]> => {
     try {
@@ -34,15 +40,16 @@ export function useOllama() {
         const data = await res.json();
         const modelList = data.models?.map((m: any) => m.name) || [];
         setIsConnected(true);
+        isConnectedRef.current = true;
         setModels(modelList);
         return modelList;
       } else {
-        setIsConnected(false);
+        updateConnected(false);
         setModels([]);
         return [];
       }
     } catch {
-      setIsConnected(false);
+      updateConnected(false);
       setModels([]);
       return [];
     }
@@ -61,7 +68,7 @@ export function useOllama() {
   const stopOllama = useCallback(async () => {
     try {
       await fetch(`http://127.0.0.1:8000/api/ollama/stop`, { method: 'POST' });
-      setIsConnected(false);
+      updateConnected(false);
       setModels([]);
     } catch (err) {
       console.error(err);
@@ -76,7 +83,8 @@ export function useOllama() {
   }, []);
 
   const sendMessage = useCallback(
-    async ({ model, messages, onChunk, onDone, onError }: SendMessageOptions) => {
+    async (opts: SendMessageOptions) => {
+      const { model, messages, onChunk, onDone, onError } = opts;
       abort();
 
       const controller = new AbortController();
@@ -98,7 +106,7 @@ export function useOllama() {
           if (fallbackModel) {
              console.warn(`Model ${model} failed (${res.status}). Falling back to ${fallbackModel}...`);
              // Retry with fallback
-             return sendMessage({ ...arguments[0], model: fallbackModel });
+             return sendMessage({ ...opts, model: fallbackModel });
           }
 
           onError?.(`Ollama returned ${res.status}: ${text}`);
@@ -161,12 +169,13 @@ export function useOllama() {
         
         // Fallback logic for network/connection errors
         const fallbackModel = FALLBACK_MAP[model];
-        if (fallbackModel && !isConnected) { // if connection fails entirely, maybe Ollama isn't running, but if it's just a timeout, we could fallback
+        // if connection fails entirely, maybe Ollama isn't running, but if it's just a timeout, we could fallback
+        if (fallbackModel && !isConnectedRef.current) {
            console.warn(`Connection failed for ${model}. Falling back to ${fallbackModel}...`);
-           return sendMessage({ ...arguments[0], model: fallbackModel });
+           return sendMessage({ ...opts, model: fallbackModel });
         }
 
-        setIsConnected(false);
+        updateConnected(false);
         // Let the UI translate the network error message
         onError?.(err instanceof TypeError ? '' : err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -175,7 +184,7 @@ export function useOllama() {
         }
       }
     },
-    [abort],
+    [abort, updateConnected],
   );
 
   return { sendMessage, abort, isConnected, models, checkConnection, startOllama, stopOllama };

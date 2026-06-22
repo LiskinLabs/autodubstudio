@@ -146,7 +146,7 @@ function AIChat() {
                   }}>
                     {isAssistant ? <Bot style={{ fontSize: 16 }} /> : <User style={{ fontSize: 16 }} />}
                   </div>
-                  <div className="win11-chat-bubble" style={{ background: isAssistant ? "var(--colorNeutralBackground2)" : "var(--colorBrandBackground)", color: isAssistant ? "var(--colorNeutralForeground1)" : "white", border: isAssistant ? "1px solid var(--colorNeutralStroke2)" : "none" }}>
+                  <div className="win11-chat-bubble" style={{ background: isAssistant ? "var(--colorNeutralBackground2)" : "var(--colorBrandBackground)", color: isAssistant ? "var(--colorNeutralForeground1)" : "var(--colorNeutralForegroundStaticInverted)", border: isAssistant ? "1px solid var(--colorNeutralStroke2)" : "none" }}>
                     {showTyping ? (
                       <span><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></span>
                     ) : (

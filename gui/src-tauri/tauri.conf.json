@@ -63,7 +63,9 @@
       "../../diarization_worker.py",
       "../../cli_run.py",
       "../../*.bat",
-      "../../teknorob.png"
+      "../../teknorob.png",
+      "../../pyproject.toml",
+      "../../uv.lock"
     ]
   },
   "plugins": {

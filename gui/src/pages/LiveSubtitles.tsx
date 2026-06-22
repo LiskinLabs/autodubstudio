@@ -107,14 +107,14 @@ export default function LiveSubtitles() {
           background: "var(--colorNeutralBackground3)", border: "1px solid var(--colorNeutralStroke2)",
         }}>
           <div className="flex items-center justify-between mb-3 opacity-60">
-            <span className="text-xs font-bold" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("live.preview")}</span>
+            <span className="text-xs font-semibold" style={{ letterSpacing: "0.05em" }}>{t("live.preview")}</span>
             <div className="flex items-center gap-2">
               <span className="status-dot" style={{ background: "var(--colorPaletteGreenForeground1)", animation: "pulse 2s ease-in-out infinite" }} />
               <span className="text-xs">{t("live.recording")}</span>
             </div>
           </div>
           <div className="font-mono text-sm text-center" style={{ minHeight: "3em" }}>
-            {subtitleText || <span className="opacity-30" style={{ fontStyle: "italic" }}>{t("live.waiting_audio")}</span>}
+            {subtitleText || <span className="opacity-30">{t("live.waiting_audio")}</span>}
           </div>
         </div>
       )}

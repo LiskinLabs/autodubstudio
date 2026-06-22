@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Dialog, DialogSurface } from "@fluentui/react-components";
+import { Dialog, DialogSurface, Input } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   MicRegular as Mic,
@@ -80,19 +80,16 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
           padding: 16, borderBottom: "1px solid var(--colorNeutralStroke2)",
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <Search style={{ fontSize: 16, color: "var(--colorNeutralForeground4)", flexShrink: 0 }} />
-          <input
+          <Input
             ref={inputRef}
             type="text"
             value={query}
-            onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
+            onChange={(_, data) => { setQuery(data.value); setSelectedIndex(0); }}
             onKeyDown={handleKeyDown}
             placeholder={t("cmd.placeholder")}
-            style={{
-              width: "100%", background: "transparent", border: "none", outline: "none",
-              fontSize: 16, fontFamily: "'Inter', 'Segoe UI', sans-serif",
-              color: "var(--colorNeutralForeground1)",
-            }}
+            appearance="outline"
+            contentBefore={<Search style={{ fontSize: 16, color: "var(--colorNeutralForeground4)" }} />}
+            style={{ width: "100%", fontSize: 16, fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
             aria-label={t("cmd.search_commands")}
           />
         </div>
@@ -109,7 +106,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
                 <div style={{
                   padding: "12px 12px 6px", fontSize: 11, fontWeight: 600,
                   color: "var(--colorNeutralForeground3)",
-                  textTransform: "uppercase", letterSpacing: "0.05em",
+                  letterSpacing: "0.05em",
                 }}>
                   {group}
                 </div>

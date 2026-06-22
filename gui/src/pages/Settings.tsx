@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Button, Select, Input, Switch, Badge, Dialog, DialogSurface, DialogBody, DialogTitle, DialogActions } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, Badge, Dialog, DialogSurface, DialogBody, DialogTitle, DialogActions, Checkbox, ProgressBar } from "@fluentui/react-components";
 import {
   InfoRegular as Info, ArrowDownloadRegular as Download, DeleteRegular as Trash,
   DismissRegular as X, CheckmarkRegular as Check, SpinnerIosRegular as LoaderCircle,
@@ -243,8 +243,8 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
 
           <div className="flex items-center gap-4 mb-4 flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer text-xs">
-              <input type="checkbox" checked={ALL_MODELS.length > 0 && ALL_MODELS.every(m => selectedModels.has(m.id))}
-                onChange={(e) => setSelectedModels(e.target.checked ? new Set(ALL_MODELS.map(m => m.id)) : new Set())} />
+              <Checkbox checked={ALL_MODELS.length > 0 && ALL_MODELS.every(m => selectedModels.has(m.id))}
+                onChange={(_, d) => setSelectedModels(d.checked ? new Set(ALL_MODELS.map(m => m.id)) : new Set())} />
               {t("dl.select_all")}
             </label>
             <span className="text-xs" style={{ color: "var(--colorNeutralForeground3)" }}>{selectedModels.size}/{ALL_MODELS.length}</span>
@@ -269,14 +269,14 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
             return (
               <React.Fragment key={model.id}>
                 <div className="flex items-center gap-3 py-3">
-                  <input type="checkbox" checked={selectedModels.has(model.id)}
+                  <Checkbox checked={selectedModels.has(model.id)}
                     onChange={() => setSelectedModels(prev => { const n = new Set(prev); n.has(model.id) ? n.delete(model.id) : n.add(model.id); return n; })} />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium">{model.name}
                       <span className="font-normal text-xs ml-2" style={{ color: "var(--colorNeutralForeground3)" }}>{model.size}</span>
                     </span>
                     <div className="text-xs mt-0.5" style={{ color: "var(--colorBrandForeground1)" }}>{t(model.descDetailKey as any)}</div>
-                    {isDownloading && hasProgress && <progress value={st.progress} max="100" style={{ width: "100%", maxWidth: 200, height: 4, marginTop: 8 }} />}
+                    {isDownloading && hasProgress && <ProgressBar value={st.progress} max={100} thickness="medium" style={{ width: "100%", maxWidth: 200, marginTop: 8 }} />}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {isDownloading && hasProgress && <span className="text-xs font-semibold font-mono" style={{ color: "var(--colorBrandForeground1)", minWidth: 36, textAlign: "right" }}>{st.progress}%</span>}
@@ -408,7 +408,7 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
       <div className="win11-card" style={{ textAlign: "center" }}>
         <div style={{ padding: 32 }}>
           <img src="/logo-icon.png" alt="AutoDub Studio" style={{ width: 72, height: 72, borderRadius: 16, marginBottom: 16 }} />
-          <h2 className="text-xl font-bold mb-1">{t("settings.about.app_name")}</h2>
+          <h2 className="text-xl font-semibold mb-1">{t("settings.about.app_name")}</h2>
           <p className="text-sm mb-4" style={{ color: "var(--colorNeutralForeground2)" }}>{t("settings.about.tagline")}</p>
           <div className="flex gap-2 justify-center flex-wrap">
             <Badge size="small">{t("settings.about.version_badge")}</Badge>
@@ -435,7 +435,7 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
 
       <div className="win11-card" style={{ textAlign: "center" }}>
         <div style={{ padding: 24 }}>
-          <div className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.about.partner")}</div>
+          <div className="text-xs tracking-wider font-semibold mb-3" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.about.partner")}</div>
           <img src="/teknorob.png" alt="Teknorob" style={{ height: 28, opacity: 0.7 }} />
         </div>
       </div>

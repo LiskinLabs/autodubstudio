@@ -136,7 +136,7 @@ pub fn run() {
                 if desktop.join("backend").join("main.py").exists() {
                     desktop
                 } else {
-                    std::env::current_dir().unwrap_or_default()
+                    app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
                 }
             };
 
@@ -187,13 +187,40 @@ pub fn run() {
                         continue;
                     }
 
-                    // Find Python command
+                    let local_appdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
+                    let uv_env_dir = std::path::PathBuf::from(&local_appdata).join("AutoDub Studio").join(".venv");
+
                     let python_exe = backend_dir.join(".venv").join("Scripts").join("python.exe");
+                    let python_exe_local = uv_env_dir.join("Scripts").join("python.exe");
+
                     let (program, args): (String, Vec<String>) = if python_exe.exists() {
                         (python_exe.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
+                    } else if python_exe_local.exists() {
+                        (python_exe_local.to_string_lossy().to_string(),
+                         vec!["backend/main.py".to_string()])
                     } else {
-                        ("uv".to_string(),
+                        #[cfg(target_os = "windows")]
+                        let uv_check = StdCommand::new("uv").arg("--version").creation_flags(CREATE_NO_WINDOW).status();
+                        #[cfg(not(target_os = "windows"))]
+                        let uv_check = StdCommand::new("uv").arg("--version").status();
+
+                        let uv_path = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join(".cargo").join("bin").join("uv.exe");
+                        let uv_cmd = if uv_check.is_ok() {
+                            "uv".to_string()
+                        } else if uv_path.exists() {
+                            uv_path.to_string_lossy().to_string()
+                        } else {
+                            println!("[AutoDub] uv not found, installing it...");
+                            #[cfg(target_os = "windows")]
+                            let _ = StdCommand::new("powershell")
+                                .args(["-ExecutionPolicy", "ByPass", "-c", "irm https://astral.sh/uv/install.ps1 | iex"])
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .status();
+                            uv_path.to_string_lossy().to_string()
+                        };
+
+                        (uv_cmd,
                          vec!["run".to_string(), "python".to_string(), "backend/main.py".to_string()])
                     };
 
@@ -209,6 +236,7 @@ pub fn run() {
 
                     let mut cmd = StdCommand::new(&program);
                     cmd.args(&args).current_dir(&backend_dir);
+                    cmd.env("UV_PROJECT_ENVIRONMENT", &uv_env_dir);
 
                     if let Some(f) = log_fd {
                         let f2 = f.try_clone().unwrap();

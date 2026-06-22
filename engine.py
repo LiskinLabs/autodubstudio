@@ -480,6 +480,7 @@ class AutoDubWorker(threading.Thread):
                 "end": float(s.get("end", 0)),
                 "speaker": s.get("speaker", "SPEAKER_00"),
                 "skip_dub": s.get("skip_dub", False),
+                "gender": s.get("gender", "unknown")
             })
         self.resume_with_translations(edited)
 
@@ -776,7 +777,9 @@ class AutoDubWorker(threading.Thread):
                             "trans": s['text'],
                             "start": s['start'],
                             "end": s['end'],
-                            "speaker": s.get('speaker', 'SPEAKER_00')
+                            "speaker": s.get('speaker', 'SPEAKER_00'),
+                            "gender": s.get('gender', 'unknown'),
+                            "skip_dub": s.get('skip_dub', False)
                         })
                     self.manual_edit_signal.emit(manual_subs)
                     while not self.pause_event.is_set():
@@ -884,7 +887,7 @@ class AutoDubWorker(threading.Thread):
                     import asyncio
 
                     import edge_tts
-                    EDGE_VOICES = {
+                    EDGE_VOICES_MALE = {
                         "ru": "ru-RU-DmitryNeural", "en": "en-US-ChristopherNeural",
                         "tr": "tr-TR-AhmetNeural",  "ar": "ar-SA-HamedNeural",
                         "es": "es-ES-AlvaroNeural",  "fr": "fr-FR-HenriNeural",
@@ -893,7 +896,15 @@ class AutoDubWorker(threading.Thread):
                         "it": "it-IT-DiegoNeural",   "pt": "pt-PT-DuarteNeural",
                         "pl": "pl-PL-MarekNeural",   "hi": "hi-IN-MadhurNeural",
                     }
-                    voice = EDGE_VOICES.get(lang, "en-US-ChristopherNeural")
+                    EDGE_VOICES_FEMALE = {
+                        "ru": "ru-RU-SvetlanaNeural", "en": "en-US-AriaNeural",
+                        "tr": "tr-TR-EmelNeural",  "ar": "ar-SA-ZariyahNeural",
+                        "es": "es-ES-ElviraNeural",  "fr": "fr-FR-DeniseNeural",
+                        "de": "de-DE-AmalaNeural",  "zh": "zh-CN-XiaoxiaoNeural",
+                        "ja": "ja-JP-NanamiNeural",   "ko": "ko-KR-SunHiNeural",
+                        "it": "it-IT-ElsaNeural",   "pt": "pt-PT-RaquelNeural",
+                        "pl": "pl-PL-AgnieszkaNeural",   "hi": "hi-IN-SwaraNeural",
+                    }
 
                     if tts_segments:
                         self.log_signal.emit(_pipeline_t("tts_edge_start", self.ui_language, n=len(tts_segments)))

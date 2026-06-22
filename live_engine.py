@@ -136,7 +136,7 @@ class TranscribeThread(QThread):
                 translated = GoogleTranslator(source='auto', target=t_lang).translate(text)
                 return f"{text}\n---\n{translated}"
         except Exception as e:
-            self.log_signal.emit(f"⚠ Ошибка перевода: {e}")
+                self.log_signal.emit(f"⚠️ Microphone error: {e}")
             return text
 
     def run(self):
@@ -147,9 +147,9 @@ class TranscribeThread(QThread):
             device = "cuda" if torch.cuda.is_available() else "cpu"
             compute_type = "float16" if device == "cuda" else "int8"
 
-            self.log_signal.emit(f"🔄 Загрузка Live модели Faster-Whisper ({self.model_size}) на {device}...")
+            self.log_signal.emit(f"🚀 Loading Live Faster-Whisper ({self.model_size}) on {device}...")
             model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
-            self.log_signal.emit("✅ Модель готова! Говорите/включите звук...")
+            self.log_signal.emit("✅ Model loaded! Waiting for audio...")
 
             # If using translator engine, task="transcribe" to get original text first
             task_mode = "transcribe"

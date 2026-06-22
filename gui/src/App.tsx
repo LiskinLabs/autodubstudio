@@ -27,7 +27,7 @@ type TabId = "dubbing" | "live" | "chat" | "settings-general" | "settings-models
 interface NavEntry {
   id: TabId;
   labelKey: string;
-  icon: React.ReactNode;
+  icon: React.ReactElement;
   kbShortcut?: string;
 }
 
@@ -82,13 +82,13 @@ const App: React.FC = () => {
         
         <div className="flex items-center gap-2">
           {/* Hamburger Menu Button (visible only on small screens) */}
-          <button
+          <Button
+            appearance="transparent"
             className="win11-hamburger no-drag"
             onClick={() => setSidebarOpen(p => !p)}
             aria-label={t("app.toggle_menu") || "Toggle Menu"}
-          >
-            <Hamburger style={{ fontSize: 16 }} />
-          </button>
+            icon={<Hamburger style={{ fontSize: 16 }} />}
+          />
           
           <img src="/logo-icon.png" alt="" style={{ width: 20, height: 20, opacity: 0.8, marginLeft: 8 }} />
           <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7 }}>AutoDub Studio</span>
@@ -127,14 +127,15 @@ const App: React.FC = () => {
           {/* Tools section */}
           <div className="win11-nav-section">{t("nav.tools")}</div>
           {TOP_NAV.map(item => (
-            <button key={item.id}
+            <Button key={item.id}
               role="tab" id={`tab-${item.id}`}
               aria-selected={activeTab === item.id}
-              className={`win11-nav-item${activeTab === item.id ? " active" : ""}`}
+              appearance={activeTab === item.id ? "secondary" : "subtle"}
+              icon={item.icon}
+              style={{ width: "calc(100% - 16px)", margin: "0 8px 4px", justifyContent: "flex-start", fontWeight: activeTab === item.id ? 600 : 400 }}
               onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}>
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{t(item.labelKey as any)}</span>
-            </button>
+              {t(item.labelKey as any)}
+            </Button>
           ))}
 
           {/* Settings section */}
@@ -142,24 +143,25 @@ const App: React.FC = () => {
           {SETTINGS_NAV.map(item => {
             const isActive = activeTab === item.id;
             return (
-              <button key={item.id}
+              <Button key={item.id}
                 role="tab" id={`tab-${item.id}`}
                 aria-selected={isActive}
-                className={`win11-nav-item${isActive ? " active" : ""}`}
+                appearance={isActive ? "secondary" : "subtle"}
+                icon={item.icon}
+                style={{ width: "calc(100% - 16px)", margin: "0 8px 4px", justifyContent: "flex-start", fontWeight: isActive ? 600 : 400 }}
                 onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}>
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{t(item.labelKey as any)}</span>
+                <div style={{ flex: 1, textAlign: "left" }}>{t(item.labelKey as any)}</div>
                 {isActive && (
-                  <span className="ml-auto" style={{ width: 3, height: 16, borderRadius: 2, background: "var(--colorBrandForeground1)", flexShrink: 0 }} />
+                  <span style={{ width: 3, height: 16, borderRadius: 2, background: "var(--colorBrandForeground1)", flexShrink: 0 }} />
                 )}
-              </button>
+              </Button>
             );
           })}
 
           {/* Footer branding */}
           <div className="flex items-center gap-3 shrink-0" style={{ marginTop: "auto", padding: "16px 20px 8px" }}>
             <img src="/logo-icon.png" alt="LiskinLabs" style={{ width: 22, height: 22, borderRadius: 6, opacity: 0.3 }} />
-            <span className="text-xs font-semibold opacity-25" style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("brand.powered_by")}</span>
+            <span className="text-xs font-semibold opacity-25" style={{ letterSpacing: "0.08em" }}>{t("brand.powered_by")}</span>
           </div>
         </nav>
 

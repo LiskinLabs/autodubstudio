@@ -4,6 +4,20 @@ import sys
 import traceback
 
 import torch
+import huggingface_hub
+
+# --- MONKEYPATCH FOR PYANNOTE 3.1 & HUGGINGFACE_HUB >= 0.23 ---
+original_hf_hub_download = huggingface_hub.hf_hub_download
+def patched_hf_hub_download(*args, **kwargs):
+    if "use_auth_token" in kwargs:
+        kwargs["token"] = kwargs.pop("use_auth_token")
+    return original_hf_hub_download(*args, **kwargs)
+huggingface_hub.hf_hub_download = patched_hf_hub_download
+import pyannote.audio.core.pipeline
+pyannote.audio.core.pipeline.hf_hub_download = patched_hf_hub_download
+import pyannote.audio.pipelines.utils.getter
+pyannote.audio.pipelines.utils.getter.hf_hub_download = patched_hf_hub_download
+# -------------------------------------------------------------
 
 
 def main():
@@ -20,36 +34,36 @@ def main():
         print(f"File not found: {audio_path}")
         sys.exit(1)
 
-    print("Запуск Pyannote Diarization 3.1...")
-    print(f"Аудио: {audio_path}")
+    print("Starting Pyannote Diarization 3.1...")
+    print(f"Audio: {audio_path}")
 
     try:
         from pyannote.audio import Pipeline
     except ImportError:
-        print("Ошибка: pyannote.audio не установлена в текущем окружении!")
-        print("Запустите: pip install pyannote.audio")
+        print("Error: pyannote.audio is not installed in the current environment!")
+        print("Run: pip install pyannote.audio")
         sys.exit(2)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     try:
-        # Use token= (huggingface_hub >= 1.0 dropped use_auth_token)
+        # Use use_auth_token= (compatible with pyannote 3.1 depending on hf_hub version)
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            token=hf_token,
+            use_auth_token=hf_token,
         )
         if torch.cuda.is_available():
             pipeline.to(device)
     except Exception as e:
-        print(f"Ошибка загрузки модели Pyannote (проверьте HF Token и доступ): {e}")
+        print(f"Error loading Pyannote model (check HF Token and access): {e}")
         sys.exit(3)
 
-    print("Анализ аудио (это может занять время)...")
+    print("Analyzing audio (this might take a while)...")
     try:
         diarization = pipeline(audio_path)
     except Exception as e:
-        print(f"Ошибка при обработке аудио: {e}")
+        print(f"Error processing audio: {e}")
         sys.exit(4)
 
     results = []
@@ -64,8 +78,8 @@ def main():
         json.dump(results, f, ensure_ascii=False, indent=4)
 
     unique_speakers = set(r["speaker"] for r in results)
-    print(f"✅ Диаризация завершена. Найдено уникальных спикеров: {len(unique_speakers)}")
-    print(f"Результат сохранен в {output_json}")
+    print(f"✅ Diarization complete. Found unique speakers: {len(unique_speakers)}")
+    print(f"Result saved to {output_json}")
     sys.exit(0)
 
 if __name__ == "__main__":

@@ -51,6 +51,7 @@ export default function UpdateChecker() {
   const downloadUpdate = useCallback(async (update: any) => {
     setStatus("downloading");
     let contentLength = 0;
+    let downloaded = 0;
 
     try {
       await update.download((event: any) => {
@@ -64,7 +65,8 @@ export default function UpdateChecker() {
             break;
           case "Progress":
             if (contentLength > 0) {
-              setDownloadProgress(Math.round((event.data.chunkLength / contentLength) * 100));
+              downloaded += event.data.chunkLength || 0;
+              setDownloadProgress(Math.round((downloaded / contentLength) * 100));
             }
             break;
           case "Finished":

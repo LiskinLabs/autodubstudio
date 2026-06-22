@@ -1229,7 +1229,6 @@ class SettingsStore {
   apiKeys: Record<string, string> = {};
   listeners: Set<() => void> = new Set();
   private _store: Store | null = null;
-  // @ts-expect-error — assigned in constructor, not directly read
   private _storeReady!: Promise<void>;
 
   constructor() {
@@ -1254,6 +1253,8 @@ class SettingsStore {
       const storedTheme = await this._store.get<string>('theme');
       const storedLight = await this._store.get<string>('themeLight');
       const storedDark = await this._store.get<string>('themeDark');
+      const storedLang = await this._store.get<Language>('language');
+      if (storedLang) this.language = storedLang;
       if (storedTheme) this.theme = storedTheme;
       else this.theme = 'dim';
       if (storedLight) this.themeLight = storedLight;
@@ -1291,6 +1292,7 @@ class SettingsStore {
   }
 
   async _persistKeys() {
+    await this._storeReady;
     if (this._store) {
       await this._store.set('apiKeys', this.apiKeys);
       await this._store.save();
@@ -1299,8 +1301,13 @@ class SettingsStore {
     // If Tauri Store is unavailable, keys are kept in memory only for this session.
   }
 
-  setLanguage(lang: Language) {
+  async setLanguage(lang: Language) {
     this.language = lang;
+    await this._storeReady;
+    if (this._store) {
+      await this._store.set('language', lang);
+      await this._store.save();
+    }
     this.notify();
   }
 
@@ -1312,6 +1319,7 @@ class SettingsStore {
     } else {
       this.themeLight = theme;
     }
+    await this._storeReady;
     if (this._store) {
       await this._store.set('theme', theme);
       await this._store.set('themeLight', this.themeLight);
@@ -1348,6 +1356,8 @@ class SettingsStore {
 
 export const settingsStore = new SettingsStore();
 
+import { useMemo } from 'react';
+
 export function useSettings() {
   const [, setTick] = useState(0);
 
@@ -1356,7 +1366,7 @@ export function useSettings() {
     return () => { unsub(); };
   }, []);
 
-  return {
+  return useMemo(() => ({
     lang: settingsStore.language,
     theme: settingsStore.theme,
     setLanguage: (l: Language) => settingsStore.setLanguage(l),
@@ -1376,5 +1386,5 @@ export function useSettings() {
     },
     apiKeys: settingsStore.apiKeys,
     t: (key: string): string => settingsStore.t(key) as string
-  };
+  }), [settingsStore.language, settingsStore.theme, settingsStore.apiKeys]);
 }

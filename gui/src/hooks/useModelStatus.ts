@@ -35,7 +35,7 @@ const BACKEND = 'http://127.0.0.1:8000';
 export function useModelStatus(hfToken?: string) {
   const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const pollRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -52,48 +52,47 @@ export function useModelStatus(hfToken?: string) {
           };
         }
         setModelStatus(status);
+        
+        const hasActiveDownload = Object.values(status).some(
+          s => !s.done && (s.progress === -1 || (s.progress >= 0 && s.progress < 100))
+        );
+        isPollingRef.current = hasActiveDownload;
+        if (!hasActiveDownload) setIsLoading(false);
+
         return status;
       }
     } catch { /* backend offline */ }
-    return {};
+    return null; // return null to indicate failure
   }, []);
 
-  // Start polling when any model is downloading
+  // Continuous polling loop that only fetches if active
   useEffect(() => {
-    const hasActiveDownload = Object.values(modelStatus).some(
-      s => !s.done && (s.progress === -1 || (s.progress >= 0 && s.progress < 100))
-    );
-    if (hasActiveDownload && !pollRef.current) {
-      pollRef.current = window.setInterval(() => {
-        fetchStatus().then(status => {
-          if (status && Object.keys(status).length > 0) {
-            const stillDownloading = Object.values(status).some(
-              s => !s.done && (s.progress === -1 || (s.progress >= 0 && s.progress < 100))
-            );
-            if (!stillDownloading && pollRef.current) {
-              clearInterval(pollRef.current);
-              pollRef.current = null;
-              setIsLoading(false);
-            }
-          }
-        });
-      }, 2000);
-    }
-    if (!hasActiveDownload && pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-      setIsLoading(false);
-    }
-    return () => {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    };
-  }, [modelStatus, fetchStatus]);
+    const iv = setInterval(() => {
+      if (isPollingRef.current) fetchStatus();
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [fetchStatus]);
 
-  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  // Initial fetch with retry for slow backend startup
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      let attempts = 0;
+      while (mounted && attempts < 10) {
+        const res = await fetchStatus();
+        if (res !== null) break;
+        attempts++;
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    init();
+    return () => { mounted = false; };
+  }, [fetchStatus]);
 
   const startDownload = useCallback(async (modelId: string) => {
     // Immediate visual feedback — show "starting" state before API call
     setModelStatus(prev => ({ ...prev, [modelId]: { done: false, progress: -1 } }));
+    isPollingRef.current = true;
     try {
       const params = new URLSearchParams();
       if (hfToken) params.set('hf_token', hfToken);
@@ -115,6 +114,7 @@ export function useModelStatus(hfToken?: string) {
   const deleteModel = useCallback(async (modelId: string) => {
     // Show "deleting" state immediately
     setModelStatus(prev => ({ ...prev, [modelId]: { done: false, progress: -2 } }));
+    isPollingRef.current = true;
     try {
       await fetch(`${BACKEND}/api/models/delete/${modelId}`, { method: 'DELETE' });
     } catch { /* ignore */ }

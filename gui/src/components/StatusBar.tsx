@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { Button, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, Tooltip } from "@fluentui/react-components";
+import { Button, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, Tooltip, Checkbox } from "@fluentui/react-components";
 import { ArrowSyncRegular as Restart } from "@fluentui/react-icons";
 import { invoke } from "@tauri-apps/api/core";
 import UpdateChecker from "./UpdateChecker";
 import ModelDownloader from "./ModelDownloader";
+import { useSettings } from "../store";
 import pkg from "../../package.json";
+import { notifyToast } from "../lib/toast";
 
 const BACKEND = "http://127.0.0.1:8000";
 
-interface GpuInfo { cuda_available: boolean; gpu_name: string; vram_used_gb: number; vram_total_gb: number; }
+interface GpuInfo { cuda_available: boolean; gpu_name: string; vram_used_gb: number; vram_total_gb: number; sys_cpu_pct?: number; sys_ram_used_gb?: number; sys_ram_total_gb?: number; }
 interface PipelineStatus {
   active: boolean; step: string; step_index: number; total_steps: number;
   vram_used_gb: number; vram_total_gb: number; gpu_name: string;
@@ -142,6 +144,7 @@ function ModelDot({ state, label, modelType, desc }: { state: string; label: str
 }
 
 function OllamaDot() {
+  const { t } = useSettings();
   const [online, setOnline] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +159,7 @@ function OllamaDot() {
     return () => { cancelled = true; clearInterval(iv); };
   }, []);
   return (
-    <Tooltip content={online ? "Ollama online" : "Ollama offline"} relationship="label" showDelay={300}>
+    <Tooltip content={online ? (t("status.ollama") || "Ollama online") : (t("status.ollama_off") || "Ollama offline")} relationship="label" showDelay={300}>
       <span style={{ display: "flex", alignItems: "center", gap: 3, opacity: online ? 0.6 : 0.35, fontSize: 9, padding: "0 4px", transition: "opacity 300ms", cursor: "default" }}>
         <span className={`status-dot ${online ? "green" : "red"}`} style={{ width: 5, height: 5 }} />
         Ollama
@@ -166,12 +169,14 @@ function OllamaDot() {
 }
 
 const StatusBar: React.FC = () => {
+  const { t } = useSettings();
   const [gpu, setGpu] = useState<GpuInfo>({ cuda_available: false, gpu_name: "", vram_used_gb: 0, vram_total_gb: 0 });
   const [pipeline, setPipeline] = useState<PipelineStatus>({
     active: false, step: "", step_index: 0, total_steps: 6,
     vram_used_gb: 0, vram_total_gb: 0, gpu_name: "",
     models: { demucs: "idle", whisper: "idle", pyannote: "idle", translate: "idle", tts: "idle", mux: "idle" },
   });
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -231,15 +236,15 @@ const StatusBar: React.FC = () => {
     {/* VRAM Cleaner Dialog */}
     <Dialog open={cleanerOpen} onOpenChange={(_, d) => setCleanerOpen(d.open)}>
       <DialogSurface>
-        <DialogTitle>VRAM Cleaner — GPU Memory</DialogTitle>
+        <DialogTitle>{t("statusbar.vram_cleaner.title") || "VRAM Cleaner — GPU Memory"}</DialogTitle>
         <DialogBody>
           <div style={{ fontSize: 13, marginBottom: 12, color: "var(--colorNeutralForeground2)" }}>
-            VRAM: {fmt(activeVramUsed)} / {fmt(activeVramTotal)} ({vramPctDisplay})
+            {t("statusbar.vram_cleaner.vram") || "VRAM:"} {fmt(activeVramUsed)} / {fmt(activeVramTotal)} ({vramPctDisplay})
           </div>
           <div style={{ maxHeight: 300, overflowY: "auto" }}>
             {processes.map(p => (
               <label key={p.pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer", borderBottom: "1px solid var(--colorNeutralStroke2)" }}>
-                <input type="checkbox" checked={selectedPids.has(p.pid)} onChange={() => {
+                <Checkbox checked={selectedPids.has(p.pid)} onChange={() => {
                   setSelectedPids(prev => { const next = new Set(prev); next.has(p.pid) ? next.delete(p.pid) : next.add(p.pid); return next; });
                 }} />
                 <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
@@ -249,8 +254,8 @@ const StatusBar: React.FC = () => {
           </div>
         </DialogBody>
         <DialogActions>
-          <Button appearance="secondary" onClick={() => setCleanerOpen(false)}>Cancel</Button>
-          <Button appearance="primary" onClick={killSelected} disabled={selectedPids.size === 0}>Kill Selected ({selectedPids.size})</Button>
+          <Button appearance="secondary" onClick={() => setCleanerOpen(false)}>{t("dubbing.btn.cancel") || "Cancel"}</Button>
+          <Button appearance="primary" onClick={killSelected} disabled={selectedPids.size === 0}>{(t("statusbar.vram_cleaner.kill") || "Kill Selected")} ({selectedPids.size})</Button>
         </DialogActions>
       </DialogSurface>
     </Dialog>
@@ -273,6 +278,18 @@ const StatusBar: React.FC = () => {
             <span title={`VRAM used: ${activeVramUsed.toFixed(2)} GB / ${activeVramTotal.toFixed(2)} GB`}
               style={{ fontWeight: 600, color: vramColor(vramPct), fontSize: 10 }}>
               {fmt(activeVramUsed)}/{fmt(activeVramTotal)}
+            </span>
+          </>
+        )}
+        {gpu.sys_cpu_pct !== undefined && (
+          <>
+            <span style={{ opacity: 0.3, margin: "0 2px" }}>|</span>
+            <span title={`CPU Load: ${gpu.sys_cpu_pct}%`} style={{ fontSize: 10, opacity: 0.7 }}>
+              CPU: {gpu.sys_cpu_pct.toFixed(0)}%
+            </span>
+            <span style={{ opacity: 0.3, margin: "0 2px" }}>|</span>
+            <span title={`RAM: ${gpu.sys_ram_used_gb?.toFixed(2)} GB / ${gpu.sys_ram_total_gb?.toFixed(2)} GB`} style={{ fontSize: 10, opacity: 0.7 }}>
+              RAM: {gpu.sys_ram_used_gb?.toFixed(1)}/{gpu.sys_ram_total_gb?.toFixed(1)}
             </span>
           </>
         )}
@@ -306,7 +323,7 @@ const StatusBar: React.FC = () => {
       {/* VRAM Cleaner button — always visible when VRAM is high */}
       {vramHigh && (
         <span onClick={() => { fetchProcesses(); setCleanerOpen(true); }}
-          title="High VRAM usage — click to clean up background processes"
+          title={t("statusbar.vram_high_tooltip") || "High VRAM usage — click to clean up background processes"}
           style={{
             cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, marginRight: 4,
             background: vramCritical ? "var(--colorPaletteRedBackground2)" : "var(--colorPaletteYellowBackground2)",
@@ -320,23 +337,30 @@ const StatusBar: React.FC = () => {
             animation: vramCritical ? "statusbar-pulse 0.9s ease-in-out infinite" : "none",
           }} />
           <span style={{
-            fontSize: 9, fontWeight: 700,
+            fontSize: 9, fontWeight: 600,
             color: vramCritical ? "var(--colorPaletteRedForeground1)" : "var(--colorPaletteYellowForeground1)",
           }}>{vramPctDisplay}</span>
         </span>
       )}
 
-      <Tooltip content="Restart backend & clear Python cache" relationship="label" showDelay={300}>
+      <Tooltip content={t("statusbar.restart_tooltip") || "Restart backend & clear Python cache"} relationship="label" showDelay={300}>
         <span onClick={async () => {
+          if (isRestarting) return;
+          setIsRestarting(true);
           try {
             await invoke("restart_backend");
-          } catch {}
+            notifyToast.success(t("statusbar.restarted") || "Backend restarted successfully", { duration: 3000 });
+          } catch (e) {
+            notifyToast.error(t("statusbar.restart_error") || "Failed to restart backend", { duration: 4000 });
+          } finally {
+            setIsRestarting(false);
+          }
         }}
         style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "0 4px", opacity: 0.4, transition: "opacity 150ms" }}
         onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
         onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
         >
-          <Restart style={{ fontSize: 12 }} />
+          <Restart className={isRestarting ? "animate-spin" : ""} style={{ fontSize: 12 }} />
         </span>
       </Tooltip>
       <OllamaDot />

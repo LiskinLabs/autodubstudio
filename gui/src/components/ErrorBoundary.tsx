@@ -7,10 +7,11 @@ import {
   ArrowSyncRegular as RefreshCw,
 } from "@fluentui/react-icons";
 import { reportErrorToGitHub } from "../lib/errorReporter";
-import { settingsStore } from "../store";
+import { useSettings, settingsStore } from "../store";
 
 interface Props {
   children: React.ReactNode;
+  t?: (key: string) => string;
 }
 
 interface State {
@@ -43,6 +44,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const t = this.props.t || settingsStore.t.bind(settingsStore);
       return (
         <div className="flex flex-col items-center justify-center h-full gap-5 p-8 text-center">
           <div style={{
@@ -52,9 +54,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
           }}>
             <AlertTriangle style={{ fontSize: 48, color: "var(--colorPaletteRedForeground1)" }} />
           </div>
-          <h2 className="text-xl font-semibold">{settingsStore.t("error.title")}</h2>
+          <h2 className="text-xl font-semibold">{t("error.title")}</h2>
           <p className="text-sm max-w-md leading-relaxed" style={{ color: "var(--colorNeutralForeground2)" }}>
-            {this.state.error?.message || settingsStore.t("error.default_message")}
+            {this.state.error?.message || t("error.default_message")}
           </p>
 
           {this.state.reported ? (
@@ -63,7 +65,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               border: "1px solid var(--colorPaletteGreenBorder1)",
             }}>
               <Check style={{ fontSize: 18, color: "var(--colorPaletteGreenForeground1)" }} />
-              <span className="text-sm">{settingsStore.t("error.reported")}</span>
+              <span className="text-sm">{t("error.reported")}</span>
             </div>
           ) : (
             <div className="flex gap-3 p-4 rounded-xl shadow-sm max-w-md text-left" style={{
@@ -71,12 +73,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
               border: "1px solid var(--colorPaletteBlueBorder1)",
             }}>
               <Send style={{ fontSize: 18, color: "var(--colorPaletteBlueForeground1)" }} />
-              <span className="text-sm">{settingsStore.t("error.sending")}</span>
+              <span className="text-sm">{t("error.sending")}</span>
             </div>
           )}
 
           <Button appearance="primary" icon={<RefreshCw style={{ fontSize: 16 }} />} onClick={this.handleReload}>
-            {settingsStore.t("error.reload")}
+            {t("error.reload")}
           </Button>
         </div>
       );
@@ -86,4 +88,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export default function ErrorBoundaryWithTranslations({ children }: { children: React.ReactNode }) {
+  const { t } = useSettings();
+  return <ErrorBoundary t={t}>{children}</ErrorBoundary>;
+}

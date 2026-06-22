@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Dialog, DialogSurface, DialogBody } from "@fluentui/react-components";
+import { Button, Dialog, DialogSurface, DialogBody, Checkbox, ProgressBar } from "@fluentui/react-components";
 import {
   ArrowDownloadRegular as Download,
   CheckmarkRegular as Check,
@@ -31,7 +31,7 @@ export default function ModelDownloader() {
       const resp = await fetch(`${BACKEND}/api/models/status`);
       if (resp.ok) {
         const data = await resp.json();
-        const status: Record<string, { done: boolean; progress: number; error?: string }> = {};
+        const status: typeof modelStatus = {};
         for (const m of MODELS) {
           const ds = data.downloading?.[m.id];
           status[m.id] = {
@@ -51,8 +51,23 @@ export default function ModelDownloader() {
         return status;
       }
     } catch { /* backend offline */ }
-    return {};
+    return null;
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      let attempts = 0;
+      while (mounted && attempts < 10) {
+        const res = await fetchModelStatus();
+        if (res !== null) break;
+        attempts++;
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    init();
+    return () => { mounted = false; };
+  }, [fetchModelStatus]);
 
   useEffect(() => {
     const hasDownloading = Object.values(modelStatus).some(s => !s.done && s.progress > 0 && !s.error);
@@ -119,7 +134,7 @@ export default function ModelDownloader() {
         <DialogBody>
         <div className="text-center mb-6">
           <img src="/logo-icon.png" alt="AutoDub Studio" style={{ width: 64, height: 64, marginBottom: 16, borderRadius: 12, marginLeft: "auto", marginRight: "auto" }} />
-          <h2 className="text-xl font-bold">{t("dl.title")}</h2>
+          <h2 className="text-xl font-semibold">{t("dl.title")}</h2>
           <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--colorNeutralForeground2)", maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}>
             {t("dl.desc")}
           </p>
@@ -145,7 +160,7 @@ export default function ModelDownloader() {
 
             return (
               <label key={model.id} style={labelStyle}>
-                <input type="checkbox" checked={isChecked} disabled={!!isDone || !!isDownloading} onChange={() => !isDone && toggleModel(model.id)} />
+                <Checkbox checked={isChecked} disabled={!!isDone || !!isDownloading} onChange={() => !isDone && toggleModel(model.id)} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold">
                     {model.name}
@@ -154,7 +169,7 @@ export default function ModelDownloader() {
                   <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground2)" }}>{t(model.descKey as any)}</div>
                   <div className="text-xs mt-1" style={{ color: "var(--colorBrandForeground1)" }}>{t(model.descDetailKey as any)}</div>
                   {isDownloading && hasRealProgress && (
-                    <progress className="w-full mt-2" value={st.progress} max="100" style={{ height: 6, borderRadius: 3 }} />
+                    <div style={{ marginTop: 8 }}><ProgressBar value={st.progress} max={100} thickness="medium" /></div>
                   )}
                   {isDownloading && !hasRealProgress && (
                     <div className="text-xs mt-1 font-medium flex items-center gap-1.5" style={{ color: "var(--colorBrandForeground1)" }}>

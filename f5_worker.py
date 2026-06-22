@@ -47,7 +47,7 @@ def main():
     vocab_path = ""
     try:
         from huggingface_hub import hf_hub_download
-        print("Скачиваю/проверяю турецкую модель (marduk-ra/F5-TTS-Turkish)...")
+        print("Downloading/verifying Turkish model (marduk-ra/F5-TTS-Turkish)...")
         ckpt_path = hf_hub_download(repo_id="marduk-ra/F5-TTS-Turkish", filename="f5_tts_turkish_1000000.safetensors")
         vocab_path = hf_hub_download(repo_id="marduk-ra/F5-TTS-Turkish", filename="vocab.txt")
         print(f"Checkpoint: {ckpt_path}")

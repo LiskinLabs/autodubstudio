@@ -34,13 +34,13 @@ def free_up_vram(log_callback=None):
                 capture_output=True, text=True, encoding="utf-8"
             )
             if r.returncode == 0:
-                if log_callback: log_callback(f"🧹 Закрыт: {name}")
+                if log_callback: log_callback(f"🧹 Closed: {name}")
                 killed += 1
         except (FileNotFoundError, subprocess.SubprocessError, OSError):
             pass
 
     if killed == 0:
-        if log_callback: log_callback("🧹 Нет запущенных фоновых программ для закрытия.")
+        if log_callback: log_callback("ℹ️ No background processes found to close.")
     else:
-        if log_callback: log_callback(f"🧹 Закрыто программ: {killed}. Освобождена VRAM.")
+        if log_callback: log_callback(f"✅ Closed processes: {killed}. VRAM freed.")
     return killed
