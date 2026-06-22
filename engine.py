@@ -1108,17 +1108,30 @@ class AutoDubWorker(threading.Thread):
                         "-filter_complex", "[0:a]volume=0.7[bg];[1:a]volume=1.0[dub];[bg][dub]amix=inputs=2:duration=first",
                         ducked_path], check=True, timeout=30,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                ffmpeg_inputs.extend(["-i", ducked_path, "-i", clean_tts_path, "-i", srt_path])
-                all_created_files.extend([ducked_path, clean_tts_path])
+
+                # ── Final Dub: background(atmosphere) + TTS voice ──
+                # ducked_path = фон + 15% оригинала (без TTS)
+                # clean_tts_path = TTS голос (без фона)
+                # Микшируем их вместе → полноценная дорожка дубляжа
+                dub_final_path = os.path.join(self.out_dir, f"{base_name}_{lang}_dub_final.wav")
+                self._run_subprocess(["ffmpeg", "-y",
+                    "-i", ducked_path, "-i", clean_tts_path,
+                    "-filter_complex", "[0:a]volume=1.0[bg];[1:a]volume=1.0[tts];[bg][tts]amix=inputs=2:duration=first",
+                    dub_final_path], check=True, timeout=30,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                all_created_files.append(dub_final_path)
+
+                ffmpeg_inputs.extend(["-i", dub_final_path, "-i", clean_tts_path, "-i", srt_path])
+                all_created_files.extend([ducked_path, clean_tts_path, dub_final_path])
 
                 ffmpeg_maps.extend(["-map", f"{file_idx}:a:0", "-map", f"{file_idx+1}:a:0", "-map", f"{file_idx+2}:s:0"])
                 lang_names = {"ru": "Russian", "tr": "Turkish", "en": "English", "ar": "Arabic",
                               "es": "Spanish", "fr": "French", "de": "German"}
                 lang_display = lang_names.get(lang, lang.upper())
                 metadata.extend([
-                    f"-metadata:s:a:{audio_track_idx}", f"title={lang_display} Dub",
+                    f"-metadata:s:a:{audio_track_idx}", f"title={lang_display} Dub (Full Mix)",
                     f"-metadata:s:a:{audio_track_idx}", f"language={lang}",
-                    f"-metadata:s:a:{audio_track_idx+1}", f"title={lang_display} Clean",
+                    f"-metadata:s:a:{audio_track_idx+1}", f"title={lang_display} Voice Only (Clean TTS)",
                     f"-metadata:s:a:{audio_track_idx+1}", f"language={lang}",
                     f"-metadata:s:s:{subtitle_track_idx}", f"title={lang_display} Subtitles",
                     f"-metadata:s:s:{subtitle_track_idx}", f"language={lang}",
