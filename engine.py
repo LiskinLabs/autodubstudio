@@ -1128,12 +1128,17 @@ class AutoDubWorker(threading.Thread):
                 lang_names = {"ru": "Russian", "tr": "Turkish", "en": "English", "ar": "Arabic",
                               "es": "Spanish", "fr": "French", "de": "German"}
                 lang_display = lang_names.get(lang, lang.upper())
+                # Человеческие названия дорожек (видны в плеере: VLC, MPC, Media Player)
+                dub_label = {"ru": "Дубляж (голос + фон)", "tr": "Dublaj (ses + arka plan)", "en": "Dubbed (voice + background)"}.get(lang, f"{lang_display} Dub")
+                clean_label = {"ru": "Только голос (без фона)", "tr": "Sadece Ses (arka plansız)", "en": "Voice Only (no background)"}.get(lang, f"{lang_display} Voice")
+                sub_label = {"ru": "Субтитры", "tr": "Altyazı", "en": "Subtitles"}.get(lang, f"{lang_display} Subtitles")
+
                 metadata.extend([
-                    f"-metadata:s:a:{audio_track_idx}", f"title={lang_display} Dub (Full Mix)",
+                    f"-metadata:s:a:{audio_track_idx}", f"title={dub_label}",
                     f"-metadata:s:a:{audio_track_idx}", f"language={lang}",
-                    f"-metadata:s:a:{audio_track_idx+1}", f"title={lang_display} Voice Only (Clean TTS)",
+                    f"-metadata:s:a:{audio_track_idx+1}", f"title={clean_label}",
                     f"-metadata:s:a:{audio_track_idx+1}", f"language={lang}",
-                    f"-metadata:s:s:{subtitle_track_idx}", f"title={lang_display} Subtitles",
+                    f"-metadata:s:s:{subtitle_track_idx}", f"title={sub_label}",
                     f"-metadata:s:s:{subtitle_track_idx}", f"language={lang}",
                 ])
                 audio_track_idx += 2; subtitle_track_idx += 1
