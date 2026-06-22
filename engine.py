@@ -698,6 +698,7 @@ class AutoDubWorker(threading.Thread):
             self._check_cancelled()
             _set_pipeline_step("whisper", 2)
             _set_model_status("whisper", "running")
+            source_lang = "en"  # default, переопределяется из Whisper если запущен
             segments = _load_checkpoint("segments")
             if segments:
                 self.log_signal.emit(_pipeline_t("segments_from_cache", self.ui_language, n=len(segments)))
