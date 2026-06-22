@@ -1015,6 +1015,9 @@ class AutoDubWorker(threading.Thread):
                         "pl": "pl-PL-AgnieszkaNeural",   "hi": "hi-IN-SwaraNeural",
                     }
 
+                    # Выбор голоса: мужской по умолчанию для языка
+                    voice = EDGE_VOICES_MALE.get(lang, "en-US-ChristopherNeural")
+
                     if tts_segments:
                         self.log_signal.emit(_pipeline_t("tts_edge_start", self.ui_language, n=len(tts_segments)))
 
