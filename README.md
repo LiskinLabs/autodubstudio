@@ -1,9 +1,9 @@
-# 🎬 AutoDub Studio v0.0.1
+# 🎬 AutoBud Studio v0.0.1 Beta
 
 **AI-Powered Video Dubbing Pipeline** — Windows 11 desktop app for professional video dubbing using local AI.
 
-> Transcription → Translation → TTS (14 languages) → MKV with subtitles.
-> All local. All free. UI: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
+> **YZ Destekli Video Dublaj Uygulaması** — Transkripsiyon → Çeviri → Seslendirme (14 dil) → MKV
+> Hepsi yerel. Hepsi ücretsiz. Arayüz: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
 
 <p align="center">
   <img src="gui/public/logo-icon.png" alt="AutoDub Studio" width="128"/>
