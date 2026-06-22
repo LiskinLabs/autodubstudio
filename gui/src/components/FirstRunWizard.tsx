@@ -5,26 +5,22 @@
  * Показывает понятный UI со списком недостающих зависимостей.
  * Пользователь может установить их одним кликом (через winget) или вручную по ссылкам.
  *
- * Интегрируется с Tauri бекендом (lib.rs commands: check_dependency, install_dependency, get_missing_deps).
+ * Все строки используют t() из store.ts для мультиязычности (en/ru/tr).
  */
 import { useState, useEffect, useCallback } from "react";
 import { Button, Spinner, Badge, Card, CardHeader } from "@fluentui/react-components";
 import {
   CheckmarkRegular as Check,
-  DismissRegular as Dismiss,
-  ArrowDownloadRegular as Download,
+  ArrowDownloadRegular as DownloadIcon,
   OpenRegular as Open,
-  WarningRegular as Warning,
 } from "@fluentui/react-icons";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useSettings } from "../store";
 
-// Описание зависимостей с человеческими названиями и иконками/эмодзи
-const DEPS_INFO: Record<string, { label: string; desc: string; emoji: string }> = {
-  python: { label: "Python 3.12+", desc: "Язык для AI-бекенда (распознавание речи, перевод, синтез)", emoji: "🐍" },
-  uv: { label: "uv (менеджер пакетов)", desc: "Установка Python-зависимостей в 10-100x быстрее pip", emoji: "⚡" },
-  ollama: { label: "Ollama", desc: "Локальные AI-модели для перевода и чата", emoji: "🦙" },
-  ffmpeg: { label: "FFmpeg", desc: "Обработка видео/аудио и сборка финального файла", emoji: "🎬" },
+// Эмодзи для зависимостей (языконезависимые)
+const DEPS_EMOJI: Record<string, string> = {
+  python: "🐍", uv: "⚡", ollama: "🦙", ffmpeg: "🎬",
 };
 
 interface DepStatus {
@@ -35,6 +31,7 @@ interface DepStatus {
 }
 
 export default function FirstRunWizard({ onComplete }: { onComplete: () => void }) {
+  const { t } = useSettings();
   const [deps, setDeps] = useState<DepStatus[]>([]);
   const [checking, setChecking] = useState(true);
   const [installingAll, setInstallingAll] = useState(false);
@@ -43,7 +40,7 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
   const checkAllDeps = useCallback(async () => {
     setChecking(true);
     const results: DepStatus[] = [];
-    for (const id of Object.keys(DEPS_INFO)) {
+    for (const id of Object.keys(DEPS_EMOJI)) {
       try {
         const res = await invoke("check_dependency", { name: id }) as any;
         results.push({ id, installed: res.installed, installing: false });
@@ -67,10 +64,8 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
       if (res.status === "installed") {
         setDeps(prev => prev.map(d => d.id === id ? { ...d, installed: true, installing: false } : d));
       } else {
-        // winget не сработал — открываем URL в браузере
-        await openUrl(res.url || DEPS_INFO[id]?.desc || "");
-        setDeps(prev => prev.map(d => d.id === id ? { ...d, installing: false, error: "Opened download page" } : d));
-        // Перепроверим через 10 секунд
+        await openUrl(res.url || "");
+        setDeps(prev => prev.map(d => d.id === id ? { ...d, installing: false, error: t("frun.opened_url") } : d));
         setTimeout(() => checkAllDeps(), 10000);
       }
     } catch (e: any) {
@@ -86,7 +81,6 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
       await installOne(dep.id);
     }
     setInstallingAll(false);
-    // Повторная проверка
     await checkAllDeps();
   };
 
@@ -103,11 +97,10 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
           header={
             <div style={{ textAlign: "center" }}>
               <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
-                🚀 Добро пожаловать в AutoDub Studio
+                {t("frun.title")}
               </h1>
               <p style={{ color: "var(--colorNeutralForeground3)", marginTop: 8, fontSize: 14 }}>
-                Для работы приложения нужны несколько бесплатных программ.
-                Выберите что установить — или нажмите «Установить всё».
+                {t("frun.subtitle")}
               </p>
             </div>
           }
@@ -116,16 +109,17 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
         {/* Список зависимостей */}
         <div style={{ margin: "16px 0" }}>
           {deps.map(dep => {
-            const info = DEPS_INFO[dep.id];
+            const labelKey = `frun.deps_${dep.id}` as any;
+            const descKey = `frun.deps_${dep.id}_desc` as any;
             return (
               <div key={dep.id} style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "12px 0", borderBottom: "1px solid var(--colorNeutralStroke2)",
               }}>
-                <span style={{ fontSize: 24 }}>{info.emoji}</span>
+                <span style={{ fontSize: 24 }}>{DEPS_EMOJI[dep.id]}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{info.label}</div>
-                  <div style={{ color: "var(--colorNeutralForeground3)", fontSize: 12 }}>{info.desc}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{t(labelKey)}</div>
+                  <div style={{ color: "var(--colorNeutralForeground3)", fontSize: 12 }}>{t(descKey)}</div>
                   {dep.error && (
                     <div style={{ color: "var(--colorStatusDangerForeground1)", fontSize: 11, marginTop: 4 }}>
                       ⚠ {dep.error}
@@ -136,17 +130,17 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
                   {checking ? (
                     <Spinner size="tiny" />
                   ) : dep.installed ? (
-                    <Badge appearance="filled" color="success" icon={<Check />}>Готово</Badge>
+                    <Badge appearance="filled" color="success" icon={<Check />}>{t("frun.ready")}</Badge>
                   ) : dep.installing ? (
-                    <Badge appearance="filled" color="brand" icon={<Spinner size="tiny" />}>Установка...</Badge>
+                    <Badge appearance="filled" color="brand" icon={<Spinner size="tiny" />}>{t("frun.installing")}</Badge>
                   ) : (
                     <Button
                       size="small"
                       appearance="primary"
-                      icon={<Download />}
+                      icon={<DownloadIcon />}
                       onClick={() => installOne(dep.id)}
                     >
-                      Установить
+                      {t("frun.install")}
                     </Button>
                   )}
                 </div>
@@ -165,19 +159,19 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
               onClick={onComplete}
               style={{ minWidth: 200 }}
             >
-              Всё готово — продолжить
+              {t("frun.all_done")}
             </Button>
           ) : (
             <>
               <Button
                 size="large"
                 appearance="primary"
-                icon={installingAll ? <Spinner size="tiny" /> : <Download />}
+                icon={installingAll ? <Spinner size="tiny" /> : <DownloadIcon />}
                 onClick={installAll}
                 disabled={installingAll || checking || missingCount === 0}
                 style={{ minWidth: 180 }}
               >
-                {installingAll ? "Устанавливаю..." : `Установить всё (${missingCount})`}
+                {installingAll ? t("frun.installing_all") : t("frun.install_all").replace("{count}", String(missingCount))}
               </Button>
               <Button
                 size="large"
@@ -187,7 +181,7 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
                   await openUrl("https://github.com/LiskinLabs/autodubstudio#readme");
                 }}
               >
-                Инструкция
+                {t("frun.instructions")}
               </Button>
             </>
           )}
@@ -202,18 +196,18 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
               onClick={onComplete}
               style={{ color: "var(--colorNeutralForeground3)" }}
             >
-              Пропустить — я установлю позже вручную
+              {t("frun.skip")}
             </Button>
           </div>
         )}
 
-        {/* Powered by */}
+        {/* Footer */}
         <div style={{
           textAlign: "center", marginTop: 24,
           color: "var(--colorNeutralForeground4)", fontSize: 11,
         }}>
-          Все компоненты бесплатны и устанавливаются с официальных сайтов.
-          {" "}Powered by LiskinLabs ❤️
+          {t("frun.footer")}
+          {" "}❤️ LiskinLabs
         </div>
       </Card>
     </div>
