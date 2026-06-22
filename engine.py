@@ -663,6 +663,8 @@ class AutoDubWorker(threading.Thread):
             demucs_model = getattr(self, "demucs_model", None) or "htdemucs_ft"
             if demucs_model not in _ALLOWED_DEMUCS:
                 raise ValueError(f"Invalid demucs model: {demucs_model}")
+            # Demucs создаёт папку со СВОЕЙ sanitization имени файла (отличается от нашей).
+            # Поэтому НЕ угадываем путь — сканируем output директорию после работы Demucs.
             vocals_path = os.path.join(demucs_out_dir, demucs_model, base_name, "vocals.wav")
             no_vocals_path = os.path.join(demucs_out_dir, demucs_model, base_name, "no_vocals.wav")
 
@@ -676,6 +678,16 @@ class AutoDubWorker(threading.Thread):
                     self.video_path
                 ]
                 self._run_subprocess(demucs_cmd, check=True)
+
+                # ── Находим РЕАЛЬНУЮ папку, которую создал Demucs ──
+                model_out = os.path.join(demucs_out_dir, demucs_model)
+                if os.path.isdir(model_out):
+                    for folder in os.listdir(model_out):
+                        candidate_v = os.path.join(model_out, folder, "vocals.wav")
+                        if os.path.exists(candidate_v):
+                            vocals_path = candidate_v
+                            no_vocals_path = os.path.join(model_out, folder, "no_vocals.wav")
+                            break
             else:
                 self.log_signal.emit(_pipeline_t("demucs_skip", self.ui_language))
 
