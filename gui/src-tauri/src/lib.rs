@@ -88,7 +88,12 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![restart_backend])
+        .invoke_handler(tauri::generate_handler![
+            restart_backend,
+            check_dependency,
+            install_dependency,
+            get_missing_deps,
+        ])
         .setup(|app| {
             // ── Clean Python caches on startup ──
             #[cfg(target_os = "windows")]
@@ -283,4 +288,135 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Dependency Checker & Auto-Installer — First-Run Wizard
+// Проверяет и устанавливает Python, uv, Ollama, FFmpeg при первом запуске
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Check if a command is available on PATH
+fn check_command(cmd: &str, args: &[&str]) -> bool {
+    StdCommand::new(cmd)
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Check status of all required dependencies
+#[tauri::command]
+fn check_dependency(name: String) -> serde_json::Value {
+    let (installed, version) = match name.as_str() {
+        "python" => {
+            let ok = check_command("python", &["--version"])
+                || check_command("python3", &["--version"]);
+            let ver = if ok {
+                StdCommand::new("python")
+                    .arg("--version")
+                    .output()
+                    .ok()
+                    .and_then(|o| String::from_utf8(o.stdout).ok())
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string()
+            } else {
+                String::new()
+            };
+            (ok, ver)
+        }
+        "uv" => {
+            let ok = check_command("uv", &["--version"]);
+            (ok, String::new())
+        }
+        "ollama" => {
+            let ok = check_command("ollama", &["--version"]);
+            (ok, String::new())
+        }
+        "ffmpeg" => {
+            let ok = check_command("ffmpeg", &["-version"]);
+            (ok, String::new())
+        }
+        _ => (false, String::new()),
+    };
+    serde_json::json!({
+        "name": name,
+        "installed": installed,
+        "version": version,
+    })
+}
+
+/// Install a dependency using winget (Windows 11 built-in) or manual download URL
+/// Возвращает URL для ручной установки если winget недоступен
+#[tauri::command]
+fn install_dependency(name: String) -> serde_json::Value {
+    let winget_ok = check_command("winget", &["--version"]);
+
+    // Пробуем установить через winget (тихо, с согласия пользователя)
+    if winget_ok {
+        let package = match name.as_str() {
+            "python" => "Python.Python.3.12",
+            "uv" => "astral-sh.uv",
+            "ollama" => "Ollama.Ollama",
+            "ffmpeg" => "Gyan.FFmpeg",
+            _ => return serde_json::json!({"status": "error", "message": "Unknown package"}),
+        };
+
+        let result = StdCommand::new("winget")
+            .args(["install", "--id", package, "--accept-source-agreements", "--accept-package-agreements", "--silent"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+
+        if result.map(|s| s.success()).unwrap_or(false) {
+            return serde_json::json!({"status": "installed", "name": name});
+        }
+    }
+
+    // Fallback: даём ссылку для ручной установки
+    let manual_url = match name.as_str() {
+        "python" => "https://www.python.org/downloads/",
+        "uv" => "https://docs.astral.sh/uv/getting-started/installation/",
+        "ollama" => "https://ollama.com/download/windows",
+        "ffmpeg" => "https://www.gyan.dev/ffmpeg/builds/",
+        _ => "",
+    };
+    serde_json::json!({
+        "status": "manual",
+        "name": name,
+        "url": manual_url,
+        "message": "Please install manually — winget not available or install failed",
+    })
+}
+
+/// Get list of all missing dependencies
+#[tauri::command]
+fn get_missing_deps() -> serde_json::Value {
+    let deps = vec![
+        ("python", "Python 3.12+", "Required to run the AI backend", "https://www.python.org/downloads/"),
+        ("uv", "uv (Python package manager)", "Fast Python dependency management", "https://docs.astral.sh/uv/getting-started/installation/"),
+        ("ollama", "Ollama", "Local AI models for translation & chat", "https://ollama.com/download/windows"),
+        ("ffmpeg", "FFmpeg", "Video/audio processing & muxing", "https://www.gyan.dev/ffmpeg/builds/"),
+    ];
+
+    let mut missing = Vec::new();
+    for (id, _label, _desc, url) in &deps {
+        if !check_command(id, &["--version"]) && !check_command(id, &["-version"]) {
+            // Special check for python: try python3 too
+            if *id == "python" {
+                if !check_command("python3", &["--version"]) {
+                    missing.push(serde_json::json!({
+                        "id": id, "label": _label, "description": _desc, "url": url,
+                    }));
+                }
+            } else {
+                missing.push(serde_json::json!({
+                    "id": id, "label": _label, "description": _desc, "url": url,
+                }));
+            }
+        }
+    }
+    serde_json::json!({ "missing": missing })
 }

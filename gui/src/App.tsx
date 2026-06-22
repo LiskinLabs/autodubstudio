@@ -21,6 +21,7 @@ import DubbingStudio from "./pages/DubbingStudio";
 import LiveSubtitles from "./pages/LiveSubtitles";
 import AIChat from "./pages/AIChat";
 import SettingsPage from "./pages/Settings";
+import FirstRunWizard from "./components/FirstRunWizard";
 
 type TabId = "dubbing" | "live" | "chat" | "settings-general" | "settings-models" | "settings-keys" | "settings-about";
 
@@ -49,6 +50,10 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("dubbing");
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // First-run wizard: показываем при первом запуске, если ещё не завершён
+  const [showFirstRun, setShowFirstRun] = useState(() => {
+    return localStorage.getItem("autodub_first_run_completed") !== "true";
+  });
   const { t, theme, themeLight, themeDark, setTheme } = useSettings();
 
   const dark = isThemeDark(theme);
@@ -71,6 +76,14 @@ const App: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // First-run wizard: установка зависимостей
+  if (showFirstRun) {
+    return <FirstRunWizard onComplete={() => {
+      localStorage.setItem("autodub_first_run_completed", "true");
+      setShowFirstRun(false);
+    }} />;
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
