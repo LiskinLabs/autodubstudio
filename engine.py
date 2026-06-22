@@ -1157,8 +1157,12 @@ class AutoDubWorker(threading.Thread):
                             except Exception: pass
                 if token:
                     safe_error = str(e)[:300]
+                    # Redact user paths from error report
+                    import re as _re
+                    safe_error = _re.sub(r'C:\\Users\\[^\\]+', '~', safe_error)
+                    safe_error = _re.sub(r'[A-Z]:\\[^\s,]+', '[path]', safe_error)
                     title = f"[Bug] Pipeline error: {safe_error[:80]}"
-                    body = f"**Error:** {safe_error}\n**Time:** {_time.strftime('%Y-%m-%dT%H:%M:%S')}\n**Video:** {self.video_path}"
+                    body = f"**Error:** {safe_error}\n**Time:** {_time.strftime('%Y-%m-%dT%H:%M:%S')}"
                     httpx.post(
                         "https://api.github.com/repos/LiskinLabs/autodubstudio/issues",
                         json={"title": title, "body": body, "labels": ["bug", "auto-reported"]},
