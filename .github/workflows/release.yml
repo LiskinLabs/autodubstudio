@@ -30,7 +30,7 @@ jobs:
       # If you use SSL.com eSigner, uncomment and configure this block:
       # ==============================================================
       - name: Setup eSigner CKA
-        uses: SSLcom/esigner-codesign@v1.0.0
+        uses: SSLcom/esigner-codesign@v1.3.2
         with:
           username: ${{ secrets.ESIGNER_USERNAME }}
           password: ${{ secrets.ESIGNER_PASSWORD }}
