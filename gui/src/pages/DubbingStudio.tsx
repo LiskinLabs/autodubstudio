@@ -15,6 +15,7 @@ import {
 } from "@fluentui/react-icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../store";
 import { useOllama } from "../hooks/useOllama";
 import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
@@ -31,6 +32,7 @@ interface Config {
   exportSrt: boolean; keepIntermediate: boolean; autoOpenFolder: boolean;
   demucsModel: string; useGenderAI: boolean; useYoutubeSubs: boolean; useLipSync: boolean;
   whisperEngine: "whisper" | "whisperX";
+  useNlpSplitter: boolean;
 }
 
 const PIPELINE_STEPS = ["source", "demucs", "whisper", "translate", "tts", "mux"] as const;
@@ -157,7 +159,7 @@ function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) =
 }
 
 export default function DubbingStudio() {
-  const { t, settings, lang } = useSettings();
+  const { t, settings, lang, apiKeys, updateApiKey } = useSettings();
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [activeStep, setActiveStep] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -199,12 +201,13 @@ export default function DubbingStudio() {
   const [config, setConfig] = useState<Config>({
     targetLanguage: "ru", voiceModel: "xttsv2", translationEngine: "deepseek",
     translatorModel: "gemma2", pipelineMode: "automatic",
-    autoMux: true, voiceCloning: true, audioSeparation: true,
+    autoMux: true, voiceCloning: false, audioSeparation: false,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
     demucsModel: "htdemucs_ft", useGenderAI: true, useYoutubeSubs: true, useLipSync: true,
-    whisperEngine: "whisperX",
+    whisperEngine: "whisperX", useNlpSplitter: true,
   });
-  const [showConfigModal, setShowConfigModal] = useState<string | null>(null); // "model" or "engine"
+  const [showConfigModal, setShowConfigModal] = useState<string | null>(null);
+  const [tempKey, setTempKey] = useState<string>("");
 
 
   useEffect(() => { checkConnection(); }, [checkConnection]);
@@ -233,7 +236,6 @@ export default function DubbingStudio() {
 
   useEffect(() => { checkCookies(); }, [checkCookies]);
   
-  // Refresh cookie status periodically if not set
   useEffect(() => {
     if (hasCookies) return;
     const interval = setInterval(checkCookies, 2000);
@@ -315,9 +317,16 @@ export default function DubbingStudio() {
     }
   };
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!fileName && !youtubeUrl) return;
     if (!isConnected) {
+      try {
+        const state = await invoke<string>("get_backend_state");
+        if (state.includes("Installing") || state.includes("Downloading")) {
+          notifyToast.error(t("toast.backend_error"), { description: "Installing AI dependencies. Please wait." });
+          return;
+        }
+      } catch {}
       notifyToast.error(t("toast.backend_error"), { description: t("toast.backend_offline") });
       onLog(`[SYSTEM] ${t("toast.backend_offline")}`);
       return;
@@ -339,6 +348,7 @@ export default function DubbingStudio() {
       use_youtube_subs: config.useYoutubeSubs,
       translator_model: config.translatorModel,
       lip_sync: config.useLipSync,
+      use_nlp_splitter: config.useNlpSplitter,
     });
   }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog, lang]);
 
@@ -350,7 +360,6 @@ export default function DubbingStudio() {
   const handleReset = useCallback(() => {
     setPipelineState("idle"); setActiveStep(0); setProgress(0); setFileName(""); setYoutubeUrl("");
     setLogs([]); setEditedSegments([]); setOutputPath(""); setYtScanResult(null);
-    // Сброс бекенда — индикаторы моделей станут серыми
     fetch("http://127.0.0.1:8000/api/pipeline/reset", { method: "POST" }).catch(() => {});
   }, []);
 
@@ -478,18 +487,30 @@ export default function DubbingStudio() {
                 </Field>
                 <Field label={t("dubbing.voice_model")} style={{ padding: "8px 0" }}>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Select value={config.voiceModel} onChange={(e) => { updateConfig("voiceModel", e.target.value); if (["openai", "azure"].includes(e.target.value)) setShowConfigModal("model"); }} size="large" style={{ flex: 1 }}>
+                    <Select value={config.voiceModel} onChange={(e) => { 
+                      updateConfig("voiceModel", e.target.value); 
+                      if (["openai", "azure"].includes(e.target.value) && !apiKeys[e.target.value]) {
+                        setTempKey("");
+                        setShowConfigModal(e.target.value);
+                      }
+                    }} size="large" style={{ flex: 1 }}>
                       <option value="none">{t("dubbing.voice.none") || "Subtitles Only (No TTS)"}</option>
                       {(TTS_BY_LANG[config.targetLanguage] || []).map(k => (<option key={k} value={k}>{t(TTS_T_KEY[k] as any) || k}</option>))}
                     </Select>
                     {["openai", "azure", "deepseek", "gemini", "deepl"].some(v => config.voiceModel === v || config.translationEngine === v) && (
-                      <Button icon={<SettingsRegular />} size="large" onClick={() => setShowConfigModal("keys")} title="API Settings" />
+                      <Button icon={<SettingsRegular />} size="large" onClick={() => { setTempKey(""); setShowConfigModal(config.translationEngine === "deepseek" ? "deepseek" : config.voiceModel); }} title="API Settings" />
                     )}
                   </div>
                 </Field>
                 <Field label={t("dubbing.translation_engine")} style={{ padding: "8px 0" }}>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Select value={config.translationEngine} onChange={(e) => { updateConfig("translationEngine", e.target.value); if (["openai", "azure", "deepseek", "gemini", "deepl"].includes(e.target.value)) setShowConfigModal("keys"); }} size="large" style={{ flex: 1 }}>
+                    <Select value={config.translationEngine} onChange={(e) => { 
+                      updateConfig("translationEngine", e.target.value); 
+                      if (["openai", "azure", "deepseek", "gemini", "deepl"].includes(e.target.value) && !apiKeys[e.target.value]) {
+                        setTempKey("");
+                        setShowConfigModal(e.target.value);
+                      }
+                    }} size="large" style={{ flex: 1 }}>
                       <option value="deepseek">{t("dubbing.engine.deepseek")}</option>
                       <option value="openai">OpenAI API</option>
                       <option value="gemini">{t("dubbing.engine.gemini")}</option>
@@ -552,8 +573,8 @@ export default function DubbingStudio() {
                 </div>
                 <div className="win11-form-control">
                   <Select value={config.whisperEngine} onChange={(e) => updateConfig("whisperEngine", e.target.value as any)} style={{ width: 180 }}>
-                    <option value="whisper">Whisper (Standard)</option>
-                    <option value="whisperX">WhisperX (Faster, Better Align)</option>
+                    <option value="whisper">{t("dubbing.adv.whisper_std") || "Whisper (Standard)"}</option>
+                    <option value="whisperX">{t("dubbing.adv.whisperx") || "WhisperX (Faster, Better Align)"}</option>
                   </Select>
                 </div>
               </div>
@@ -591,6 +612,15 @@ export default function DubbingStudio() {
                 </div>
                 <div className="win11-form-control">
                   <Switch checked={config.useYoutubeSubs} onChange={(_, data) => updateConfig("useYoutubeSubs", data.checked)} />
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
+                  <div className="win11-form-label-text">Умное NLP-разделение фраз (Spacy)</div>
+                  <div className="win11-form-label-desc">Идеальная нарезка по смыслу, запятым и точкам, вместо разрывов на полуслове.</div>
+                </div>
+                <div className="win11-form-control">
+                  <Switch checked={config.useNlpSplitter} onChange={(_, data) => updateConfig("useNlpSplitter", data.checked)} />
                 </div>
               </div>
               <div className="win11-form-row">
@@ -756,18 +786,34 @@ export default function DubbingStudio() {
       )}
 
       {/* Modals for API Keys */}
-      <Dialog open={showConfigModal === "keys" || showConfigModal === "model"} onOpenChange={(_, data) => { if (!data.open) setShowConfigModal(null); }}>
+      <Dialog open={showConfigModal !== null} onOpenChange={(_, data) => { if (!data.open) setShowConfigModal(null); }}>
         <DialogSurface>
           <DialogBody>
             <DialogTitle>{t("settings.keys") || "API Keys Configuration"}</DialogTitle>
             <DialogContent style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 16 }}>
-              <div className="text-sm opacity-80 mb-2">{t("settings.keys.notice") || "Please configure your API keys in the Settings > API Keys tab. This ensures secure storage."}</div>
-              <Button appearance="primary" onClick={() => { setShowConfigModal(null); document.getElementById("tab-settings-keys")?.click(); }}>
-                {t("nav.settings") || "Go to Settings"}
-              </Button>
+              <div className="text-sm opacity-80 mb-2">
+                Для работы с провайдером <b>{showConfigModal}</b> требуется API ключ.
+              </div>
+              <Input
+                value={tempKey}
+                onChange={(_, d) => setTempKey(d.value)}
+                placeholder={`Enter your ${showConfigModal} API key...`}
+                type="password"
+              />
+              <div className="text-xs opacity-60">
+                {t("settings.keys.notice") || "It will be securely stored in your settings."}
+              </div>
             </DialogContent>
             <DialogActions>
               <Button appearance="secondary" onClick={() => setShowConfigModal(null)}>{t("dubbing.btn.cancel")}</Button>
+              <Button appearance="primary" onClick={() => {
+                if (showConfigModal && tempKey) {
+                  updateApiKey(showConfigModal, tempKey);
+                }
+                setShowConfigModal(null);
+              }}>
+                Сохранить
+              </Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>

@@ -4,6 +4,13 @@ use std::time::Duration;
 use tauri::Manager;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
 
+struct BackendState(std::sync::Mutex<String>);
+
+#[tauri::command]
+fn get_backend_state(state: tauri::State<'_, BackendState>) -> String {
+    state.0.lock().unwrap().clone()
+}
+
 /// Check if backend is already alive on port 8000
 fn is_backend_alive() -> bool {
     TcpStream::connect_timeout(
@@ -15,11 +22,16 @@ fn is_backend_alive() -> bool {
 /// Kill any process holding port 8000 (best-effort, Windows only)
 #[cfg(target_os = "windows")]
 fn kill_port_8000() {
-    let _ = StdCommand::new("cmd")
-        .args(["/c", "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :8000.*LISTENING') do @taskkill /F /PID %a 2>nul"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+    
+    let mut cmd = StdCommand::new("cmd");
+    cmd.args(["/c", "for /f \"tokens=5\" %a in ('C:\\Windows\\System32\\netstat.exe -ano ^| C:\\Windows\\System32\\findstr.exe :8000.*LISTENING') do @C:\\Windows\\System32\\taskkill.exe /F /PID %a 2>nul"]);
+    
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    
+    let _ = cmd.status();
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -93,8 +105,10 @@ pub fn run() {
             check_dependency,
             install_dependency,
             get_missing_deps,
+            get_backend_state,
         ])
         .setup(|app| {
+            app.manage(BackendState(std::sync::Mutex::new("Starting...".to_string())));
             // ── Clean Python caches on startup ──
             #[cfg(target_os = "windows")]
             {
@@ -122,16 +136,9 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-            let backend_dir = {
-                let desktop = std::path::PathBuf::from(
-                    std::env::var("USERPROFILE").unwrap_or_default()
-                ).join("Desktop").join("AutoDubStudio");
-                if desktop.join("backend").join("main.py").exists() {
-                    desktop
-                } else {
-                    app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
-                }
-            };
+            let backend_dir = get_backend_dir(&app.handle());
+            
+            let app_handle = app.handle().clone();
 
             std::thread::spawn(move || {
                 // ── ВСЕГДА перезапускаем бекенд при старте приложения ──
@@ -164,6 +171,7 @@ pub fn run() {
 
                     // Skip if already alive
                     if is_backend_alive() {
+                        *app_handle.state::<BackendState>().0.lock().unwrap() = "Online".to_string();
                         println!("[AutoDub] Backend already alive — waiting for it to exit");
                         loop {
                             std::thread::sleep(Duration::from_secs(10));
@@ -184,6 +192,22 @@ pub fn run() {
                     let python_exe = backend_dir.join(".venv").join("Scripts").join("python.exe");
                     let python_exe_local = uv_env_dir.join("Scripts").join("python.exe");
 
+                    let check_python = |py: &std::path::PathBuf| -> bool {
+                        if py.exists() {
+                            #[cfg(target_os = "windows")]
+                            let mut cmd = StdCommand::new(py);
+                            #[cfg(target_os = "windows")]
+                            cmd.creation_flags(CREATE_NO_WINDOW);
+                            #[cfg(not(target_os = "windows"))]
+                            let mut cmd = StdCommand::new(py);
+                            
+                            if let Ok(status) = cmd.arg("--version").stdout(Stdio::null()).stderr(Stdio::null()).status() {
+                                return status.success();
+                            }
+                        }
+                        false
+                    };
+
                     // Ищем любой доступный venv в папке проекта
                     let find_any_venv = || {
                         if let Ok(entries) = std::fs::read_dir(&backend_dir) {
@@ -192,21 +216,21 @@ pub fn run() {
                                 let name_str = name.to_string_lossy();
                                 if name_str.starts_with(".venv") {
                                     let py = entry.path().join("Scripts").join("python.exe");
-                                    if py.exists() { return Some(py); }
+                                    if check_python(&py) { return Some(py); }
                                 }
                             }
                         }
                         None
                     };
 
-                    let (program, args): (String, Vec<String>) = if python_exe.exists() {
+                    let (program, args): (String, Vec<String>) = if check_python(&python_exe) {
                         (python_exe.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
                     } else if let Some(any_venv) = find_any_venv() {
                         println!("[AutoDub] Using alternative venv: {}", any_venv.display());
                         (any_venv.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
-                    } else if python_exe_local.exists() {
+                    } else if check_python(&python_exe_local) {
                         (python_exe_local.to_string_lossy().to_string(),
                          vec!["backend/main.py".to_string()])
                     } else {
@@ -229,6 +253,7 @@ pub fn run() {
                         };
 
                         // uv run должен запускаться из КОРНЯ проекта (где pyproject.toml), не из backend/
+                        *app_handle.state::<BackendState>().0.lock().unwrap() = "Installing AI dependencies (this may take 5-10 minutes)...".to_string();
                         (uv_cmd,
                          vec!["run".to_string(), "python".to_string(), "backend/main.py".to_string()])
                     };
@@ -284,6 +309,11 @@ pub fn run() {
 
                     match cmd.spawn() {
                         Ok(mut child) => {
+                            if program.contains("uv") {
+                                *app_handle.state::<BackendState>().0.lock().unwrap() = "Downloading/Installing via uv...".to_string();
+                            } else {
+                                *app_handle.state::<BackendState>().0.lock().unwrap() = "Starting Python...".to_string();
+                            }
                             println!("[AutoDub] Backend started (PID: {}, restarts: {})", child.id(), restart_count);
                             let status = child.wait();
                             println!("[AutoDub] Backend exited: {:?}", status);
@@ -319,9 +349,20 @@ fn check_command(cmd: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+fn get_backend_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
+    let desktop = std::path::PathBuf::from(
+        std::env::var("USERPROFILE").unwrap_or_default()
+    ).join("Desktop").join("AutoDubStudio");
+    if desktop.join("backend").join("main.py").exists() {
+        desktop
+    } else {
+        app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
+    }
+}
+
 /// Check status of all required dependencies
 #[tauri::command]
-fn check_dependency(name: String) -> serde_json::Value {
+fn check_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
     let (installed, version) = match name.as_str() {
         "python" => {
             let ok = check_command("python", &["--version"])
@@ -352,6 +393,26 @@ fn check_dependency(name: String) -> serde_json::Value {
             let ok = check_command("ffmpeg", &["-version"]);
             (ok, String::new())
         }
+        "packages" => {
+            let backend_dir = get_backend_dir(&app);
+            // set UV_PROJECT_ENVIRONMENT to local_appdata/.venv if needed, but uv run will resolve it
+            let local_appdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
+            let uv_env_dir = std::path::PathBuf::from(&local_appdata).join("AutoDub Studio").join(".venv");
+            
+            let ok = StdCommand::new("uv")
+                .arg("run")
+                .arg("python")
+                .arg("-c")
+                .arg("import torch, f5_tts")
+                .env("UV_PROJECT_ENVIRONMENT", &uv_env_dir)
+                .current_dir(&backend_dir)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            (ok, String::new())
+        }
         _ => (false, String::new()),
     };
     serde_json::json!({
@@ -364,7 +425,7 @@ fn check_dependency(name: String) -> serde_json::Value {
 /// Install a dependency using winget (Windows 11 built-in) or manual download URL
 /// Возвращает URL для ручной установки если winget недоступен
 #[tauri::command]
-fn install_dependency(name: String) -> serde_json::Value {
+fn install_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
     let winget_ok = check_command("winget", &["--version"]);
 
     // Пробуем установить через winget (тихо, с согласия пользователя)
@@ -385,6 +446,27 @@ fn install_dependency(name: String) -> serde_json::Value {
 
         if result.map(|s| s.success()).unwrap_or(false) {
             return serde_json::json!({"status": "installed", "name": name});
+        }
+    }
+    
+    // Специальная обработка для packages - устанавливаем через uv sync
+    if name == "packages" {
+        let backend_dir = get_backend_dir(&app);
+        let local_appdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        let uv_env_dir = std::path::PathBuf::from(&local_appdata).join("AutoDub Studio").join(".venv");
+        
+        let result = StdCommand::new("uv")
+            .arg("sync")
+            .env("UV_PROJECT_ENVIRONMENT", &uv_env_dir)
+            .current_dir(&backend_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+            
+        if result.map(|s| s.success()).unwrap_or(false) {
+            return serde_json::json!({"status": "installed", "name": name});
+        } else {
+            return serde_json::json!({"status": "error", "message": "Failed to install Python packages. Please ensure you have internet connection and run 'uv sync' manually."});
         }
     }
 

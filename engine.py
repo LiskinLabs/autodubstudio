@@ -383,6 +383,7 @@ class AutoDubWorker(threading.Thread):
             self.ui_language = cfg.get("ui_language", "ru")
             self.use_gender_ai = cfg.get("use_gender_ai", True)
             self.use_youtube_subs = cfg.get("use_youtube_subs", True)
+            self.use_nlp_splitter = cfg.get("use_nlp_splitter", True)
         else:
             self.video_path = video_path
             # ── Reject URL-like out_dir even in positional mode ──
@@ -615,6 +616,7 @@ class AutoDubWorker(threading.Thread):
             pass
 
     def run(self):
+        import re
         global PIPELINE_BUSY
         with PIPELINE_LOCK:
             if PIPELINE_BUSY:
@@ -781,7 +783,6 @@ class AutoDubWorker(threading.Thread):
                     srt_files.sort(key=lambda x: ("ru" not in x, "en" not in x))
                     try:
                         import pysrt
-                        import re
                         subs = pysrt.open(srt_files[0])
                         for sub in subs:
                             start_s = sub.start.ordinal / 1000.0
@@ -839,13 +840,23 @@ class AutoDubWorker(threading.Thread):
                     )
                 self._run_subprocess(
                     [sys.executable, "-c", whisper_code, whisper_params],
-                    check=True, timeout=600,
+                    check=True, timeout=3600,
                 )
                 with open(whisper_json_path, "r", encoding="utf-8") as f:
                     whisper_data = _json.load(f)
                 segments = whisper_data["segments"]
                 source_lang = whisper_data.get("language", "en")
                 all_created_files.append(whisper_json_path)
+                
+                # --- NLP Splitting ---
+                if getattr(self, "use_nlp_splitter", True):
+                    self.log_signal.emit(f"🧠 Запуск NLP-сплиттера (Spacy) для языка {source_lang}...")
+                    from backend.nlp_splitter import split_segments_by_meaning
+                    old_count = len(segments)
+                    segments = split_segments_by_meaning(segments, source_lang)
+                    if len(segments) > old_count:
+                        self.log_signal.emit(f"✂️ Фразы были умнее разделены: {old_count} -> {len(segments)} сегментов.")
+
                 self.log_signal.emit(_pipeline_t("segments_found", self.ui_language, n=len(segments)))
                 _save_checkpoint("segments", segments)
 
@@ -873,7 +884,7 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(diar_audio)
                     self._run_subprocess(
                         [sys.executable, diar_script, diar_audio, diar_json],
-                        check=True, timeout=600,
+                        check=True, timeout=3600,
                         env={"HF_TOKEN": self.hf_key},
                     )
                     if os.path.exists(diar_json):
@@ -1055,7 +1066,7 @@ class AutoDubWorker(threading.Thread):
                                 
                                 gender_py = _resolve_venv_python(".venv")
                                 gender_script = os.path.join(os.path.dirname(__file__), "gender_worker.py")
-                                self._run_subprocess([gender_py, gender_script, gender_tasks_file, gender_out_file], check=True, timeout=300)
+                                self._run_subprocess([gender_py, gender_script, gender_tasks_file, gender_out_file], check=True, timeout=3600)
                                 
                                 with open(gender_out_file, "r", encoding="utf-8") as f:
                                     gender_results = json.load(f)
@@ -1088,16 +1099,16 @@ class AutoDubWorker(threading.Thread):
                             f5_py = _resolve_venv_python(".venv-f5")
                             f5_worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
                             try:
-                                self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True, timeout=900)
+                                self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True, timeout=3600)
                             except Exception as e:
                                 self.log_signal.emit(f"  ⚠ F5-TTS failed or timed out: {e}. Falling back to XTTSv2...")
                                 xtts_py = _resolve_venv_python(".venv-xtts")
                                 xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
-                                self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=900)
+                                self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=3600)
                         else:
                             xtts_py = _resolve_venv_python(".venv-xtts")
                             xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
-                            self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=900)
+                            self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=3600)
 
                         all_created_files.append(tasks_file)
 
@@ -1450,3 +1461,4 @@ class AutoDubWorker(threading.Thread):
                             pass
             except Exception:
                 pass
+

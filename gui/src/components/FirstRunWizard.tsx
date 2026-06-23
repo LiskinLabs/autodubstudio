@@ -20,7 +20,7 @@ import { useSettings } from "../store";
 
 // Эмодзи для зависимостей (языконезависимые)
 const DEPS_EMOJI: Record<string, string> = {
-  python: "🐍", uv: "⚡", ollama: "🦙", ffmpeg: "🎬",
+  python: "🐍", uv: "⚡", ollama: "🦙", ffmpeg: "🎬", packages: "📦",
 };
 
 interface DepStatus {

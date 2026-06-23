@@ -1,0 +1,52 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Dependencies
+        working-directory: ./gui
+        run: npm install
+
+      # ==============================================================
+      # NOTE: For eSigner to work on GitHub Actions, you must use the 
+      # eSigner CodeSign action to mount the certificate into the runner
+      # OR sign the binaries locally and upload them manually.
+      # If you use SSL.com eSigner, uncomment and configure this block:
+      # ==============================================================
+      - name: Setup eSigner CKA
+        uses: SSLcom/esigner-codesign@v1.0.0
+        with:
+          username: ${{ secrets.ESIGNER_USERNAME }}
+          password: ${{ secrets.ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+
+      - name: Build and Sign Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          projectPath: ./gui
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AutoDub Studio ${{ github.ref_name }}'
+          releaseBody: 'Automatic release'
+          releaseDraft: false
+          prerelease: false

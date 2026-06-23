@@ -27,7 +27,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -41,15 +44,24 @@
         "installMode": "currentUser",
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/StoreLogo.png",
-        "languages": ["English", "Russian", "Turkish"],
+        "languages": [
+          "English",
+          "Russian",
+          "Turkish"
+        ],
         "displayLanguageSelector": true,
         "startMenuFolder": "AutoDub Studio"
       },
       "wix": {
-        "language": ["en-US", "ru-RU", "tr-TR"],
+        "language": [
+          "en-US",
+          "ru-RU",
+          "tr-TR"
+        ],
         "bannerPath": "icons/StoreLogo.png",
         "dialogImagePath": "icons/StoreLogo.png"
-      }
+      },
+      "signCommand": "signtool sign /tr http://ts.ssl.com /td sha256 /fd sha256 /n \"Silvestr Liskin\" \"%1\""
     },
     "resources": [
       "../../backend/*.py",
@@ -71,7 +83,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "1WW838V0xHPfSwns1F2Po4eJKTeHN5zRGo9sT6PVUcg=",
+      "pubkey": "RWQTa8K7NxwUW8oTPVLoKJBzlfW8LrZBGBG2DoMnrclfsQicLAPo3rsr",
       "endpoints": [
         "https://github.com/LiskinLabs/autodubstudio/releases/latest/download/latest.json"
       ]

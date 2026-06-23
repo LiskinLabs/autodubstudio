@@ -21,11 +21,17 @@ if defined GITHUB_TOKEN (
     echo [WARN] No GitHub token found — error reporting disabled
 )
 
-:: Start backend
-echo Starting Backend server...
-cd backend
-start /B "" "..\.venv\Scripts\python.exe" "main.py"
-cd ..
+:: Check if .venv is valid
+".venv\Scripts\python.exe" --version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo Starting Backend server from .venv...
+    cd backend
+    start /B "" "..\.venv\Scripts\python.exe" "main.py"
+    cd ..
+) else (
+    echo [WARN] .venv is broken or missing. Falling back to uv run...
+    start /B "" uv run python backend\main.py
+)
 
 :: Wait for server
 timeout /t 3 >nul

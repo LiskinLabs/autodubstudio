@@ -175,14 +175,22 @@ const StatusBar: React.FC = () => {
     models: { demucs: "idle", whisper: "idle", pyannote: "idle", translate: "idle", tts: "idle", mux: "idle" },
   });
   const [isRestarting, setIsRestarting] = useState(false);
+  const [backendState, setBackendState] = useState("");
 
   const fetchStatus = useCallback(async () => {
+    try {
+      const state = await invoke<string>("get_backend_state");
+      setBackendState(state);
+    } catch {}
     try {
       const [gpuResp, pipeResp] = await Promise.all([
         fetch(`${BACKEND}/api/system/gpu`),
         fetch(`${BACKEND}/api/pipeline/status`),
       ]);
-      if (gpuResp.ok) setGpu(await gpuResp.json());
+      if (gpuResp.ok) {
+        setGpu(await gpuResp.json());
+        setBackendState("Online");
+      }
       if (pipeResp.ok) setPipeline(await pipeResp.json());
     } catch {}
   }, []);
@@ -268,9 +276,11 @@ const StatusBar: React.FC = () => {
     }}>
       {/* GPU / VRAM — dynamically reads from THIS PC's hardware */}
       <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", whiteSpace: "nowrap" }}>
-        <span className={`status-dot ${gpu.cuda_available ? "green" : "yellow"}`} />
-        <span style={{ opacity: 0.7, fontSize: 10 }}>{gpuName}</span>
-        {hasVram && (
+        <span className={`status-dot ${backendState === "Online" ? "green" : "yellow"}`} />
+        <span style={{ opacity: 0.7, fontSize: 10, color: backendState.includes("Installing") || backendState.includes("Downloading") ? "var(--colorPaletteYellowForeground1)" : "inherit", animation: backendState.includes("Installing") || backendState.includes("Downloading") ? "statusbar-pulse 2s infinite" : "none" }}>
+          {backendState !== "Online" && backendState !== "" ? backendState : gpuName}
+        </span>
+        {hasVram && backendState === "Online" && (
           <>
             <span style={{ opacity: 0.3, margin: "0 2px" }}>|</span>
             <span title={`VRAM used: ${activeVramUsed.toFixed(2)} GB / ${activeVramTotal.toFixed(2)} GB`}
