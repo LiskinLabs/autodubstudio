@@ -367,6 +367,7 @@ class AutoDubWorker(threading.Thread):
             target_langs = cfg.get("target_langs", cfg.get("langs", ["en"]))
             self.langs = {lang: f"{lang}-default" for lang in target_langs}
             self.model_size = cfg.get("whisper_model", "large-v3")
+            self.whisper_engine = cfg.get("whisper_engine", "whisper")
             self.device = cfg.get("device", "cpu")
             self.translator_engine = cfg.get("translation_engine", "Google Translate (Free)")
             self.translator_model = cfg.get("translator_model", "gemma4:e4b")
@@ -809,17 +810,33 @@ class AutoDubWorker(threading.Thread):
                     "audio_path": transcribe_path,
                     "output_path": whisper_json_path,
                 })
-                whisper_code = (
-                    "import sys,json; p=json.loads(sys.argv[1]);"
-                    "from faster_whisper import WhisperModel;"
-                    "ct='float16' if p['device']=='cuda' else 'int8';"
-                    "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
-                    "segs,info=m.transcribe(p['audio_path'],beam_size=5);"
-                    "print('LANG:'+info.language);"
-                    "out={'segments':[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs],'language':info.language};"
-                    "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
-                    "print(f'DONE:{len(out[\"segments\"])}')"
-                )
+                if self.whisper_engine == "whisperX":
+                    whisper_code = (
+                        "import sys,json; p=json.loads(sys.argv[1]);"
+                        "import whisperx;"
+                        "ct='float16' if p['device']=='cuda' else 'int8';"
+                        "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct);"
+                        "audio=whisperx.load_audio(p['audio_path']);"
+                        "res=m.transcribe(audio,batch_size=4);"
+                        "print('LANG:'+res['language']);"
+                        "model_a, metadata = whisperx.load_align_model(language_code=res['language'], device=p['device']);"
+                        "res=whisperx.align(res['segments'], model_a, metadata, audio, p['device'], return_char_alignments=False);"
+                        "out={'segments':[{'start':s['start'],'end':s['end'],'text':s['text'],'speaker':'SPEAKER_00'} for s in res['segments']],'language':res['language']};"
+                        "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
+                        "print(f'DONE:{len(out[\"segments\"])}')"
+                    )
+                else:
+                    whisper_code = (
+                        "import sys,json; p=json.loads(sys.argv[1]);"
+                        "from faster_whisper import WhisperModel;"
+                        "ct='float16' if p['device']=='cuda' else 'int8';"
+                        "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
+                        "segs,info=m.transcribe(p['audio_path'],beam_size=5);"
+                        "print('LANG:'+info.language);"
+                        "out={'segments':[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs],'language':info.language};"
+                        "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
+                        "print(f'DONE:{len(out[\"segments\"])}')"
+                    )
                 self._run_subprocess(
                     [sys.executable, "-c", whisper_code, whisper_params],
                     check=True, timeout=600,

@@ -22,7 +22,8 @@ def save_cookies(window):
                             if not path: path = "/"
                             secure = "TRUE" if morsel.get("secure", True) else "FALSE"
                             initial_dot = "TRUE" if domain.startswith(".") else "FALSE"
-                            f.write(f"{domain}\t{initial_dot}\t{path}\t{secure}\t0\t{key}\t{morsel.value}\n")
+                            expiration = int(time.time()) + 365*24*60*60
+                            f.write(f"{domain}\t{initial_dot}\t{path}\t{secure}\t{expiration}\t{key}\t{morsel.value}\n")
         except Exception as e:
             # Window probably closed
             break
