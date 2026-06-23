@@ -35,13 +35,12 @@ jobs:
           echo "" > github_token.txt
 
       - name: Setup eSigner CKA
-        uses: SSLcom/esigner-codesign@v1.3.2
+        uses: anatawa12/setup-eSigner-CKA@v1
         with:
+          mode: product
           username: ${{ secrets.ESIGNER_USERNAME }}
           password: ${{ secrets.ESIGNER_PASSWORD }}
-          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
-          environment_name: PROD
+          totp-secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
 
       - name: Add signtool to PATH
         run: |
