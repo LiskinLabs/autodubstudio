@@ -1408,6 +1408,24 @@ async def send_pending_crash_report():
         print(f"[CRASH] Failed to send crash report: {e}")
 
 
+@app.post("/api/youtube/login")
+async def youtube_login():
+    """Opens a local WebView for the user to log into YouTube and extracts cookies."""
+    import subprocess
+    import os
+    script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube_login.py")
+    try:
+        # Run non-blocking using subprocess.Popen
+        subprocess.Popen(["uv", "run", "python", script_path], cwd=os.path.dirname(os.path.abspath(__file__)))
+        return {"status": "ok", "message": "Browser opened for login. Please close it after logging in."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/youtube/has_cookies")
+async def youtube_has_cookies():
+    cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube_cookies.txt")
+    return {"has_cookies": os.path.exists(cookie_file)}
+
 @app.get("/api/debug/test-error")
 async def test_error_logging(authorization: str = Header("")):
     """[DEV ONLY] Verify that errors are correctly captured in logs. Requires auth token."""
@@ -1415,6 +1433,303 @@ async def test_error_logging(authorization: str = Header("")):
         raise HTTPException(status_code=401, detail="Unauthorized")
     logger.error("DEBUG: Manual test error triggered for logging verification")
     return {"status": "logged"}
+
+from pydantic import BaseModel
+
+class YouTubeScanRequest(BaseModel):
+    url: str
+
+@app.post("/api/youtube/scan")
+async def scan_youtube(req: YouTubeScanRequest):
+    """Scans a YouTube URL for available subtitles and audio dubs."""
+    import yt_dlp
+    import asyncio
+    
+    def _scan():
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'js_runtimes': {'node': {'path': 'node'}},
+            'remote_components': {'ejs': ['github', 'npm']}
+            # We only need metadata
+        }
+        
+        cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube_cookies.txt")
+        if os.path.exists(cookie_file):
+            ydl_opts['cookiefile'] = cookie_file
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(req.url, download=False)
+            
+            subs = []
+            if 'subtitles' in info:
+                for lang, sub_info in info['subtitles'].items():
+                    subs.append({"lang": lang, "name": f"{lang} (Official)", "is_auto": False})
+            if 'automatic_captions' in info:
+                for lang, sub_info in info['automatic_captions'].items():
+                    # Check if already added as official
+                    if not any(s['lang'] == lang for s in subs):
+                        subs.append({"lang": lang, "name": f"{lang} (Auto)", "is_auto": True})
+            
+            audio_tracks = []
+            if 'formats' in info:
+                for f in info['formats']:
+                    # Look at formats with audio, prioritize those with explicit language metadata
+                    if f.get('acodec') != 'none':
+                        lang = f.get('language')
+                        # Only include it if we know the language, or if it's strictly audio-only
+                        if lang or f.get('vcodec') == 'none':
+                            audio_tracks.append({
+                                "format_id": f.get('format_id'),
+                                "lang": lang or "unknown",
+                                "name": f"{lang or 'original'} (Audio: {f.get('format_note', '')} {f.get('ext')})",
+                                "ext": f.get('ext', 'm4a'),
+                                "vcodec": f.get('vcodec')
+                            })
+            
+            # Deduplicate audio tracks by language, preferring audio-only if available, otherwise just highest quality
+            unique_audio = {}
+            for t in audio_tracks:
+                l = t['lang']
+                # If we already have a track for this language, prefer the one with no video codec
+                if l in unique_audio:
+                    if unique_audio[l]['vcodec'] != 'none' and t['vcodec'] == 'none':
+                        unique_audio[l] = t
+                else:
+                    unique_audio[l] = t
+                
+            return {
+                "subtitles": subs,
+                "audio_tracks": list(unique_audio.values()),
+                "title": info.get('title', 'Unknown Video')
+            }
+
+    try:
+        data = await asyncio.to_thread(_scan)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class YouTubeDownloadRequest(BaseModel):
+    url: str
+    subtitle_langs: list[str]
+    audio_format_ids: list[str]
+    mux: bool
+
+@app.post("/api/youtube/download")
+async def download_youtube(req: YouTubeDownloadRequest):
+    """Downloads selected tracks and optionally muxes them."""
+    import yt_dlp
+    import asyncio
+    import os
+    from urllib.parse import urlparse
+    
+    # Simple validation
+    parsed = urlparse(req.url)
+    if parsed.hostname not in ["youtube.com", "youtu.be", "www.youtube.com"]:
+        raise HTTPException(status_code=400, detail="Only YouTube URLs supported")
+        
+    out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "downloads", "youtube_dl")
+    os.makedirs(out_dir, exist_ok=True)
+
+    def _download():
+        import time
+        import glob
+        ts = int(time.time())
+        # First download the requested audio formats
+        formats_to_dl = req.audio_format_ids.copy()
+        
+        # If they just want to download the selected tracks WITHOUT muxing into the video
+        if not req.mux:
+            if not formats_to_dl:
+                f_str = "bestaudio" # fallback if only subs selected
+            else:
+                f_str = ",".join(formats_to_dl)
+        else:
+            # They want to mux into a video
+            if not formats_to_dl:
+                # No specific audio track selected, just get best video + best audio
+                f_str = "bestvideo+bestaudio/best"
+            elif len(formats_to_dl) == 1:
+                # Only 1 audio track, yt-dlp can merge it perfectly
+                f_str = f"bestvideo+{formats_to_dl[0]}"
+            else:
+                # Multiple audio tracks + video. yt-dlp is bad at this.
+                # Download them all as separate files using comma.
+                f_str = f"bestvideo,bestaudio/best,{','.join(formats_to_dl)}"
+             
+        ydl_opts = {
+            'outtmpl': os.path.join(out_dir, f'%(title)s_{ts}_%(format_id)s.%(ext)s'),
+            'format': f_str,
+            'quiet': False,
+            'ignoreerrors': True, # Prevents subtitle 429 Too Many Requests from crashing the entire download
+            'subtitleslangs': req.subtitle_langs if req.subtitle_langs else None,
+            'writesubtitles': len(req.subtitle_langs) > 0,
+            'writeautomaticsub': len(req.subtitle_langs) > 0,
+            'js_runtimes': {'node': {'path': 'node'}},
+            'remote_components': {'ejs': ['github', 'npm']}
+        }
+        
+        cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube_cookies.txt")
+        if os.path.exists(cookie_file):
+            ydl_opts['cookiefile'] = cookie_file
+            
+        # Download subtitles separately to avoid YouTube 429 rate limits from yt-dlp spamming them for every format
+        if req.subtitle_langs and len(formats_to_dl) > 1:
+            sub_opts = {
+                'skip_download': True,
+                'writesubtitles': True,
+                'writeautomaticsub': True,
+                'subtitleslangs': req.subtitle_langs,
+                'outtmpl': os.path.join(out_dir, f'%(title)s_{ts}_subs.%(ext)s'),
+                'quiet': True,
+                'ignoreerrors': True,
+                'js_runtimes': {'node': {'path': 'node'}},
+                'remote_components': {'ejs': ['github', 'npm']}
+            }
+            if os.path.exists(cookie_file):
+                sub_opts['cookiefile'] = cookie_file
+            try:
+                with yt_dlp.YoutubeDL(sub_opts) as sub_ydl:
+                    sub_ydl.extract_info(req.url, download=True)
+            except Exception as e:
+                print(f"Sub download error: {e}")
+                
+            ydl_opts['writesubtitles'] = False
+            ydl_opts['writeautomaticsub'] = False
+
+        
+        if req.mux and len(formats_to_dl) <= 1:
+            ydl_opts['merge_output_format'] = 'mkv'
+            ydl_opts['outtmpl'] = os.path.join(out_dir, f'%(title)s_{ts}.%(ext)s')
+            if req.subtitle_langs:
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegEmbedSubtitle',
+                    'already_have_subtitle': False,
+                }]
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(req.url, download=True)
+                
+            safe_title = "".join([c for c in info.get('title', 'Video') if c.isalpha() or c.isdigit() or c==' ' or c=='-' or c=='_']).strip()
+            if not safe_title:
+                safe_title = f"Muxed_Video_{ts}"
+                
+            downloaded_files = glob.glob(os.path.join(out_dir, f"*{ts}*"))
+            format_dict = {str(f.get('format_id')): f for f in info.get('formats', [])}
+            
+            # Custom ffmpeg muxing for multiple audio tracks
+            if req.mux and len(formats_to_dl) > 1:
+                import subprocess
+                video_file = None
+                audio_inputs = [] # dicts: {'file': ..., 'lang': ..., 'title': ...}
+                subtitle_inputs = [] # dicts: {'file': ..., 'lang': ...}
+                
+                # Classify downloaded files
+                seen_sub_langs = set()
+                for f in downloaded_files:
+                    basename = os.path.basename(f)
+                    
+                    if basename.endswith('.vtt') or basename.endswith('.srt'):
+                        parts = basename.split('.')
+                        lang = parts[-2] if len(parts) >= 3 else "und"
+                        if lang not in seen_sub_langs:
+                            subtitle_inputs.append({'file': f, 'lang': lang, 'title': lang})
+                            seen_sub_langs.add(lang)
+                        continue
+                        
+                    name_without_ext = os.path.splitext(basename)[0]
+                    parts = name_without_ext.split('_')
+                    if len(parts) < 2: continue
+                    fmt_id = parts[-1]
+                    
+                    fmt_info = format_dict.get(fmt_id, {})
+                    vcodec = fmt_info.get('vcodec', 'none')
+                    lang = fmt_info.get('language')
+                    
+                    if fmt_id in req.audio_format_ids:
+                        # It's a selected dub
+                        audio_inputs.append({
+                            'file': f,
+                            'lang': lang if lang else 'und',
+                            'title': lang if lang else 'Dub'
+                        })
+                    else:
+                        # It's either bestvideo or bestaudio
+                        if vcodec != 'none':
+                            video_file = f
+                        else:
+                            # bestaudio
+                            audio_inputs.insert(0, {
+                                'file': f,
+                                'lang': info.get('language', 'orig'),
+                                'title': 'Original'
+                            })
+                
+                if video_file and audio_inputs:
+                    output_mkv = os.path.join(out_dir, f"{safe_title}.mkv")
+                    cmd = ["ffmpeg", "-y", "-i", video_file]
+                    
+                    for a in audio_inputs:
+                        cmd.extend(["-i", a['file']])
+                    for s in subtitle_inputs:
+                        cmd.extend(["-i", s['file']])
+                        
+                    cmd.extend(["-map", "0:v:0"])
+                    
+                    # Map audio
+                    for i, a in enumerate(audio_inputs):
+                        idx = i + 1
+                        cmd.extend(["-map", f"{idx}:a:0"])
+                        cmd.extend([f"-metadata:s:a:{i}", f"language={a['lang']}"])
+                        cmd.extend([f"-metadata:s:a:{i}", f"title={a['title']}"])
+                        
+                    # Map subtitles
+                    sub_start_idx = 1 + len(audio_inputs)
+                    for i, s in enumerate(subtitle_inputs):
+                        idx = sub_start_idx + i
+                        cmd.extend(["-map", f"{idx}:s?"])
+                        cmd.extend([f"-metadata:s:s:{i}", f"language={s['lang']}"])
+                        cmd.extend([f"-metadata:s:s:{i}", f"title={s['title']}"])
+                        # Convert to SRT for better compatibility in MKV
+                        cmd.extend([f"-c:s:{i}", "srt"])
+                        
+                    # Set default audio (Original)
+                    cmd.extend(["-disposition:a:0", "default"])
+                    for i in range(1, len(audio_inputs)):
+                        cmd.extend([f"-disposition:a:{i}", "0"])
+                        
+                    cmd.extend(["-c:v", "copy", "-c:a", "copy", output_mkv])
+                    subprocess.run(cmd, check=True)
+                    
+                    # Cleanup separate files
+                    try:
+                        os.remove(video_file)
+                        for a in audio_inputs:
+                            os.remove(a['file'])
+                        for s in subtitle_inputs:
+                            os.remove(s['file'])
+                    except:
+                        pass
+                    
+                    downloaded_files = [output_mkv]
+
+        except Exception as e:
+            return {"error": str(e)}
+        return {"status": "ok", "downloaded_files": downloaded_files, "folder": out_dir}
+
+    try:
+        # Note: In a real app this should be a background task because it takes a long time.
+        # But we'll run it in a thread and await it for simplicity since it's just audio/subs.
+        data = await asyncio.to_thread(_download)
+        if "error" in data:
+            raise HTTPException(status_code=500, detail=data["error"])
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 async def background_self_test():
     """Continuous background task to monitor backend health and log anomalies."""

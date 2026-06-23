@@ -121,6 +121,12 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.demucs_6s': '6-source (cleanest vocals)',
     'dubbing.adv.export_srt': 'Export SRT Separately',
     'dubbing.adv.export_srt_desc': 'Save subtitle files (.srt) as separate output alongside the video',
+    'dubbing.adv.gender_ai': 'AI Gender Matching',
+    'dubbing.adv.gender_ai_desc': 'Automatically detect original speaker gender and match TTS voice',
+    'dubbing.adv.yt_subs': 'Use YouTube Subtitles',
+    'dubbing.adv.yt_subs_desc': 'Prefer original YouTube subtitles instead of transcribing with Whisper (if available)',
+    'dubbing.adv.lip_sync': 'AI Lip Sync',
+    'dubbing.adv.lip_sync_desc': "Synchronize speaker's lip movements with the new dubbed audio (requires significant GPU power)",
     'dubbing.adv.keep_temp': 'Keep Intermediate Files',
     'dubbing.adv.keep_temp_desc': 'Keep WAV, raw text and other temporary files after pipeline finishes',
     'dubbing.adv.auto_open': 'Auto-Open Output Folder',
@@ -396,8 +402,9 @@ const translations: Record<Language, Record<string, string>> = {
     'cmd.search_commands': 'Search commands',
 
     // Dubbing
-    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
-
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=... or https://x.com/...',
+    'dubbing.tab_local': 'Local File',
+    'dubbing.tab_youtube': 'YouTube / Web URL',
     // Theme labels
     'theme.light': 'Light',
     'theme.dark': 'Dark',
@@ -433,6 +440,17 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.deps_ollama_desc': 'Local AI models for translation & chat',
     'frun.deps_ffmpeg': 'FFmpeg',
     'frun.deps_ffmpeg_desc': 'Video/audio processing & final assembly',
+    'dubbing.yt.auth_btn': '🔑 YouTube Auth (For Subs)',
+    'dubbing.yt.auth_btn_done': '✅ YouTube Authorized',
+    'dubbing.yt.scan': 'Scan URL',
+    'dubbing.yt.scanning': 'Scanning...',
+    'dubbing.yt.download_only': 'Download Selected Only',
+    'dubbing.yt.download_mux': 'Download & Integrate into Video',
+    'dubbing.yt.downloading': 'Downloading...',
+    'dubbing.yt.subs': 'Available Subtitles',
+    'dubbing.yt.audio': 'Available Audio Dubs',
+    'dubbing.yt.none': 'None found',
+    'dubbing.yt.description': 'Select your preferred media or subtitle tracks to import into the dubbing studio.',
   },
   ru: {
     // Navigation
@@ -658,7 +676,13 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.demucs_bal': 'Сбалансированная (быстрее)',
     'dubbing.adv.demucs_6s': '6-источников (чистейший вокал)',
     'dubbing.adv.export_srt': 'Экспорт SRT отдельно',
-    'dubbing.adv.export_srt_desc': 'Сохранить файлы субтитров (.srt) отдельно вместе с видео',
+    'dubbing.adv.export_srt_desc': 'Сохранять файлы субтитров (.srt) отдельным файлом вместе с видео',
+    'dubbing.adv.gender_ai': 'ИИ-подбор пола',
+    'dubbing.adv.gender_ai_desc': 'Автоматически определять пол говорящего и подбирать подходящий TTS голос',
+    'dubbing.adv.yt_subs': 'Субтитры YouTube',
+    'dubbing.adv.yt_subs_desc': 'Использовать оригинальные субтитры YouTube вместо транскрибации через Whisper (если есть)',
+    'dubbing.adv.lip_sync': 'Синхронизация губ (Lip Sync)',
+    'dubbing.adv.lip_sync_desc': 'Синхронизировать движения губ с новой озвучкой (требует мощной видеокарты)',
     'dubbing.adv.keep_temp': 'Сохранять промежуточные файлы',
     'dubbing.adv.keep_temp_desc': 'Не удалять WAV, сырой текст и другие временные файлы после пайплайна',
     'dubbing.adv.auto_open': 'Авто-открытие папки',
@@ -833,8 +857,9 @@ const translations: Record<Language, Record<string, string>> = {
     'cmd.search_commands': 'Поиск команд',
 
     // Dubbing
-    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
-
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=... или https://x.com/...',
+    'dubbing.tab_local': 'Локальный файл',
+    'dubbing.tab_youtube': 'YouTube / Web URL',
     // Theme labels
     'theme.light': 'Светлая',
     'theme.dark': 'Тёмная',
@@ -870,6 +895,17 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.deps_ollama_desc': 'Локальные AI-модели для перевода и чата',
     'frun.deps_ffmpeg': 'FFmpeg',
     'frun.deps_ffmpeg_desc': 'Обработка видео/аудио и сборка финального файла',
+    'dubbing.yt.auth_btn': '🔑 Авторизация YouTube (Для субтитров)',
+    'dubbing.yt.auth_btn_done': '✅ YouTube Авторизован',
+    'dubbing.yt.scan': 'Скан URL',
+    'dubbing.yt.scanning': 'Сканирование...',
+    'dubbing.yt.download_only': 'Скачать выбранное',
+    'dubbing.yt.download_mux': 'Скачать и собрать вместе',
+    'dubbing.yt.downloading': 'Скачивание...',
+    'dubbing.yt.subs': 'Субтитры',
+    'dubbing.yt.audio': 'Аудиодорожки',
+    'dubbing.yt.none': 'Не найдено',
+    'dubbing.yt.description': 'Вы можете скачать медиа или использовать этот URL для ИИ-Дубляжа.',
   },
   tr: {
     // Navigation
@@ -1096,6 +1132,12 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.adv.demucs_6s': '6-kaynaklı (en temiz vokal)',
     'dubbing.adv.export_srt': 'SRT\'yi Ayrı Kaydet',
     'dubbing.adv.export_srt_desc': 'Altyazı dosyalarını (.srt) video ile birlikte ayrı çıktı olarak kaydet',
+    'dubbing.adv.gender_ai': 'Yapay Zeka Cinsiyet Eşleştirme',
+    'dubbing.adv.gender_ai_desc': 'Orijinal konuşmacının cinsiyetini otomatik algıla ve TTS sesini eşleştir',
+    'dubbing.adv.yt_subs': 'YouTube Altyazılarını Kullan',
+    'dubbing.adv.yt_subs_desc': 'Whisper ile deşifre etmek yerine (varsa) orijinal YouTube altyazılarını tercih et',
+    'dubbing.adv.lip_sync': 'Yapay Zeka Dudak Senkronizasyonu',
+    'dubbing.adv.lip_sync_desc': 'Konuşmacının dudak hareketlerini yeni dublajlı ses ile senkronize et (yüksek GPU gücü gerektirir)',
     'dubbing.adv.keep_temp': 'Ara Dosyaları Sakla',
     'dubbing.adv.keep_temp_desc': 'WAV, ham metin ve diğer geçici dosyaları işlem tamamlandıktan sonra silme',
     'dubbing.adv.auto_open': 'Klasörü Otomatik Aç',
@@ -1272,8 +1314,9 @@ const translations: Record<Language, Record<string, string>> = {
     'cmd.search_commands': 'Komut ara',
 
     // Dubbing
-    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=...',
-
+    'dubbing.youtube_placeholder': 'https://youtube.com/watch?v=... veya https://x.com/...',
+    'dubbing.tab_local': 'Yerel Dosya',
+    'dubbing.tab_youtube': 'YouTube / Web URL',
     // Theme labels
     'theme.light': 'Açık',
     'theme.dark': 'Koyu',
@@ -1309,6 +1352,17 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.deps_ollama_desc': 'Çeviri ve sohbet için yerel YZ modelleri',
     'frun.deps_ffmpeg': 'FFmpeg',
     'frun.deps_ffmpeg_desc': 'Video/ses işleme ve son birleştirme',
+    'dubbing.yt.auth_btn': '🔑 YouTube Girişi (Altyazılar İçin)',
+    'dubbing.yt.auth_btn_done': '✅ YouTube Yetkilendirildi',
+    'dubbing.yt.scan': 'URL Tara',
+    'dubbing.yt.scanning': 'Taranıyor...',
+    'dubbing.yt.download_only': 'Sadece Seçilenleri İndir',
+    'dubbing.yt.download_mux': 'İndir ve Videoya Ekle',
+    'dubbing.yt.downloading': 'İndiriliyor...',
+    'dubbing.yt.subs': 'Mevcut Altyazılar',
+    'dubbing.yt.audio': 'Mevcut Ses Dosyaları',
+    'dubbing.yt.none': 'Bulunamadı',
+    'dubbing.yt.description': 'Medyayı indirebilir veya bu URL yi doğrudan Yapay Zeka Dublaj motoruna gönderebilirsiniz.',
   }
 };
 

@@ -122,13 +122,14 @@ except ImportError:
     OpenAI = None
 
 class Translator:
-    def __init__(self, engine_name, gemini_key="", deepseek_key="", deepl_key="", device="cpu", gguf_model_path=None):
+    def __init__(self, engine_name, gemini_key="", deepseek_key="", deepl_key="", device="cpu", gguf_model_path=None, translator_model="gemma4:e4b"):
         self.engine_name = engine_name
         self.gemini_key = gemini_key
         self.deepseek_key = deepseek_key
         self.deepl_key = deepl_key
         self.device = device
         self.gguf_model_path = gguf_model_path
+        self.translator_model = translator_model or "gemma4:e4b"
         self.qwen_model = None
         self.qwen_tokenizer = None
         self.llama_cpp_model = None
@@ -331,7 +332,7 @@ class Translator:
                 {"role": "user", "content": prompt},
             ]
 
-            models_to_try = ["gemma4:e4b"]
+            models_to_try = [self.translator_model]
             for model_name in models_to_try:
                 payload = json.dumps({
                     "model": model_name,
@@ -674,7 +675,7 @@ JSON:"""
             # ── Force-stop ALL running Ollama models to free CUDA memory ──
             try:
                 import subprocess as _sp
-                _sp.run(["ollama", "stop", "gemma4:e4b"],
+                _sp.run(["ollama", "stop", self.translator_model],
                     capture_output=True, timeout=10,
                     env=os.environ.copy())
             except Exception:

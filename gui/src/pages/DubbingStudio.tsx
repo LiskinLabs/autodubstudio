@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type DragEvent } from "react";
-import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner, TabList, Tab } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
@@ -27,7 +27,7 @@ interface Config {
   translatorModel: string; pipelineMode: PipelineMode;
   autoMux: boolean; voiceCloning: boolean; audioSeparation: boolean;
   exportSrt: boolean; keepIntermediate: boolean; autoOpenFolder: boolean;
-  demucsModel: string;
+  demucsModel: string; useGenderAI: boolean; useYoutubeSubs: boolean; useLipSync: boolean;
 }
 
 const PIPELINE_STEPS = ["source", "demucs", "whisper", "translate", "tts", "mux"] as const;
@@ -45,14 +45,14 @@ const LANG_T_KEY: Record<string, string> = {
 const LANGS = ["ru", "tr", "en", "es", "fr", "de", "ar", "zh", "ja", "ko", "it", "pt", "pl", "hi"];
 
 const TTS_BY_LANG: Record<string, string[]> = {
-  "ru": ["xttsv2", "f5-tts", "azure", "edge-tts"],
-  "en": ["xttsv2", "f5-tts", "azure", "edge-tts"],
-  "tr": ["xttsv2", "f5-tts", "azure", "edge-tts"],
+  "ru": ["xttsv2", "azure", "edge-tts"],
+  "en": ["xttsv2", "azure", "edge-tts"],
+  "tr": ["f5-tts", "xttsv2", "azure", "edge-tts"],
   "es": ["xttsv2", "azure", "edge-tts"],
   "fr": ["xttsv2", "azure", "edge-tts"],
   "de": ["xttsv2", "azure", "edge-tts"],
   "ar": ["xttsv2", "azure", "edge-tts"],
-  "zh": ["f5-tts", "azure", "edge-tts"],
+  "zh": ["xttsv2", "azure", "edge-tts"],
   "ja": ["azure", "edge-tts"], "ko": ["azure", "edge-tts"],
   "it": ["xttsv2", "azure", "edge-tts"], "pt": ["xttsv2", "azure", "edge-tts"],
   "pl": ["xttsv2", "azure", "edge-tts"], "hi": ["azure", "edge-tts"]
@@ -100,6 +100,7 @@ export default function DubbingStudio() {
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [sourceTab, setSourceTab] = useState<"local" | "youtube">("local");
   const [fileName, setFileName] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [editedSegments, setEditedSegments] = useState<any[]>([]);
@@ -137,7 +138,7 @@ export default function DubbingStudio() {
     translatorModel: "gemma2", pipelineMode: "automatic",
     autoMux: true, voiceCloning: true, audioSeparation: true,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
-    demucsModel: "htdemucs_ft",
+    demucsModel: "htdemucs_ft", useGenderAI: true, useYoutubeSubs: true, useLipSync: true,
   });
 
   useEffect(() => { checkConnection(); }, [checkConnection]);
@@ -146,6 +147,32 @@ export default function DubbingStudio() {
     const valid = TTS_BY_LANG[config.targetLanguage] || [];
     if (!valid.includes(config.voiceModel) && valid.length > 0) updateConfig("voiceModel", valid[0]);
   }, [config.targetLanguage, config.voiceModel]);
+
+  const [ytScanResult, setYtScanResult] = useState<any>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [selectedYtSubs, setSelectedYtSubs] = useState<string[]>([]);
+  const [selectedYtAudios, setSelectedYtAudios] = useState<string[]>([]);
+  const [isDownloadingYt, setIsDownloadingYt] = useState(false);
+  const [hasCookies, setHasCookies] = useState(false);
+
+  const checkCookies = useCallback(async () => {
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/youtube/has_cookies");
+      if (resp.ok) {
+        const data = await resp.json();
+        setHasCookies(data.has_cookies);
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => { checkCookies(); }, [checkCookies]);
+  
+  // Refresh cookie status periodically if not set
+  useEffect(() => {
+    if (hasCookies) return;
+    const interval = setInterval(checkCookies, 2000);
+    return () => clearInterval(interval);
+  }, [hasCookies, checkCookies]);
 
   useEffect(() => {
     if (config.translationEngine === "ollama" && ollamaModels.length > 0) {
@@ -169,6 +196,59 @@ export default function DubbingStudio() {
     try { const text = await navigator.clipboard.readText(); if (text) setYoutubeUrl(text); } catch {}
   }, []);
 
+  const handleScanYoutube = async () => {
+    if (!youtubeUrl) return;
+    setIsScanning(true);
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/youtube/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: youtubeUrl })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setYtScanResult(data);
+        setSelectedYtSubs([]);
+        setSelectedYtAudios([]);
+      } else {
+        notifyToast.error("Scan Failed");
+      }
+    } catch (e) {
+      notifyToast.error("Failed to connect to backend");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleDownloadYoutube = async (mux: boolean) => {
+    if (!youtubeUrl) return;
+    setIsDownloadingYt(true);
+    notifyToast.success("Starting download...");
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/youtube/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: youtubeUrl,
+          subtitle_langs: selectedYtSubs,
+          audio_format_ids: selectedYtAudios,
+          mux: mux
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        notifyToast.success("Download complete!", { description: `Saved to: ${data.folder}` });
+      } else {
+        const err = await resp.json();
+        notifyToast.error("Download Failed", { description: err.detail });
+      }
+    } catch (e) {
+      notifyToast.error("Backend Error");
+    } finally {
+      setIsDownloadingYt(false);
+    }
+  };
+
   const handleStart = useCallback(() => {
     if (!fileName && !youtubeUrl) return;
     if (!isConnected) {
@@ -188,8 +268,12 @@ export default function DubbingStudio() {
       manual_mode: config.pipelineMode === "manual",
       ui_language: lang || "ru",
       demucs_model: config.demucsModel,
+      use_gender_ai: config.useGenderAI,
+      use_youtube_subs: config.useYoutubeSubs,
+      translator_model: config.translatorModel,
+      lip_sync: config.useLipSync,
     });
-  }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog]);
+  }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog, lang]);
 
   const handleContinue = useCallback(() => {
     setPipelineState("running"); setActiveStep(5); setProgress(67);
@@ -198,7 +282,7 @@ export default function DubbingStudio() {
 
   const handleReset = useCallback(() => {
     setPipelineState("idle"); setActiveStep(0); setProgress(0); setFileName(""); setYoutubeUrl("");
-    setLogs([]); setEditedSegments([]); setOutputPath("");
+    setLogs([]); setEditedSegments([]); setOutputPath(""); setYtScanResult(null);
     // Сброс бекенда — индикаторы моделей станут серыми
     fetch("http://127.0.0.1:8000/api/pipeline/reset", { method: "POST" }).catch(() => {});
   }, []);
@@ -218,21 +302,103 @@ export default function DubbingStudio() {
       {/* Idle State */}
       {pipelineState === "idle" && (
         <>
-          {/* Drop Zone */}
-          <div className={`win11-dropzone${isDragging ? " drag-over" : ""}`}
-            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClick={handleSelectFile}>
-            <Film style={{ fontSize: 48, color: "var(--colorNeutralForeground3)", opacity: 0.4 }} />
-            <div className="font-semibold" style={{ fontSize: 16 }}>
-              {fileName ? <>{t("dubbing.file.selected")} <span style={{ color: "var(--colorBrandForeground1)" }}>{fileName}</span></> : t("dubbing.dropzone")}
-            </div>
-            <span className="text-xs" style={{ color: "var(--colorNeutralForeground3)" }}>{t("dubbing.supported")}</span>
-          </div>
+          {/* Source Selection Card */}
+          <div className="win11-card" style={{ marginBottom: 24, padding: "16px 20px" }}>
+            <TabList
+              selectedValue={sourceTab}
+              onTabSelect={(_, data) => setSourceTab(data.value as "local" | "youtube")}
+              style={{ marginBottom: 16 }}
+            >
+              <Tab value="local">{t("dubbing.tab_local")}</Tab>
+              <Tab value="youtube">{t("dubbing.tab_youtube")}</Tab>
+            </TabList>
 
-          {/* YouTube URL */}
-          <div className="flex gap-3" style={{ marginBottom: 24 }}>
-            <Input className="flex-1" placeholder={t("dubbing.youtube_placeholder")} value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)} size="large" />
-            <Button icon={<Clipboard />} onClick={handlePaste} size="large">{t("dubbing.btn.paste")}</Button>
+            {sourceTab === "local" ? (
+              <div className={`win11-dropzone${isDragging ? " drag-over" : ""}`}
+                onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClick={handleSelectFile}>
+                <Film style={{ fontSize: 48, color: "var(--colorNeutralForeground3)", opacity: 0.4 }} />
+                <div className="font-semibold" style={{ fontSize: 16 }}>
+                  {fileName ? <>{t("dubbing.file.selected")} <span style={{ color: "var(--colorBrandForeground1)" }}>{fileName}</span></> : t("dubbing.dropzone")}
+                </div>
+                <span className="text-xs" style={{ color: "var(--colorNeutralForeground3)" }}>{t("dubbing.supported")}</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div className="flex gap-3">
+                  <Input className="flex-1" placeholder={t("dubbing.youtube_placeholder")} value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)} size="large" />
+                  {youtubeUrl && (
+                    <Button onClick={handleScanYoutube} disabled={isScanning} size="large">
+                      {isScanning ? t("dubbing.yt.scanning") : t("dubbing.yt.scan")}
+                    </Button>
+                  )}
+                  <Button icon={<Clipboard />} onClick={handlePaste} size="large">{t("dubbing.btn.paste")}</Button>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--colorNeutralBackground2)", padding: "12px 16px", borderRadius: 8 }}>
+                  <div style={{ fontSize: 13, color: "var(--colorNeutralForeground2)" }}>
+                    {t("dubbing.yt.description")}
+                  </div>
+                  <Button onClick={async () => {
+                    try {
+                      const resp = await fetch("http://127.0.0.1:8000/api/youtube/login", { method: "POST" });
+                      const data = await resp.json();
+                      notifyToast.success("Browser opened", { description: data.message });
+                    } catch (e) {
+                      notifyToast.error("Failed to open browser");
+                    }
+                  }} size="small" style={{ background: hasCookies ? "rgba(0,255,0,0.1)" : "rgba(255,0,0,0.2)", border: hasCookies ? "1px solid rgba(0,255,0,0.4)" : "1px solid rgba(255,0,0,0.4)" }}>
+                    {hasCookies ? t("dubbing.yt.auth_btn_done") : t("dubbing.yt.auth_btn")}
+                  </Button>
+                </div>
+
+                {ytScanResult && (
+                  <div style={{ marginTop: 8, padding: 16, background: "rgba(30,30,30,0.4)", borderRadius: 8, border: "1px solid var(--colorNeutralStroke1)" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                      <Film /> {ytScanResult.title}
+                    </h3>
+                    
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                      <div>
+                        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--colorNeutralForeground2)" }}>{t("dubbing.yt.subs")}</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", paddingRight: 8 }}>
+                          {ytScanResult.subtitles.length === 0 ? <span style={{ fontSize: 12 }}>{t("dubbing.yt.none")}</span> : ytScanResult.subtitles.map((sub: any) => (
+                            <label key={sub.lang} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                              <input type="checkbox" checked={selectedYtSubs.includes(sub.lang)}
+                                onChange={(e) => setSelectedYtSubs(prev => e.target.checked ? [...prev, sub.lang] : prev.filter(l => l !== sub.lang))} />
+                              {sub.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--colorNeutralForeground2)" }}>{t("dubbing.yt.audio")}</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", paddingRight: 8 }}>
+                          {ytScanResult.audio_tracks.length === 0 ? <span style={{ fontSize: 12 }}>{t("dubbing.yt.none")}</span> : ytScanResult.audio_tracks.map((trk: any) => (
+                            <label key={trk.format_id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                              <input type="checkbox" checked={selectedYtAudios.includes(trk.format_id)}
+                                onChange={(e) => setSelectedYtAudios(prev => e.target.checked ? [...prev, trk.format_id] : prev.filter(l => l !== trk.format_id))} />
+                              {trk.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 16 }}>
+                      <Button disabled={isDownloadingYt || (selectedYtSubs.length === 0 && selectedYtAudios.length === 0)}
+                        onClick={() => handleDownloadYoutube(false)}>
+                        {isDownloadingYt ? t("dubbing.yt.downloading") : t("dubbing.yt.download_only")}
+                      </Button>
+                      <Button appearance="primary" disabled={isDownloadingYt || (selectedYtSubs.length === 0 && selectedYtAudios.length === 0)}
+                        onClick={() => handleDownloadYoutube(true)}>
+                        {isDownloadingYt ? t("dubbing.yt.downloading") : t("dubbing.yt.download_mux")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Configuration Card */}
@@ -325,6 +491,24 @@ export default function DubbingStudio() {
               </div>
               <div className="win11-form-row">
                 <div className="win11-form-label">
+                  <div className="win11-form-label-text">{t("dubbing.adv.gender_ai")}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.gender_ai_desc")}</div>
+                </div>
+                <div className="win11-form-control">
+                  <Switch checked={config.useGenderAI} onChange={(_, data) => updateConfig("useGenderAI", data.checked)} />
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
+                  <div className="win11-form-label-text">{t("dubbing.adv.yt_subs")}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.yt_subs_desc")}</div>
+                </div>
+                <div className="win11-form-control">
+                  <Switch checked={config.useYoutubeSubs} onChange={(_, data) => updateConfig("useYoutubeSubs", data.checked)} />
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
                   <div className="win11-form-label-text">{t("dubbing.adv.demucs")}</div>
                   <div className="win11-form-label-desc">{t("dubbing.adv.demucs_desc")}</div>
                 </div>
@@ -338,6 +522,15 @@ export default function DubbingStudio() {
                       <option value="htdemucs_6s">htdemucs_6s — {t("dubbing.adv.demucs_6s")}</option>
                     </Select>
                   )}
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
+                  <div className="win11-form-label-text">{t("dubbing.adv.lip_sync")}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.lip_sync_desc")}</div>
+                </div>
+                <div className="win11-form-control">
+                  <Switch checked={config.useLipSync} onChange={(_, data) => updateConfig("useLipSync", data.checked)} />
                 </div>
               </div>
               <div className="win11-form-row">

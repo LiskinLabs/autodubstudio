@@ -300,7 +300,7 @@ class InterruptedError(Exception):
     pass
 
 class AutoDubWorker(threading.Thread):
-    def __init__(self, video_path=None, out_dir=None, langs=None, model_size=None, device=None, translator_engine=None, gemini_key="", deepseek_key="", deepl_key="", dub_engine="", hf_key="", manual_mode=False):
+    def __init__(self, video_path=None, out_dir=None, langs=None, model_size=None, device=None, translator_engine=None, gemini_key="", deepseek_key="", deepl_key="", dub_engine="", hf_key="", manual_mode=False, translator_model="gemma4:e4b"):
         super().__init__()
         self.progress_signal = EventSignal()
         self.log_signal = EventSignal()
@@ -369,6 +369,7 @@ class AutoDubWorker(threading.Thread):
             self.model_size = cfg.get("whisper_model", "large-v3")
             self.device = cfg.get("device", "cpu")
             self.translator_engine = cfg.get("translation_engine", "Google Translate (Free)")
+            self.translator_model = cfg.get("translator_model", "gemma4:e4b")
             self.gemini_key = cfg.get("gemini_key", "")
             self.deepseek_key = cfg.get("deepseek_key", "")
             self.deepl_key = cfg.get("deepl_key", "")
@@ -379,6 +380,8 @@ class AutoDubWorker(threading.Thread):
             self.tag = cfg.get("tag", "")
             self.demucs_model = cfg.get("demucs_model", "htdemucs_ft")
             self.ui_language = cfg.get("ui_language", "ru")
+            self.use_gender_ai = cfg.get("use_gender_ai", True)
+            self.use_youtube_subs = cfg.get("use_youtube_subs", True)
         else:
             self.video_path = video_path
             # ── Reject URL-like out_dir even in positional mode ──
@@ -386,6 +389,11 @@ class AutoDubWorker(threading.Thread):
                 print(f"[SECURITY] Blocked URL as out_dir (positional): {out_dir}")
                 out_dir = os.path.join(os.getcwd(), "downloads")
             self.out_dir = out_dir
+            self.lip_sync = False
+            self.tag = ""
+            self.demucs_model = "htdemucs_ft"
+            self.use_gender_ai = True
+            self.use_youtube_subs = True
             self.ui_language = "ru"
             self.langs = langs
             self.model_size = model_size
@@ -397,9 +405,10 @@ class AutoDubWorker(threading.Thread):
             self.dub_engine = dub_engine
             self.hf_key = hf_key
             self.manual_mode = manual_mode
+            self.translator_model = translator_model
             self.lip_sync = False
 
-        self.translator = Translator(self.translator_engine, self.gemini_key, self.deepseek_key, self.deepl_key, self.device)
+        self.translator = Translator(self.translator_engine, self.gemini_key, self.deepseek_key, self.deepl_key, self.device, translator_model=self.translator_model)
 
         self.pause_event = threading.Event()
         self.edited_segments = None
@@ -417,8 +426,7 @@ class AutoDubWorker(threading.Thread):
 
     def _run_subprocess(self, cmd, **kwargs):
         check = kwargs.pop("check", False)
-        timeout = kwargs.pop("timeout", None)  # Popped — handled via polling loop below
-        _ = timeout  # timeout is used implicitly via process.wait(timeout=0.5) polling
+        timeout = kwargs.pop("timeout", None)
 
         # ── Security: don't leak API keys to child processes ──
         if "env" not in kwargs:
@@ -451,10 +459,17 @@ class AutoDubWorker(threading.Thread):
             reader_thread = threading.Thread(target=_read_output, args=(process.stdout,), daemon=True)
             reader_thread.start()
 
+        import time
+        start_time = time.time()
+
         while process.poll() is None:
             if self._stop_event.is_set():
                 try: process.terminate()
                 except: pass
+            if timeout is not None and (time.time() - start_time) > timeout:
+                try: process.kill()
+                except: pass
+                raise subprocess.TimeoutExpired(cmd, timeout)
             try:
                 process.wait(timeout=0.5)
             except subprocess.TimeoutExpired:
@@ -513,17 +528,42 @@ class AutoDubWorker(threading.Thread):
             'outtmpl': os.path.join(out_dir, '%(title)s.%(ext)s'),
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'merge_output_format': 'mp4',
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['ru', 'en'],
             'quiet': True,
             'no_warnings': True,
+            'postprocessors': [{
+                'key': 'FFmpegSubtitlesConvertor',
+                'format': 'srt',
+            }],
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filepath = ydl.prepare_filename(info)
-            if not filepath.endswith('.mp4'):
-                filepath = filepath.rsplit('.', 1)[0] + '.mp4'
-            if os.path.exists(filepath):
-                self.log_signal.emit(_pipeline_t("downloaded", self.ui_language, name=os.path.basename(filepath)))
-                return filepath
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filepath = ydl.prepare_filename(info)
+                if not filepath.endswith('.mp4'):
+                    filepath = filepath.rsplit('.', 1)[0] + '.mp4'
+                if os.path.exists(filepath):
+                    self.log_signal.emit(_pipeline_t("downloaded", self.ui_language, name=os.path.basename(filepath)))
+                    return filepath
+        except yt_dlp.utils.DownloadError as e:
+            if "Too Many Requests" in str(e) or "HTTP Error 429" in str(e) or "subtitles" in str(e).lower():
+                self.log_signal.emit(f"⚠️ YouTube rate limited subtitles (HTTP 429). Retrying without subtitles (will use Whisper instead)...")
+                # Fallback: Disable subtitle download and try again
+                ydl_opts['writesubtitles'] = False
+                ydl_opts['writeautomaticsub'] = False
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl_fallback:
+                    info = ydl_fallback.extract_info(url, download=True)
+                    filepath = ydl_fallback.prepare_filename(info)
+                    if not filepath.endswith('.mp4'):
+                        filepath = filepath.rsplit('.', 1)[0] + '.mp4'
+                    if os.path.exists(filepath):
+                        self.log_signal.emit(_pipeline_t("downloaded", self.ui_language, name=os.path.basename(filepath)))
+                        return filepath
+            else:
+                raise e
+            
         raise RuntimeError(f"Failed to download: {url}")
 
     def _check_cancelled(self):
@@ -733,8 +773,30 @@ class AutoDubWorker(threading.Thread):
             _set_model_status("whisper", "running")
             source_lang = "en"  # default, переопределяется из Whisper если запущен
             segments = _load_checkpoint("segments")
+            if not segments and self.use_youtube_subs:
+                import glob
+                srt_files = glob.glob(os.path.join(self.out_dir, "*.srt"))
+                if srt_files:
+                    srt_files.sort(key=lambda x: ("ru" not in x, "en" not in x))
+                    try:
+                        import pysrt
+                        import re
+                        subs = pysrt.open(srt_files[0])
+                        for sub in subs:
+                            start_s = sub.start.ordinal / 1000.0
+                            end_s = sub.end.ordinal / 1000.0
+                            text = re.sub(r'<[^>]+>', '', sub.text.replace("\n", " ")).strip()
+                            if text:
+                                segments.append({"start": start_s, "end": end_s, "text": text, "speaker": "SPEAKER_00"})
+                        if segments:
+                            self.log_signal.emit(f"  > Loaded {len(segments)} segments from YouTube Subtitles ({os.path.basename(srt_files[0])}).")
+                    except Exception as e:
+                        self.log_signal.emit(f"  ⚠ Failed to parse YouTube SRT: {e}")
+                        segments = []
+
             if segments:
                 self.log_signal.emit(_pipeline_t("segments_from_cache", self.ui_language, n=len(segments)))
+                _save_checkpoint("segments", segments)
             else:
                 self.log_signal.emit(_pipeline_t("whisper_loading", self.ui_language, model=self.model_size, device=self.device))
                 # ── Run Whisper in subprocess for guaranteed VRAM cleanup ──
@@ -843,6 +905,17 @@ class AutoDubWorker(threading.Thread):
                 _set_pipeline_step("translate", 3)
                 _set_model_status("translate", "running")
                 _set_engine_info("translate", getattr(self, "translator_engine", ""))
+                
+                # ── VRAM cleanup before loading LLMs ──
+                try:
+                    import gc
+                    import torch
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                except Exception:
+                    pass
                 self.log_signal.emit(_pipeline_t("processing_lang", self.ui_language, lang=lang))
                 srt_path = os.path.join(self.out_dir, f"{base_name}_{lang}.srt")
                 all_created_files.append(srt_path)
@@ -951,6 +1024,36 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(ref_path)
                         self.log_signal.emit(f"  > Ref {spk}: {ref['wps']:.1f} wps, {ref['dur']:.1f}s, score={ref['score']:.2f}")
 
+                    # --- Local AI Gender Detection ---
+                    if self.use_gender_ai:
+                        self.log_signal.emit(_pipeline_t("processing_lang", self.ui_language, lang="Gender AI") + " [Local Audio Classification]")
+                        try:
+                            gender_tasks = [{"speaker_id": spk, "audio_path": ref["path"]} for spk, ref in speaker_refs.items()]
+                            if gender_tasks:
+                                gender_tasks_file = os.path.join(self.out_dir, "gender_tasks.json")
+                                gender_out_file = os.path.join(self.out_dir, "gender_out.json")
+                                import json
+                                with open(gender_tasks_file, "w", encoding="utf-8") as f:
+                                    json.dump(gender_tasks, f)
+                                
+                                gender_py = _resolve_venv_python(".venv")
+                                gender_script = os.path.join(os.path.dirname(__file__), "gender_worker.py")
+                                self._run_subprocess([gender_py, gender_script, gender_tasks_file, gender_out_file], check=True, timeout=300)
+                                
+                                with open(gender_out_file, "r", encoding="utf-8") as f:
+                                    gender_results = json.load(f)
+                                    
+                                for spk, gen in gender_results.items():
+                                    speaker_refs[spk]["gender"] = gen
+                                    self.log_signal.emit(f"    - {spk}: {gen.upper()}")
+                                    # Update segments with detected gender
+                                    for tseg_tuple in tts_segments:
+                                        tseg = tseg_tuple[1]
+                                        if tseg.get("speaker", "SPEAKER_00") == spk:
+                                            tseg["gender"] = gen
+                        except Exception as e:
+                            self.log_signal.emit(f"  ⚠ Gender AI Error (Fallback to unknown): {e}")
+
                 if use_f5 or use_f5_onnx or use_xtts:
                     tasks = []
                     for idx, tseg, clip_path in tts_segments:
@@ -967,34 +1070,18 @@ class AutoDubWorker(threading.Thread):
                         if use_f5:
                             f5_py = _resolve_venv_python(".venv-f5")
                             f5_worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
-                            self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True)
-                        elif use_f5_onnx:
-                            onnx_py = _resolve_venv_python(".venv")
-                            onnx_worker = os.path.join(os.path.dirname(__file__), "f5_onnx_worker.py")
-                            self._run_subprocess([onnx_py, onnx_worker, tasks_file], check=True)
+                            try:
+                                self._run_subprocess([f5_py, f5_worker_script, tasks_file], check=True, timeout=900)
+                            except Exception as e:
+                                self.log_signal.emit(f"  ⚠ F5-TTS failed or timed out: {e}. Falling back to XTTSv2...")
+                                xtts_py = _resolve_venv_python(".venv-xtts")
+                                xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
+                                self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=900)
                         else:
                             xtts_py = _resolve_venv_python(".venv-xtts")
                             xtts_worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
-                            self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True)
+                            self._run_subprocess([xtts_py, xtts_worker_script, tasks_file], check=True, timeout=900)
 
-                        all_created_files.append(tasks_file)
-
-                elif use_qwen:
-                    tasks = []
-                    for idx, tseg, clip_path in tts_segments:
-                        tasks.append({"gen_text": tseg["text"], "out_path": clip_path})
-                        audio_clips.append((tseg["start"], clip_path, False, tseg))
-
-                    if tasks:
-                        tasks_file = os.path.join(self.out_dir, f"tasks_qwen_{lang}.json")
-                        import json
-                        with open(tasks_file, "w", encoding="utf-8") as f: json.dump(tasks, f)
-
-                        qwen_py = _resolve_venv_python(".venv-qwen3-tts")
-                        qwen_worker_script = os.path.join(os.path.dirname(__file__), "qwen3_worker.py")
-                        lang_map = {"ru": "Russian", "en": "English", "tr": "Turkish"}
-                        qwen_lang = lang_map.get(lang, "Russian")
-                        self._run_subprocess([qwen_py, qwen_worker_script, tasks_file, "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", qwen_lang, "Vivian"], check=True)
                         all_created_files.append(tasks_file)
 
                 else: # Edge-TTS
@@ -1020,8 +1107,8 @@ class AutoDubWorker(threading.Thread):
                         "pl": "pl-PL-AgnieszkaNeural",   "hi": "hi-IN-SwaraNeural",
                     }
 
-                    # Выбор голоса: мужской по умолчанию для языка
-                    voice = EDGE_VOICES_MALE.get(lang, "en-US-ChristopherNeural")
+                    # Выбор голоса по умолчанию
+                    default_voice = EDGE_VOICES_MALE.get(lang, "en-US-ChristopherNeural")
 
                     if tts_segments:
                         self.log_signal.emit(_pipeline_t("tts_edge_start", self.ui_language, n=len(tts_segments)))
@@ -1043,45 +1130,55 @@ class AutoDubWorker(threading.Thread):
                                 return True  # Empty = break
                             if len(t) < 3:
                                 return False  # Too short to determine, keep grouping
-                            # Check multi-char endings first
                             if any(t.endswith(c) for c in SENTENCE_END_2):
                                 return True
-                            # Check single-char endings
                             if t[-1] in SENTENCE_END:
                                 return True
                             return False
 
-                        groups = []  # [(group_segments, combined_text)]
+                        groups = []  # [(group_segments, voice)]
                         cur_group = []
                         cur_chars = 0
+                        cur_voice = None
                         MAX_SEGMENTS = 6     # Max segments per TTS group
                         MAX_CHARS = 400       # Max total characters per group (~30 sec of speech)
 
                         for _, tseg, clip_path in tts_segments:
+                            gender = tseg.get("gender", "unknown")
+                            if gender == "female":
+                                seg_voice = EDGE_VOICES_FEMALE.get(lang, "en-US-AriaNeural")
+                            elif gender == "male":
+                                seg_voice = EDGE_VOICES_MALE.get(lang, "en-US-ChristopherNeural")
+                            else:
+                                seg_voice = default_voice
+
                             seg_chars = len(tseg["text"].strip())
-                            # Force break if adding this segment would exceed limits
+                            
+                            # Force break if voice changes or limits exceeded
                             if cur_group and (
+                                cur_voice != seg_voice or
                                 len(cur_group) >= MAX_SEGMENTS or
                                 cur_chars + seg_chars > MAX_CHARS
                             ):
-                                groups.append(cur_group)
+                                groups.append((cur_group, cur_voice))
                                 cur_group = []
                                 cur_chars = 0
+                                
                             cur_group.append((tseg, clip_path))
                             cur_chars += seg_chars
+                            cur_voice = seg_voice
+                            
                             # Natural break at sentence end
                             if _ends_sentence(tseg["text"]):
-                                groups.append(cur_group)
+                                groups.append((cur_group, cur_voice))
                                 cur_group = []
                                 cur_chars = 0
+                                
                         if cur_group:
-                            if groups:
-                                groups[-1].extend(cur_group)
-                            else:
-                                groups.append(cur_group)
+                            groups.append((cur_group, cur_voice))
 
                         async def gen_all_groups():
-                            for gi, group in enumerate(groups):
+                            for gi, (group, group_voice) in enumerate(groups):
                                 self._check_cancelled()
                                 parts = []
                                 for tseg, _ in group:
@@ -1093,7 +1190,7 @@ class AutoDubWorker(threading.Thread):
                                 group_path = os.path.join(self.out_dir, f"temp_{lang}_group{gi}.mp3")
                                 all_created_files.append(group_path)
                                 self.log_signal.emit(_pipeline_t("tts_group_progress", self.ui_language, gi=gi+1, total=len(groups), n=len(group), chars=len(group_text)))
-                                await edge_tts.Communicate(group_text, voice).save(group_path)
+                                await edge_tts.Communicate(group_text, group_voice).save(group_path)
                                 # Split back to segments
                                 group_audio = AudioSegment.from_file(group_path)
                                 total_chars = max(1, sum(len(s[0]["text"].strip()) for s in group))
@@ -1117,20 +1214,31 @@ class AutoDubWorker(threading.Thread):
                         clip = AudioSegment.from_file(cp)
                         allowed_dur = tseg["end"] - tseg["start"]
                         actual_dur = len(clip) / 1000.0
-                        if actual_dur > allowed_dur + 0.1 and not tseg.get("skip_dub", False):
-                            speed_factor = min(4.0, actual_dur / allowed_dur)
-                            stretched_cp = cp + "_fast.wav"
-                            remaining = speed_factor
-                            atempo_filters = []
-                            while remaining > 2.0:
-                                atempo_filters.append("atempo=2.0")
-                                remaining /= 2.0
-                            if remaining > 1.0 or not atempo_filters:
-                                atempo_filters.append(f"atempo={remaining:.4f}")
-                            filter_chain = ",".join(atempo_filters)
-                            self._run_subprocess(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                            clip = AudioSegment.from_file(stretched_cp)
-                            all_created_files.append(stretched_cp)
+                        if not tseg.get("skip_dub", False):
+                            speed_factor = actual_dur / max(allowed_dur, 0.1)
+                            # Always speed up if too long (>1.05x). If lip_sync is ON, also slow down if too short (<0.95x)
+                            if (speed_factor > 1.05) or (self.lip_sync and speed_factor < 0.95):
+                                # Limit max speedup to 4.0 and max slowdown to 0.5 to avoid extreme artifacts
+                                speed_factor = max(0.5, min(4.0, speed_factor))
+                                stretched_cp = cp + "_sync.wav"
+                                remaining = speed_factor
+                                atempo_filters = []
+                                if remaining >= 1.0:
+                                    while remaining > 2.0:
+                                        atempo_filters.append("atempo=2.0")
+                                        remaining /= 2.0
+                                    if remaining > 1.0 or not atempo_filters:
+                                        atempo_filters.append(f"atempo={remaining:.4f}")
+                                else:
+                                    while remaining < 0.5:
+                                        atempo_filters.append("atempo=0.5")
+                                        remaining /= 0.5
+                                    if remaining < 1.0 or not atempo_filters:
+                                        atempo_filters.append(f"atempo={remaining:.4f}")
+                                filter_chain = ",".join(atempo_filters)
+                                self._run_subprocess(["ffmpeg", "-y", "-i", cp, "-filter:a", filter_chain, stretched_cp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                clip = AudioSegment.from_file(stretched_cp)
+                                all_created_files.append(stretched_cp)
                         # Смягчаем границы: fade-in/out по 50ms — плавные переходы без обрывов
                         clip = clip.fade_in(50).fade_out(50)
                         tts_only = tts_only.overlay(clip, position=int(start_t * 1000))
