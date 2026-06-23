@@ -39,8 +39,21 @@ jobs:
         with:
           username: ${{ secrets.ESIGNER_USERNAME }}
           password: ${{ secrets.ESIGNER_PASSWORD }}
-          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+          environment_name: PROD
+
+      - name: Add signtool to PATH
+        run: |
+          $windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName -match "x64" }
+          if ($signtoolPaths.Count -gt 0) {
+              $signtoolDir = $signtoolPaths[0].DirectoryName
+              Write-Host "Found signtool at $signtoolDir"
+              echo "$signtoolDir" >> $env:GITHUB_PATH
+          } else {
+              Write-Error "signtool.exe not found"
+          }
 
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
