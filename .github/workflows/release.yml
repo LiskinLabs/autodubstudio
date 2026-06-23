@@ -29,6 +29,11 @@ jobs:
       # OR sign the binaries locally and upload them manually.
       # If you use SSL.com eSigner, uncomment and configure this block:
       # ==============================================================
+      - name: Create dummy resource files
+        run: |
+          echo "{}" > config.json
+          echo "" > github_token.txt
+
       - name: Setup eSigner CKA
         uses: SSLcom/esigner-codesign@v1.3.2
         with:
