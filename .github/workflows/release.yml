@@ -48,18 +48,16 @@ jobs:
 
       - name: Get Credential ID
         id: get_cred
-        shell: cmd
+        shell: pwsh
         run: |
-          curl -L -o CodeSignTool.zip https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip
-          mkdir CodeSignTool
-          tar -xf CodeSignTool.zip -C CodeSignTool
-          cd CodeSignTool
-          for /f "tokens=*" %%i in ('CodeSignTool.bat get_credential_ids -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" ^| findstr /C:"Credential ID"') do set CRED_OUTPUT=%%i
-          echo CRED_OUTPUT is %CRED_OUTPUT%
-          for /f "tokens=2 delims=:" %%a in ("%CRED_OUTPUT%") do set CRED_ID=%%a
-          set CRED_ID=%CRED_ID: =%
-          echo Found Credential ID: %CRED_ID%
-          echo CREDENTIAL_ID=%CRED_ID%>> %GITHUB_OUTPUT%
+          curl.exe -L -o CodeSignTool.zip https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip
+          Expand-Archive -LiteralPath CodeSignTool.zip -DestinationPath CodeSignTool -Force
+          Set-Location CodeSignTool
+          $output = .\CodeSignTool.bat get_credential_ids -username="$env:ESIGNER_USERNAME" -password="$env:ESIGNER_PASSWORD"
+          Write-Output "CodeSignTool Output: $output"
+          $credId = $output | Select-String -Pattern "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" | ForEach-Object { $_.Matches.Value } | Select-Object -First 1
+          Write-Output "Found Credential ID: $credId"
+          Write-Output "CREDENTIAL_ID=$credId" >> $env:GITHUB_OUTPUT
         env:
           ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
           ESIGNER_PASSWORD: ${{ secrets.ESIGNER_PASSWORD }}
