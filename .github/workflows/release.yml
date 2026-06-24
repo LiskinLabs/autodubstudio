@@ -54,6 +54,16 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
+      - name: Inject signCommand with absolute path
+        shell: powershell
+        run: |
+          $tauriPath = "gui/src-tauri/tauri.conf.json"
+          $tauri = Get-Content $tauriPath | ConvertFrom-Json
+          $scriptPath = (Resolve-Path ".github/scripts/sign.ps1").Path
+          $tauri.bundle.windows.signCommand = "powershell.exe -ExecutionPolicy Bypass -File `"$scriptPath`" `"%1`""
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
+          Write-Host "Injected signCommand: $($tauri.bundle.windows.signCommand)"
+
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
