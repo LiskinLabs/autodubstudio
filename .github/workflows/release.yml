@@ -54,6 +54,11 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
+      - name: Test signtool
+        run: |
+          echo "Write-Host 'Test'" > test.ps1
+          signtool sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n "Silvestr Liskin" test.ps1 || echo "Test sign failed, but continuing..."
+
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
         env:

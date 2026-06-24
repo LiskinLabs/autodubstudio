@@ -1,0 +1,1080 @@
+build	UNKNOWN STEP	﻿2026-06-24T00:00:01.4792931Z Current runner version: '2.335.1'
+build	UNKNOWN STEP	2026-06-24T00:00:01.4819299Z ##[group]Runner Image Provisioner
+build	UNKNOWN STEP	2026-06-24T00:00:01.4820653Z Hosted Compute Agent
+build	UNKNOWN STEP	2026-06-24T00:00:01.4821307Z Version: 20260611.554
+build	UNKNOWN STEP	2026-06-24T00:00:01.4821957Z Commit: 5e0782fdc9014723d3be820dd114dd31555c2bd1
+build	UNKNOWN STEP	2026-06-24T00:00:01.4822986Z Build Date: 2026-06-11T21:40:46Z
+build	UNKNOWN STEP	2026-06-24T00:00:01.4824445Z Worker ID: {2a0e1dd5-0772-4775-8328-a085e207b9b5}
+build	UNKNOWN STEP	2026-06-24T00:00:01.4825430Z Azure Region: westus
+build	UNKNOWN STEP	2026-06-24T00:00:01.4826058Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:01.4827556Z ##[group]Operating System
+build	UNKNOWN STEP	2026-06-24T00:00:01.4828289Z Microsoft Windows Server 2025
+build	UNKNOWN STEP	2026-06-24T00:00:01.4828909Z 10.0.26100
+build	UNKNOWN STEP	2026-06-24T00:00:01.4829771Z Datacenter
+build	UNKNOWN STEP	2026-06-24T00:00:01.4830323Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:01.4830896Z ##[group]Runner Image
+build	UNKNOWN STEP	2026-06-24T00:00:01.4831518Z Image: windows-2025-vs2026
+build	UNKNOWN STEP	2026-06-24T00:00:01.4832114Z Version: 20260614.141.1
+build	UNKNOWN STEP	2026-06-24T00:00:01.4833516Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260614.141/images/windows/Windows2025-VS2026-Readme.md
+build	UNKNOWN STEP	2026-06-24T00:00:01.4835248Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260614.141
+build	UNKNOWN STEP	2026-06-24T00:00:01.4836262Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:01.4837452Z ##[group]GITHUB_TOKEN Permissions
+build	UNKNOWN STEP	2026-06-24T00:00:01.4839531Z Contents: read
+build	UNKNOWN STEP	2026-06-24T00:00:01.4840171Z Metadata: read
+build	UNKNOWN STEP	2026-06-24T00:00:01.4841198Z Packages: read
+build	UNKNOWN STEP	2026-06-24T00:00:01.4841884Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:01.4844472Z Secret source: Actions
+build	UNKNOWN STEP	2026-06-24T00:00:01.4845805Z Prepare workflow directory
+build	UNKNOWN STEP	2026-06-24T00:00:01.5225672Z Prepare all required actions
+build	UNKNOWN STEP	2026-06-24T00:00:01.5284262Z Getting action download info
+build	UNKNOWN STEP	2026-06-24T00:00:01.9181003Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+build	UNKNOWN STEP	2026-06-24T00:00:02.0612249Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+build	UNKNOWN STEP	2026-06-24T00:00:02.2358915Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:29eef336d9b2848a0b548edc03f92a220660cdb8)
+build	UNKNOWN STEP	2026-06-24T00:00:02.4900102Z Download action repository 'anatawa12/setup-eSigner-CKA@v1' (SHA:3cb974b12fb7b56945756850ede8322383e1438b)
+build	UNKNOWN STEP	2026-06-24T00:00:03.0382966Z Download action repository 'tauri-apps/tauri-action@v0' (SHA:84b9d35b5fc46c1e45415bdb6144030364f7ebc5)
+build	UNKNOWN STEP	2026-06-24T00:00:04.0592849Z Complete job name: build
+build	UNKNOWN STEP	2026-06-24T00:00:04.2530033Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-06-24T00:00:04.2540654Z ##[group]Run actions/checkout@v4
+build	UNKNOWN STEP	2026-06-24T00:00:04.2541327Z with:
+build	UNKNOWN STEP	2026-06-24T00:00:04.2541797Z   repository: ***/autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:04.2545605Z   token: ***
+build	UNKNOWN STEP	2026-06-24T00:00:04.2546392Z   ssh-strict: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2547290Z   ssh-user: git
+build	UNKNOWN STEP	2026-06-24T00:00:04.2547661Z   persist-credentials: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2548038Z   clean: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2548385Z   sparse-checkout-cone-mode: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2548780Z   fetch-depth: 1
+build	UNKNOWN STEP	2026-06-24T00:00:04.2549111Z   fetch-tags: false
+build	UNKNOWN STEP	2026-06-24T00:00:04.2549442Z   show-progress: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2549775Z   lfs: false
+build	UNKNOWN STEP	2026-06-24T00:00:04.2550127Z   submodules: false
+build	UNKNOWN STEP	2026-06-24T00:00:04.2550467Z   set-safe-directory: true
+build	UNKNOWN STEP	2026-06-24T00:00:04.2551204Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:04.4165118Z Syncing repository: ***/autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:04.4166773Z ##[group]Getting Git version info
+build	UNKNOWN STEP	2026-06-24T00:00:04.4167296Z Working directory is 'D:\a\autodubstudio\autodubstudio'
+build	UNKNOWN STEP	2026-06-24T00:00:04.5129806Z [command]"C:\Program Files\Git\bin\git.exe" version
+build	UNKNOWN STEP	2026-06-24T00:00:04.8745863Z git version 2.54.0.windows.1
+build	UNKNOWN STEP	2026-06-24T00:00:04.8795447Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:04.8816199Z Temporarily overriding HOME='D:\a\_temp\d588c94b-12c3-46f8-8b67-455e45c0f2d6' before making global git config changes
+build	UNKNOWN STEP	2026-06-24T00:00:04.8821109Z Adding repository directory to the temporary git global config as a safe directory
+build	UNKNOWN STEP	2026-06-24T00:00:04.8829215Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\autodubstudio\autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:04.9141101Z Deleting the contents of 'D:\a\autodubstudio\autodubstudio'
+build	UNKNOWN STEP	2026-06-24T00:00:04.9147442Z ##[group]Initializing the repository
+build	UNKNOWN STEP	2026-06-24T00:00:04.9157286Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\autodubstudio\autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:04.9994080Z Initialized empty Git repository in D:/a/autodubstudio/autodubstudio/.git/
+build	UNKNOWN STEP	2026-06-24T00:00:05.0042037Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/***/autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:05.0360354Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:05.0361033Z ##[group]Disabling automatic garbage collection
+build	UNKNOWN STEP	2026-06-24T00:00:05.0370416Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+build	UNKNOWN STEP	2026-06-24T00:00:05.0673353Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:05.0673965Z ##[group]Setting up auth
+build	UNKNOWN STEP	2026-06-24T00:00:05.0686521Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build	UNKNOWN STEP	2026-06-24T00:00:05.0992343Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build	UNKNOWN STEP	2026-06-24T00:00:06.5709132Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	UNKNOWN STEP	2026-06-24T00:00:06.6017069Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build	UNKNOWN STEP	2026-06-24T00:00:07.1635069Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	UNKNOWN STEP	2026-06-24T00:00:07.1945687Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build	UNKNOWN STEP	2026-06-24T00:00:07.7289270Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+build	UNKNOWN STEP	2026-06-24T00:00:07.7622119Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:07.7623050Z ##[group]Fetching the repository
+build	UNKNOWN STEP	2026-06-24T00:00:07.7633524Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8ea0503c02c66c4bbc12a6be35c2609af88f7113:refs/tags/v0.1.4
+build	UNKNOWN STEP	2026-06-24T00:00:08.6604047Z From https://github.com/***/autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:00:08.6604914Z  * [new ref]         8ea0503c02c66c4bbc12a6be35c2609af88f7113 -> v0.1.4
+build	UNKNOWN STEP	2026-06-24T00:00:08.6808606Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:08.6809276Z ##[group]Determining the checkout info
+build	UNKNOWN STEP	2026-06-24T00:00:08.6811327Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:08.6825789Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+build	UNKNOWN STEP	2026-06-24T00:00:08.7172936Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+build	UNKNOWN STEP	2026-06-24T00:00:08.7488623Z ##[group]Checking out the ref
+build	UNKNOWN STEP	2026-06-24T00:00:08.7498825Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/tags/v0.1.4
+build	UNKNOWN STEP	2026-06-24T00:00:08.8245991Z Note: switching to 'refs/tags/v0.1.4'.
+build	UNKNOWN STEP	2026-06-24T00:00:08.8246471Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8246848Z You are in 'detached HEAD' state. You can look around, make experimental
+build	UNKNOWN STEP	2026-06-24T00:00:08.8247854Z changes and commit them, and you can discard any commits you make in this
+build	UNKNOWN STEP	2026-06-24T00:00:08.8248885Z state without impacting any branches by switching back to a branch.
+build	UNKNOWN STEP	2026-06-24T00:00:08.8249875Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8250297Z If you want to create a new branch to retain commits you create, you may
+build	UNKNOWN STEP	2026-06-24T00:00:08.8251278Z do so (now or later) by using -c with the switch command. Example:
+build	UNKNOWN STEP	2026-06-24T00:00:08.8253064Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8253290Z   git switch -c <new-branch-name>
+build	UNKNOWN STEP	2026-06-24T00:00:08.8253731Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8253973Z Or undo this operation with:
+build	UNKNOWN STEP	2026-06-24T00:00:08.8254329Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8254543Z   git switch -
+build	UNKNOWN STEP	2026-06-24T00:00:08.8254759Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8255233Z Turn off this advice by setting config variable advice.detachedHead to false
+build	UNKNOWN STEP	2026-06-24T00:00:08.8255856Z 
+build	UNKNOWN STEP	2026-06-24T00:00:08.8256356Z HEAD is now at 8ea0503 fix: use proper eSigner CKA setup action
+build	UNKNOWN STEP	2026-06-24T00:00:08.8322694Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:08.8673649Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+build	UNKNOWN STEP	2026-06-24T00:00:08.8933983Z 8ea0503c02c66c4bbc12a6be35c2609af88f7113
+build	UNKNOWN STEP	2026-06-24T00:00:08.9394715Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-06-24T00:00:08.9396792Z ##[group]Run actions/setup-node@v4
+build	UNKNOWN STEP	2026-06-24T00:00:08.9397060Z with:
+build	UNKNOWN STEP	2026-06-24T00:00:08.9397242Z   node-version: 20
+build	UNKNOWN STEP	2026-06-24T00:00:08.9397459Z   always-auth: false
+build	UNKNOWN STEP	2026-06-24T00:00:08.9397671Z   check-latest: false
+build	UNKNOWN STEP	2026-06-24T00:00:08.9401342Z   token: ***
+build	UNKNOWN STEP	2026-06-24T00:00:08.9401555Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:09.1134009Z Attempting to download 20...
+build	UNKNOWN STEP	2026-06-24T00:00:09.1313664Z (node:776) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	UNKNOWN STEP	2026-06-24T00:00:09.1314414Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	UNKNOWN STEP	2026-06-24T00:00:09.9338682Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-win32-x64.7z
+build	UNKNOWN STEP	2026-06-24T00:00:10.3216717Z Extracting ...
+build	UNKNOWN STEP	2026-06-24T00:00:12.5638083Z Adding to the cache ...
+build	UNKNOWN STEP	2026-06-24T00:00:15.6795273Z ##[group]Environment details
+build	UNKNOWN STEP	2026-06-24T00:00:16.6759662Z node: v20.20.2
+build	UNKNOWN STEP	2026-06-24T00:00:16.6759982Z npm: 10.8.2
+build	UNKNOWN STEP	2026-06-24T00:00:16.6760526Z yarn: 1.22.22
+build	UNKNOWN STEP	2026-06-24T00:00:16.6761174Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:16.7183860Z ##[group]Run dtolnay/rust-toolchain@stable
+build	UNKNOWN STEP	2026-06-24T00:00:16.7184225Z with:
+build	UNKNOWN STEP	2026-06-24T00:00:16.7184416Z   toolchain: stable
+build	UNKNOWN STEP	2026-06-24T00:00:16.7184618Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:16.7412822Z ##[group]Run : parse toolchain version
+build	UNKNOWN STEP	2026-06-24T00:00:16.7413188Z ^[[36;1m: parse toolchain version^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7413467Z ^[[36;1mif [[ -z $toolchain ]]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7414012Z ^[[36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7415028Z ^[[36;1m  echo "'toolchain' is a required input" >&2^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7415342Z ^[[36;1m  exit 1^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7415677Z ^[[36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7416120Z ^[[36;1m  if [[ Windows == macOS ]]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7416719Z ^[[36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7417233Z ^[[36;1m  else^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7417632Z ^[[36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7418081Z ^[[36;1m  fi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7418372Z ^[[36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7418899Z ^[[36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7419360Z ^[[36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7419878Z ^[[36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7420375Z ^[[36;1melse^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7420871Z ^[[36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7421169Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.7440163Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:16.7440584Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:16.7440765Z   toolchain: stable
+build	UNKNOWN STEP	2026-06-24T00:00:16.7440967Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:16.8081371Z ##[group]Run : construct rustup command line
+build	UNKNOWN STEP	2026-06-24T00:00:16.8081726Z ^[[36;1m: construct rustup command line^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.8082179Z ^[[36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.8082856Z ^[[36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.8083369Z ^[[36;1mecho "downgrade=" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.8097624Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:16.8098091Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:16.8098311Z   targets: 
+build	UNKNOWN STEP	2026-06-24T00:00:16.8098492Z   components: 
+build	UNKNOWN STEP	2026-06-24T00:00:16.8098678Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:16.9006735Z ##[group]Run : set $CARGO_HOME
+build	UNKNOWN STEP	2026-06-24T00:00:16.9007023Z ^[[36;1m: set $CARGO_HOME^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9007373Z ^[[36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9020152Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:16.9020567Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:16.9593394Z ##[group]Run : install rustup if needed on windows
+build	UNKNOWN STEP	2026-06-24T00:00:16.9593756Z ^[[36;1m: install rustup if needed on windows^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9594097Z ^[[36;1mif ! command -v rustup &>/dev/null; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9594885Z ^[[36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9595814Z ^[[36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9596489Z ^[[36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9596771Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:16.9611625Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:16.9612081Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:16.9612293Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:16.9612560Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:17.0221424Z ##[group]Run rustup toolchain install stable --profile minimal --no-self-update
+build	UNKNOWN STEP	2026-06-24T00:00:17.0221999Z ^[[36;1mrustup toolchain install stable --profile minimal --no-self-update^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:17.0235209Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:17.0235626Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:17.0235828Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:17.0236113Z   RUSTUP_PERMIT_COPY_RENAME: 1
+build	UNKNOWN STEP	2026-06-24T00:00:17.0236341Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:20.5844675Z info: syncing channel updates for stable-x86_64-pc-windows-msvc
+build	UNKNOWN STEP	2026-06-24T00:00:21.0568428Z 
+build	UNKNOWN STEP	2026-06-24T00:00:21.0780529Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+build	UNKNOWN STEP	2026-06-24T00:00:21.0781778Z 
+build	UNKNOWN STEP	2026-06-24T00:00:21.1052177Z ##[group]Run rustup default stable
+build	UNKNOWN STEP	2026-06-24T00:00:21.1052495Z ^[[36;1mrustup default stable^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:21.1064877Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:21.1065319Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:21.1065529Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:21.1065820Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:21.1785667Z info: using existing install for stable-x86_64-pc-windows-msvc
+build	UNKNOWN STEP	2026-06-24T00:00:21.1841740Z info: default toolchain set to stable-x86_64-pc-windows-msvc
+build	UNKNOWN STEP	2026-06-24T00:00:21.1842390Z 
+build	UNKNOWN STEP	2026-06-24T00:00:21.2054724Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+build	UNKNOWN STEP	2026-06-24T00:00:21.2055161Z 
+build	UNKNOWN STEP	2026-06-24T00:00:21.2254729Z ##[group]Run : create cachekey
+build	UNKNOWN STEP	2026-06-24T00:00:21.2255198Z ^[[36;1m: create cachekey^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:21.2255749Z ^[[36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:21.2256462Z ^[[36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:21.2257000Z ^[[36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:21.2270160Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:21.2270570Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:21.2270771Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:21.2271031Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.1628276Z ##[group]Run : disable incremental compilation
+build	UNKNOWN STEP	2026-06-24T00:00:22.1628617Z ^[[36;1m: disable incremental compilation^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.1628956Z ^[[36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.1629287Z ^[[36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.1629575Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.1643796Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:22.1644205Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.1644412Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.1644674Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.2183630Z ##[group]Run : enable colors in Cargo output
+build	UNKNOWN STEP	2026-06-24T00:00:22.2183971Z ^[[36;1m: enable colors in Cargo output^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2184301Z ^[[36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2184657Z ^[[36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2184964Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2197695Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:22.2198109Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.2198313Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.2198587Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:22.2198792Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.2717459Z ##[group]Run : enable Cargo sparse registry
+build	UNKNOWN STEP	2026-06-24T00:00:22.2717823Z ^[[36;1m: enable Cargo sparse registry^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2718880Z ^[[36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2719600Z ^[[36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2720303Z ^[[36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2720830Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2721337Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2721846Z ^[[36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2722375Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2722941Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2723517Z ^[[36;1m  fi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2723701Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.2736008Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:22.2736418Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.2736610Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.2736885Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:22.2737094Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:00:22.2737302Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.4669022Z ##[group]Run : work around spurious network errors in curl 8.0
+build	UNKNOWN STEP	2026-06-24T00:00:22.4669454Z ^[[36;1m: work around spurious network errors in curl 8.0^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.4670012Z ^[[36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.4670632Z ^[[36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.4671089Z ^[[36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.4672682Z ^[[36;1mfi^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.4685559Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:22.4685974Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.4686174Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.4686440Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:22.4686655Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:00:22.4686874Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.6090445Z ##[group]Run rustc +stable --version --verbose
+build	UNKNOWN STEP	2026-06-24T00:00:22.6090775Z ^[[36;1mrustc +stable --version --verbose^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.6103957Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	UNKNOWN STEP	2026-06-24T00:00:22.6104372Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.6104578Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.6104865Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:22.6105083Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:00:22.6105379Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:22.6955120Z rustc 1.96.0 (ac68faa20 2026-05-25)
+build	UNKNOWN STEP	2026-06-24T00:00:22.6955868Z binary: rustc
+build	UNKNOWN STEP	2026-06-24T00:00:22.6956447Z commit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96
+build	UNKNOWN STEP	2026-06-24T00:00:22.6957085Z commit-date: 2026-05-25
+build	UNKNOWN STEP	2026-06-24T00:00:22.6957565Z host: x86_64-pc-windows-msvc
+build	UNKNOWN STEP	2026-06-24T00:00:22.6958625Z release: 1.96.0
+build	UNKNOWN STEP	2026-06-24T00:00:22.6959123Z LLVM version: 22.1.2
+build	UNKNOWN STEP	2026-06-24T00:00:22.7238391Z ##[group]Run npm install
+build	UNKNOWN STEP	2026-06-24T00:00:22.7238729Z ^[[36;1mnpm install^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:22.7709452Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	UNKNOWN STEP	2026-06-24T00:00:22.7709948Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:22.7710222Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:22.7710606Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:22.7710914Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:00:22.7711216Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:00:55.6687059Z 
+build	UNKNOWN STEP	2026-06-24T00:00:55.6688281Z added 270 packages, and audited 271 packages in 27s
+build	UNKNOWN STEP	2026-06-24T00:00:55.6688944Z 
+build	UNKNOWN STEP	2026-06-24T00:00:55.6689567Z 95 packages are looking for funding
+build	UNKNOWN STEP	2026-06-24T00:00:55.6690881Z   run `npm fund` for details
+build	UNKNOWN STEP	2026-06-24T00:00:55.6758237Z 
+build	UNKNOWN STEP	2026-06-24T00:00:55.6758657Z 1 low severity vulnerability
+build	UNKNOWN STEP	2026-06-24T00:00:55.6766960Z 
+build	UNKNOWN STEP	2026-06-24T00:00:55.6783399Z To address all issues, run:
+build	UNKNOWN STEP	2026-06-24T00:00:55.6794266Z   npm audit fix
+build	UNKNOWN STEP	2026-06-24T00:00:55.6794777Z 
+build	UNKNOWN STEP	2026-06-24T00:00:55.6795229Z Run `npm audit` for details.
+build	UNKNOWN STEP	2026-06-24T00:00:58.9946731Z ##[group]Run echo "{}" > config.json
+build	UNKNOWN STEP	2026-06-24T00:00:58.9947128Z ^[[36;1mecho "{}" > config.json^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:58.9947385Z ^[[36;1mecho "" > github_token.txt^[[0m
+build	UNKNOWN STEP	2026-06-24T00:00:59.0013342Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	UNKNOWN STEP	2026-06-24T00:00:59.0013717Z env:
+build	UNKNOWN STEP	2026-06-24T00:00:59.0013925Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:00:59.0014206Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:00:59.0014419Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:00:59.0014638Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:11.3571169Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-06-24T00:01:11.3572655Z ##[group]Run anatawa12/setup-eSigner-CKA@v1
+build	UNKNOWN STEP	2026-06-24T00:01:11.3572931Z with:
+build	UNKNOWN STEP	2026-06-24T00:01:11.3573126Z   mode: product
+build	UNKNOWN STEP	2026-06-24T00:01:11.3573386Z   username: ***
+build	UNKNOWN STEP	2026-06-24T00:01:11.3573615Z   password: ***
+build	UNKNOWN STEP	2026-06-24T00:01:11.3573910Z   totp-secret: ***
+build	UNKNOWN STEP	2026-06-24T00:01:11.3574112Z env:
+build	UNKNOWN STEP	2026-06-24T00:01:11.3574304Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:01:11.3574585Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:01:11.3574794Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:01:11.3575012Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:11.4583122Z ##[group]Downloading eSignerCKA from https://github.com/SSLcom/eSignerCKA/releases/download/v1.0.7/SSL.COM-eSigner-CKA_1.0.7.zip
+build	UNKNOWN STEP	2026-06-24T00:01:11.9881006Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:11.9881655Z ##[group]Extracting eSignerCKA to D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\extracted
+build	UNKNOWN STEP	2026-06-24T00:01:12.0798308Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\downloaded.zip', 'D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\extracted', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\downloaded.zip' -DestinationPath 'D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\extracted' -Force } else { throw $_ } } ;"
+build	UNKNOWN STEP	2026-06-24T00:01:12.8444914Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:12.8445506Z Using installer: SSL.COM eSigner CKA_1.0.7_build_20240717.exe
+build	UNKNOWN STEP	2026-06-24T00:01:12.8455263Z ##[group]Running installer in silent mode
+build	UNKNOWN STEP	2026-06-24T00:01:12.8461332Z [command]D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\extracted\installer.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /DIR=D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install
+build	UNKNOWN STEP	2026-06-24T00:01:23.9818566Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:23.9820133Z ##[group]Logging in to SSL.com
+build	UNKNOWN STEP	2026-06-24T00:01:23.9824125Z [command]D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install\eSignerCKATool.exe config -mode *** -user *** -pass *** -totp *** -key D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install\master.key
+build	UNKNOWN STEP	2026-06-24T00:01:33.6642986Z Configuration successful!
+build	UNKNOWN STEP	2026-06-24T00:01:33.7039696Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:33.7040176Z Reloading certificates to Windows
+build	UNKNOWN STEP	2026-06-24T00:01:33.7045153Z [command]D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install\eSignerCKATool.exe unload
+build	UNKNOWN STEP	2026-06-24T00:01:33.7402471Z UnloadAllCertificate: Unload all certificates from Window-MY with csp eSignerKSP
+build	UNKNOWN STEP	2026-06-24T00:01:33.8065482Z UnloadAllCertificate: All certificates already removed.
+build	UNKNOWN STEP	2026-06-24T00:01:33.8113809Z [command]D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install\eSignerCKATool.exe load
+build	UNKNOWN STEP	2026-06-24T00:01:33.8452274Z LoadAllCertToStore: Load all certificates to Window-MY with csp eSignerKSP
+build	UNKNOWN STEP	2026-06-24T00:01:34.0555148Z LoadAllCertToStore: All certificates already imported.
+build	UNKNOWN STEP	2026-06-24T00:01:34.0902005Z ##[group]Run $windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"
+build	UNKNOWN STEP	2026-06-24T00:01:34.0902707Z ^[[36;1m$windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0903565Z ^[[36;1m$signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName -match "x64" }^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0904322Z ^[[36;1mif ($signtoolPaths.Count -gt 0) {^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0904724Z ^[[36;1m    $signtoolDir = $signtoolPaths[0].DirectoryName^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0905161Z ^[[36;1m    Write-Host "Found signtool at $signtoolDir"^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0905563Z ^[[36;1m    echo "$signtoolDir" >> $env:GITHUB_PATH^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0905858Z ^[[36;1m} else {^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0906103Z ^[[36;1m    Write-Error "signtool.exe not found"^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0906399Z ^[[36;1m}^[[0m
+build	UNKNOWN STEP	2026-06-24T00:01:34.0978300Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	UNKNOWN STEP	2026-06-24T00:01:34.0978737Z env:
+build	UNKNOWN STEP	2026-06-24T00:01:34.0978958Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:01:34.0979269Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:01:34.0979505Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:01:34.0979747Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:34.7136473Z Found signtool at C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64
+build	UNKNOWN STEP	2026-06-24T00:01:34.7880538Z ##[group]Run tauri-apps/tauri-action@v0
+build	UNKNOWN STEP	2026-06-24T00:01:34.7880890Z with:
+build	UNKNOWN STEP	2026-06-24T00:01:34.7881104Z   projectPath: ./gui
+build	UNKNOWN STEP	2026-06-24T00:01:34.7881333Z   tagName: v0.1.4
+build	UNKNOWN STEP	2026-06-24T00:01:34.7881564Z   releaseName: AutoDub Studio v0.1.4
+build	UNKNOWN STEP	2026-06-24T00:01:34.7882058Z   releaseBody: Automatic release
+build	UNKNOWN STEP	2026-06-24T00:01:34.7882305Z   releaseDraft: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7882505Z   prerelease: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7882719Z   includeDebug: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7882932Z   includeRelease: true
+build	UNKNOWN STEP	2026-06-24T00:01:34.7883153Z   includeUpdaterJson: true
+build	UNKNOWN STEP	2026-06-24T00:01:34.7883402Z   updaterJsonKeepUniversal: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7883658Z   isGitea: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7883865Z   uploadPlainBinary: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7884108Z   generateReleaseNotes: false
+build	UNKNOWN STEP	2026-06-24T00:01:34.7884333Z env:
+build	UNKNOWN STEP	2026-06-24T00:01:34.7884540Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	UNKNOWN STEP	2026-06-24T00:01:34.7884817Z   CARGO_INCREMENTAL: 0
+build	UNKNOWN STEP	2026-06-24T00:01:34.7885073Z   CARGO_TERM_COLOR: always
+build	UNKNOWN STEP	2026-06-24T00:01:34.7888884Z   GITHUB_TOKEN: ***
+build	UNKNOWN STEP	2026-06-24T00:01:34.7891375Z   TAURI_SIGNING_PRIVATE_KEY: ***
+build	UNKNOWN STEP	2026-06-24T00:01:34.7891705Z   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ***
+build	UNKNOWN STEP	2026-06-24T00:01:34.7891970Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:01:34.9382087Z running npm [ 'run', 'tauri', 'build' ]
+build	UNKNOWN STEP	2026-06-24T00:01:35.3053738Z 
+build	UNKNOWN STEP	2026-06-24T00:01:35.3054399Z > gui@0.1.4 tauri
+build	UNKNOWN STEP	2026-06-24T00:01:35.3054845Z > tauri build
+build	UNKNOWN STEP	2026-06-24T00:01:35.3055059Z 
+build	UNKNOWN STEP	2026-06-24T00:01:38.3721363Z         Info Looking up installed tauri packages to check mismatched versions...
+build	UNKNOWN STEP	2026-06-24T00:01:39.2660459Z      Running beforeBuildCommand `npx vite build`
+build	UNKNOWN STEP	2026-06-24T00:01:40.4676830Z ^[[36mvite v7.3.5 ^[[32mbuilding client environment for ***ion...^[[36m^[[39m
+build	UNKNOWN STEP	2026-06-24T00:01:40.5578559Z transforming...
+build	UNKNOWN STEP	2026-06-24T00:01:47.5102758Z ^[[32m✓^[[39m 2424 modules transformed.
+build	UNKNOWN STEP	2026-06-24T00:01:48.0370798Z rendering chunks...
+build	UNKNOWN STEP	2026-06-24T00:01:48.0510137Z computing gzip size...
+build	UNKNOWN STEP	2026-06-24T00:01:48.0787197Z ^[[2mdist/^[[22m^[[32mindex.html                 ^[[39m^[[1m^[[2m  0.92 kB^[[22m^[[1m^[[22m^[[2m │ gzip:   0.51 kB^[[22m
+build	UNKNOWN STEP	2026-06-24T00:01:48.0790667Z ^[[33m
+build	UNKNOWN STEP	2026-06-24T00:01:48.0791591Z ^[[2mdist/^[[22m^[[35massets/index-lrvdJJ7u.css  ^[[39m^[[1m^[[2m 11.48 kB^[[22m^[[1m^[[22m^[[2m │ gzip:   3.09 kB^[[22m
+build	UNKNOWN STEP	2026-06-24T00:01:48.0793133Z ^[[2mdist/^[[22m^[[36massets/index-B0wcfIcX.js   ^[[39m^[[1m^[[33m934.56 kB^[[39m^[[22m^[[2m │ gzip: 264.36 kB^[[22m
+build	UNKNOWN STEP	2026-06-24T00:01:48.0794306Z (!) Some chunks are larger than 500 kB after minification. Consider:
+build	UNKNOWN STEP	2026-06-24T00:01:48.0794917Z - Using dynamic import() to code-split the application
+build	UNKNOWN STEP	2026-06-24T00:01:48.0797140Z - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+build	UNKNOWN STEP	2026-06-24T00:01:48.0799056Z - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.^[[39m
+build	UNKNOWN STEP	2026-06-24T00:01:48.0800012Z ^[[32m✓ built in 7.58s^[[39m
+build	UNKNOWN STEP	2026-06-24T00:01:49.6288851Z ^[[1m^[[92m    Updating^[[0m crates.io index
+build	UNKNOWN STEP	2026-06-24T00:01:51.5276645Z ^[[1m^[[92m Downloading^[[0m crates ...
+build	UNKNOWN STEP	2026-06-24T00:01:51.7086069Z ^[[1m^[[92m  Downloaded^[[0m bitflags v1.3.2
+build	UNKNOWN STEP	2026-06-24T00:01:51.7909983Z ^[[1m^[[92m  Downloaded^[[0m rand_core v0.9.5
+build	UNKNOWN STEP	2026-06-24T00:01:51.8206110Z ^[[1m^[[92m  Downloaded^[[0m shared_child v1.1.1
+build	UNKNOWN STEP	2026-06-24T00:01:51.8479504Z ^[[1m^[[92m  Downloaded^[[0m strsim v0.11.1
+build	UNKNOWN STEP	2026-06-24T00:01:51.8677505Z ^[[1m^[[92m  Downloaded^[[0m string_cache v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:51.8859927Z ^[[1m^[[92m  Downloaded^[[0m softbuffer v0.4.8
+build	UNKNOWN STEP	2026-06-24T00:01:51.9175887Z ^[[1m^[[92m  Downloaded^[[0m tokio-macros v2.7.0
+build	UNKNOWN STEP	2026-06-24T00:01:51.9398473Z ^[[1m^[[92m  Downloaded^[[0m tokio-rustls v0.26.4
+build	UNKNOWN STEP	2026-06-24T00:01:51.9599390Z ^[[1m^[[92m  Downloaded^[[0m windows-numerics v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:01:51.9742234Z ^[[1m^[[92m  Downloaded^[[0m zerofrom-derive v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:01:51.9897641Z ^[[1m^[[92m  Downloaded^[[0m yoke-derive v0.8.2
+build	UNKNOWN STEP	2026-06-24T00:01:51.9997381Z ^[[1m^[[92m  Downloaded^[[0m zerovec-derive v0.11.3
+build	UNKNOWN STEP	2026-06-24T00:01:52.0135036Z ^[[1m^[[92m  Downloaded^[[0m yoke v0.8.3
+build	UNKNOWN STEP	2026-06-24T00:01:52.0290125Z ^[[1m^[[92m  Downloaded^[[0m zip v4.6.1
+build	UNKNOWN STEP	2026-06-24T00:01:52.0591168Z ^[[1m^[[92m  Downloaded^[[0m zerotrie v0.2.4
+build	UNKNOWN STEP	2026-06-24T00:01:52.0925335Z ^[[1m^[[92m  Downloaded^[[0m webpki-roots v1.0.7
+build	UNKNOWN STEP	2026-06-24T00:01:52.1053818Z ^[[1m^[[92m  Downloaded^[[0m zmij v1.0.21
+build	UNKNOWN STEP	2026-06-24T00:01:52.1216281Z ^[[1m^[[92m  Downloaded^[[0m wry v0.55.1
+build	UNKNOWN STEP	2026-06-24T00:01:52.1830859Z ^[[1m^[[92m  Downloaded^[[0m zerovec v0.11.6
+build	UNKNOWN STEP	2026-06-24T00:01:52.2350245Z ^[[1m^[[92m  Downloaded^[[0m regex-automata v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:01:52.3181426Z ^[[1m^[[92m  Downloaded^[[0m zerocopy v0.8.52
+build	UNKNOWN STEP	2026-06-24T00:01:53.0279527Z ^[[1m^[[92m  Downloaded^[[0m winnow v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:01:53.1213109Z ^[[1m^[[92m  Downloaded^[[0m winnow v0.7.15
+build	UNKNOWN STEP	2026-06-24T00:01:53.2016701Z ^[[1m^[[92m  Downloaded^[[0m tauri-runtime v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:01:53.2128453Z ^[[1m^[[92m  Downloaded^[[0m zeroize v1.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:53.2253027Z ^[[1m^[[92m  Downloaded^[[0m serde_derive_internals v0.29.1
+build	UNKNOWN STEP	2026-06-24T00:01:53.2389857Z ^[[1m^[[92m  Downloaded^[[0m windows-future v0.2.1
+build	UNKNOWN STEP	2026-06-24T00:01:53.2524759Z ^[[1m^[[92m  Downloaded^[[0m libc v0.2.186
+build	UNKNOWN STEP	2026-06-24T00:01:53.5499865Z ^[[1m^[[92m  Downloaded^[[0m windows_x86_64_msvc v0.52.6
+build	UNKNOWN STEP	2026-06-24T00:01:53.5715522Z ^[[1m^[[92m  Downloaded^[[0m windows-core v0.61.2
+build	UNKNOWN STEP	2026-06-24T00:01:53.6013598Z ^[[1m^[[92m  Downloaded^[[0m webview2-com v0.38.2
+build	UNKNOWN STEP	2026-06-24T00:01:53.6119094Z ^[[1m^[[92m  Downloaded^[[0m windows_x86_64_msvc v0.53.1
+build	UNKNOWN STEP	2026-06-24T00:01:53.6346827Z ^[[1m^[[92m  Downloaded^[[0m alloc-no-stdlib v2.0.4
+build	UNKNOWN STEP	2026-06-24T00:01:53.6515147Z ^[[1m^[[92m  Downloaded^[[0m toml_parser v1.1.2+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:53.6693889Z ^[[1m^[[92m  Downloaded^[[0m httparse v1.10.1
+build	UNKNOWN STEP	2026-06-24T00:01:53.6941528Z ^[[1m^[[92m  Downloaded^[[0m writeable v0.6.3
+build	UNKNOWN STEP	2026-06-24T00:01:53.7112121Z ^[[1m^[[92m  Downloaded^[[0m windows-targets v0.52.6
+build	UNKNOWN STEP	2026-06-24T00:01:53.7216584Z ^[[1m^[[92m  Downloaded^[[0m windows-registry v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:01:53.7358369Z ^[[1m^[[92m  Downloaded^[[0m winreg v0.55.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.2260282Z ^[[1m^[[92m  Downloaded^[[0m windows-version v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:01:54.2341397Z ^[[1m^[[92m  Downloaded^[[0m tokio v1.52.3
+build	UNKNOWN STEP	2026-06-24T00:01:54.6321143Z ^[[1m^[[92m  Downloaded^[[0m windows-threading v0.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.6449595Z ^[[1m^[[92m  Downloaded^[[0m windows-targets v0.53.5
+build	UNKNOWN STEP	2026-06-24T00:01:54.6530343Z ^[[1m^[[92m  Downloaded^[[0m windows-strings v0.4.2
+build	UNKNOWN STEP	2026-06-24T00:01:54.6691458Z ^[[1m^[[92m  Downloaded^[[0m windows-result v0.4.1
+build	UNKNOWN STEP	2026-06-24T00:01:54.6829136Z ^[[1m^[[92m  Downloaded^[[0m windows-result v0.3.4
+build	UNKNOWN STEP	2026-06-24T00:01:54.6961555Z ^[[1m^[[92m  Downloaded^[[0m windows-link v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:01:54.7085404Z ^[[1m^[[92m  Downloaded^[[0m windows-implement v0.60.2
+build	UNKNOWN STEP	2026-06-24T00:01:54.7173110Z ^[[1m^[[92m  Downloaded^[[0m vswhom v0.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.7289456Z ^[[1m^[[92m  Downloaded^[[0m utf8_iter v1.0.4
+build	UNKNOWN STEP	2026-06-24T00:01:54.7387754Z ^[[1m^[[92m  Downloaded^[[0m urlpattern v0.3.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.7543882Z ^[[1m^[[92m  Downloaded^[[0m untrusted v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.7684718Z ^[[1m^[[92m  Downloaded^[[0m unicode-ident v1.0.24
+build	UNKNOWN STEP	2026-06-24T00:01:54.7908935Z ^[[1m^[[92m  Downloaded^[[0m tracing v0.1.44
+build	UNKNOWN STEP	2026-06-24T00:01:54.8675732Z ^[[1m^[[92m  Downloaded^[[0m zerofrom v0.1.8
+build	UNKNOWN STEP	2026-06-24T00:01:54.8780516Z ^[[1m^[[92m  Downloaded^[[0m windows-strings v0.5.1
+build	UNKNOWN STEP	2026-06-24T00:01:54.8931247Z ^[[1m^[[92m  Downloaded^[[0m windows-link v0.2.1
+build	UNKNOWN STEP	2026-06-24T00:01:54.9036838Z ^[[1m^[[92m  Downloaded^[[0m windows-collections v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.9135899Z ^[[1m^[[92m  Downloaded^[[0m webview2-com-macros v0.8.1
+build	UNKNOWN STEP	2026-06-24T00:01:54.9206599Z ^[[1m^[[92m  Downloaded^[[0m web_atoms v0.2.4
+build	UNKNOWN STEP	2026-06-24T00:01:54.9328022Z ^[[1m^[[92m  Downloaded^[[0m want v0.3.1
+build	UNKNOWN STEP	2026-06-24T00:01:54.9405896Z ^[[1m^[[92m  Downloaded^[[0m walkdir v2.5.0
+build	UNKNOWN STEP	2026-06-24T00:01:54.9558277Z ^[[1m^[[92m  Downloaded^[[0m vswhom-sys v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:01:54.9678207Z ^[[1m^[[92m  Downloaded^[[0m version_check v0.9.5
+build	UNKNOWN STEP	2026-06-24T00:01:54.9801444Z ^[[1m^[[92m  Downloaded^[[0m ring v0.17.14
+build	UNKNOWN STEP	2026-06-24T00:01:55.8891093Z ^[[1m^[[92m  Downloaded^[[0m uuid v1.23.3
+build	UNKNOWN STEP	2026-06-24T00:01:55.9123186Z ^[[1m^[[92m  Downloaded^[[0m utf-8 v0.7.6
+build	UNKNOWN STEP	2026-06-24T00:01:55.9227836Z ^[[1m^[[92m  Downloaded^[[0m url v2.5.8
+build	UNKNOWN STEP	2026-06-24T00:01:55.9438286Z ^[[1m^[[92m  Downloaded^[[0m unicode-segmentation v1.13.3
+build	UNKNOWN STEP	2026-06-24T00:01:55.9595917Z ^[[1m^[[92m  Downloaded^[[0m unic-ucd-ident v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:55.9743521Z ^[[1m^[[92m  Downloaded^[[0m typenum v1.20.1
+build	UNKNOWN STEP	2026-06-24T00:01:55.9984186Z ^[[1m^[[92m  Downloaded^[[0m typeid v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:01:56.0112761Z ^[[1m^[[92m  Downloaded^[[0m tower v0.5.3
+build	UNKNOWN STEP	2026-06-24T00:01:56.1002278Z ^[[1m^[[92m  Downloaded^[[0m rustls v0.23.40
+build	UNKNOWN STEP	2026-06-24T00:01:56.1986255Z ^[[1m^[[92m  Downloaded^[[0m regex-syntax v0.8.11
+build	UNKNOWN STEP	2026-06-24T00:01:56.2346004Z ^[[1m^[[92m  Downloaded^[[0m windows-interface v0.59.3
+build	UNKNOWN STEP	2026-06-24T00:01:56.2426219Z ^[[1m^[[92m  Downloaded^[[0m winapi-util v0.1.11
+build	UNKNOWN STEP	2026-06-24T00:01:56.2558327Z ^[[1m^[[92m  Downloaded^[[0m unic-ucd-version v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.2667328Z ^[[1m^[[92m  Downloaded^[[0m unic-common v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.2760166Z ^[[1m^[[92m  Downloaded^[[0m unic-char-range v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.2902876Z ^[[1m^[[92m  Downloaded^[[0m unic-char-property v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.3042401Z ^[[1m^[[92m  Downloaded^[[0m try-lock v0.2.5
+build	UNKNOWN STEP	2026-06-24T00:01:56.3159247Z ^[[1m^[[92m  Downloaded^[[0m window-vibrancy v0.6.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.3504129Z ^[[1m^[[92m  Downloaded^[[0m tray-icon v0.23.1
+build	UNKNOWN STEP	2026-06-24T00:01:56.3685782Z ^[[1m^[[92m  Downloaded^[[0m tracing-core v0.1.36
+build	UNKNOWN STEP	2026-06-24T00:01:56.3908018Z ^[[1m^[[92m  Downloaded^[[0m tracing-attributes v0.1.31
+build	UNKNOWN STEP	2026-06-24T00:01:56.4147448Z ^[[1m^[[92m  Downloaded^[[0m tower-service v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:01:56.4216749Z ^[[1m^[[92m  Downloaded^[[0m tower-layer v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:01:56.4304885Z ^[[1m^[[92m  Downloaded^[[0m tower-http v0.6.11
+build	UNKNOWN STEP	2026-06-24T00:01:56.5207655Z ^[[1m^[[92m  Downloaded^[[0m toml_writer v1.1.1+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.5310097Z ^[[1m^[[92m  Downloaded^[[0m toml_datetime v1.1.1+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.8615184Z ^[[1m^[[92m  Downloaded^[[0m toml_datetime v0.7.5+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.8707902Z ^[[1m^[[92m  Downloaded^[[0m toml v1.1.2+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.9066279Z ^[[1m^[[92m  Downloaded^[[0m toml v0.9.12+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:56.9427089Z ^[[1m^[[92m  Downloaded^[[0m tokio-util v0.7.18
+build	UNKNOWN STEP	2026-06-24T00:01:57.0119983Z ^[[1m^[[92m  Downloaded^[[0m time v0.3.47
+build	UNKNOWN STEP	2026-06-24T00:01:57.1318384Z ^[[1m^[[92m  Downloaded^[[0m tauri-utils v2.9.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.1636386Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-updater v2.10.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.1855449Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-shell v2.3.5
+build	UNKNOWN STEP	2026-06-24T00:01:57.2211963Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-process v2.3.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.2405207Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-http v2.5.9
+build	UNKNOWN STEP	2026-06-24T00:01:57.2665198Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-global-shortcut v2.3.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.2880681Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-fs v2.5.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.3673889Z ^[[1m^[[92m  Downloaded^[[0m tao v0.35.3
+build	UNKNOWN STEP	2026-06-24T00:01:57.4529598Z ^[[1m^[[92m  Downloaded^[[0m quinn-proto v0.11.14
+build	UNKNOWN STEP	2026-06-24T00:01:57.5036755Z ^[[1m^[[92m  Downloaded^[[0m tinyvec v1.11.0
+build	UNKNOWN STEP	2026-06-24T00:01:57.5236845Z ^[[1m^[[92m  Downloaded^[[0m tempfile v3.27.0
+build	UNKNOWN STEP	2026-06-24T00:01:57.5423882Z ^[[1m^[[92m  Downloaded^[[0m tauri-runtime-wry v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.5598326Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-window-state v2.4.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.5824191Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-store v2.4.3
+build	UNKNOWN STEP	2026-06-24T00:01:57.6204270Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-single-instance v2.4.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.6383631Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-opener v2.5.4
+build	UNKNOWN STEP	2026-06-24T00:01:57.6739650Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin-dialog v2.7.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.7147540Z ^[[1m^[[92m  Downloaded^[[0m tauri-plugin v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.7240056Z ^[[1m^[[92m  Downloaded^[[0m tauri-build v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.7374524Z ^[[1m^[[92m  Downloaded^[[0m synstructure v0.13.2
+build	UNKNOWN STEP	2026-06-24T00:01:57.7455034Z ^[[1m^[[92m  Downloaded^[[0m serde_with v3.21.0
+build	UNKNOWN STEP	2026-06-24T00:01:57.8685781Z ^[[1m^[[92m  Downloaded^[[0m quick-xml v0.39.4
+build	UNKNOWN STEP	2026-06-24T00:01:57.9061580Z ^[[1m^[[92m  Downloaded^[[0m tinyvec_macros v0.1.1
+build	UNKNOWN STEP	2026-06-24T00:01:57.9146694Z ^[[1m^[[92m  Downloaded^[[0m tinystr v0.8.3
+build	UNKNOWN STEP	2026-06-24T00:01:57.9317806Z ^[[1m^[[92m  Downloaded^[[0m time-macros v0.2.27
+build	UNKNOWN STEP	2026-06-24T00:01:57.9523214Z ^[[1m^[[92m  Downloaded^[[0m time-core v0.1.8
+build	UNKNOWN STEP	2026-06-24T00:01:57.9658120Z ^[[1m^[[92m  Downloaded^[[0m thiserror-impl v2.0.18
+build	UNKNOWN STEP	2026-06-24T00:01:58.5271454Z ^[[1m^[[92m  Downloaded^[[0m thiserror-impl v1.0.69
+build	UNKNOWN STEP	2026-06-24T00:01:58.5398596Z ^[[1m^[[92m  Downloaded^[[0m thiserror v2.0.18
+build	UNKNOWN STEP	2026-06-24T00:01:58.6094183Z ^[[1m^[[92m  Downloaded^[[0m thiserror v1.0.69
+build	UNKNOWN STEP	2026-06-24T00:01:58.6731496Z ^[[1m^[[92m  Downloaded^[[0m tendril v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:01:58.6902136Z ^[[1m^[[92m  Downloaded^[[0m tauri-winres v0.3.6
+build	UNKNOWN STEP	2026-06-24T00:01:58.7049536Z ^[[1m^[[92m  Downloaded^[[0m tauri-macros v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:01:58.7168569Z ^[[1m^[[92m  Downloaded^[[0m tauri-codegen v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:01:58.7289632Z ^[[1m^[[92m  Downloaded^[[0m windows-sys v0.59.0
+build	UNKNOWN STEP	2026-06-24T00:01:59.0235068Z ^[[1m^[[92m  Downloaded^[[0m tauri v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:01:59.1458407Z ^[[1m^[[92m  Downloaded^[[0m sync_wrapper v1.0.2
+build	UNKNOWN STEP	2026-06-24T00:01:59.1527379Z ^[[1m^[[92m  Downloaded^[[0m syn v2.0.117
+build	UNKNOWN STEP	2026-06-24T00:01:59.2287996Z ^[[1m^[[92m  Downloaded^[[0m subtle v2.6.1
+build	UNKNOWN STEP	2026-06-24T00:01:59.2383544Z ^[[1m^[[92m  Downloaded^[[0m serde_json v1.0.150
+build	UNKNOWN STEP	2026-06-24T00:01:59.3061626Z ^[[1m^[[92m  Downloaded^[[0m reqwest v0.12.28
+build	UNKNOWN STEP	2026-06-24T00:01:59.3453687Z ^[[1m^[[92m  Downloaded^[[0m regex v1.12.4
+build	UNKNOWN STEP	2026-06-24T00:01:59.3887566Z ^[[1m^[[92m  Downloaded^[[0m idna v1.1.0
+build	UNKNOWN STEP	2026-06-24T00:01:59.4073249Z ^[[1m^[[92m  Downloaded^[[0m icu_properties_data v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:01:59.9176653Z ^[[1m^[[92m  Downloaded^[[0m fdeflate v0.3.7
+build	UNKNOWN STEP	2026-06-24T00:01:59.9342407Z ^[[1m^[[92m  Downloaded^[[0m encoding_rs v0.8.35
+build	UNKNOWN STEP	2026-06-24T00:02:00.0286535Z ^[[1m^[[92m  Downloaded^[[0m windows-sys v0.61.2
+build	UNKNOWN STEP	2026-06-24T00:02:00.3347385Z ^[[1m^[[92m  Downloaded^[[0m brotli v8.0.3
+build	UNKNOWN STEP	2026-06-24T00:02:00.4057839Z ^[[1m^[[92m  Downloaded^[[0m socket2 v0.6.4
+build	UNKNOWN STEP	2026-06-24T00:02:00.4170670Z ^[[1m^[[92m  Downloaded^[[0m siphasher v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:02:00.4284328Z ^[[1m^[[92m  Downloaded^[[0m serde v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:00.4551341Z ^[[1m^[[92m  Downloaded^[[0m selectors v0.36.1
+build	UNKNOWN STEP	2026-06-24T00:02:00.4706990Z ^[[1m^[[92m  Downloaded^[[0m windows-sys v0.60.2
+build	UNKNOWN STEP	2026-06-24T00:02:00.7721389Z ^[[1m^[[92m  Downloaded^[[0m schemars v1.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:01.5527360Z ^[[1m^[[92m  Downloaded^[[0m schemars v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:01.7028874Z ^[[1m^[[92m  Downloaded^[[0m ryu v1.0.23
+build	UNKNOWN STEP	2026-06-24T00:02:01.7315709Z ^[[1m^[[92m  Downloaded^[[0m rand v0.9.4
+build	UNKNOWN STEP	2026-06-24T00:02:01.7618402Z ^[[1m^[[92m  Downloaded^[[0m quinn v0.11.9
+build	UNKNOWN STEP	2026-06-24T00:02:01.7904411Z ^[[1m^[[92m  Downloaded^[[0m publicsuffix v2.3.0
+build	UNKNOWN STEP	2026-06-24T00:02:01.8032757Z ^[[1m^[[92m  Downloaded^[[0m png v0.17.16
+build	UNKNOWN STEP	2026-06-24T00:02:01.8332821Z ^[[1m^[[92m  Downloaded^[[0m miniz_oxide v0.8.9
+build	UNKNOWN STEP	2026-06-24T00:02:01.8515837Z ^[[1m^[[92m  Downloaded^[[0m memchr v2.8.1
+build	UNKNOWN STEP	2026-06-24T00:02:01.8956905Z ^[[1m^[[92m  Downloaded^[[0m jsonptr v0.6.3
+build	UNKNOWN STEP	2026-06-24T00:02:01.9193094Z ^[[1m^[[92m  Downloaded^[[0m indexmap v2.14.0
+build	UNKNOWN STEP	2026-06-24T00:02:01.9537865Z ^[[1m^[[92m  Downloaded^[[0m indexmap v1.9.3
+build	UNKNOWN STEP	2026-06-24T00:02:01.9782983Z ^[[1m^[[92m  Downloaded^[[0m hyper v1.10.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.4349828Z ^[[1m^[[92m  Downloaded^[[0m hashbrown v0.17.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.4730907Z ^[[1m^[[92m  Downloaded^[[0m h2 v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:02:02.5264183Z ^[[1m^[[92m  Downloaded^[[0m futures-util v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:02.6570229Z ^[[1m^[[92m  Downloaded^[[0m chrono v0.4.45
+build	UNKNOWN STEP	2026-06-24T00:02:02.7032892Z ^[[1m^[[92m  Downloaded^[[0m brotli-decompressor v5.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.7359036Z ^[[1m^[[92m  Downloaded^[[0m smallvec v1.15.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.7527449Z ^[[1m^[[92m  Downloaded^[[0m slab v0.4.12
+build	UNKNOWN STEP	2026-06-24T00:02:02.7646430Z ^[[1m^[[92m  Downloaded^[[0m simd-adler32 v0.3.9
+build	UNKNOWN STEP	2026-06-24T00:02:02.7836164Z ^[[1m^[[92m  Downloaded^[[0m shlex v2.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.7974458Z ^[[1m^[[92m  Downloaded^[[0m serde_with_macros v3.21.0
+build	UNKNOWN STEP	2026-06-24T00:02:02.8130562Z ^[[1m^[[92m  Downloaded^[[0m serde_derive v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:02.8440222Z ^[[1m^[[92m  Downloaded^[[0m serde_core v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:02.8652781Z ^[[1m^[[92m  Downloaded^[[0m semver v1.0.28
+build	UNKNOWN STEP	2026-06-24T00:02:02.8888215Z ^[[1m^[[92m  Downloaded^[[0m rustls-platform-verifier v0.7.0
+build	UNKNOWN STEP	2026-06-24T00:02:02.9251109Z ^[[1m^[[92m  Downloaded^[[0m rustls-pki-types v1.14.1
+build	UNKNOWN STEP	2026-06-24T00:02:02.9494779Z ^[[1m^[[92m  Downloaded^[[0m rfd v0.16.0
+build	UNKNOWN STEP	2026-06-24T00:02:02.9955048Z ^[[1m^[[92m  Downloaded^[[0m quote v1.0.45
+build	UNKNOWN STEP	2026-06-24T00:02:03.0226000Z ^[[1m^[[92m  Downloaded^[[0m quinn-udp v0.5.14
+build	UNKNOWN STEP	2026-06-24T00:02:03.0353587Z ^[[1m^[[92m  Downloaded^[[0m proc-macro2 v1.0.106
+build	UNKNOWN STEP	2026-06-24T00:02:03.0615947Z ^[[1m^[[92m  Downloaded^[[0m ppv-lite86 v0.2.21
+build	UNKNOWN STEP	2026-06-24T00:02:03.0715182Z ^[[1m^[[92m  Downloaded^[[0m plist v1.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.0944001Z ^[[1m^[[92m  Downloaded^[[0m pin-project-lite v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:02:03.1591829Z ^[[1m^[[92m  Downloaded^[[0m phf_macros v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:03.1708367Z ^[[1m^[[92m  Downloaded^[[0m parking_lot_core v0.9.12
+build	UNKNOWN STEP	2026-06-24T00:02:03.1903361Z ^[[1m^[[92m  Downloaded^[[0m parking_lot v0.12.5
+build	UNKNOWN STEP	2026-06-24T00:02:03.2108684Z ^[[1m^[[92m  Downloaded^[[0m open v5.3.5
+build	UNKNOWN STEP	2026-06-24T00:02:03.2250077Z ^[[1m^[[92m  Downloaded^[[0m num-traits v0.2.19
+build	UNKNOWN STEP	2026-06-24T00:02:03.2478473Z ^[[1m^[[92m  Downloaded^[[0m minisign-verify v0.2.5
+build	UNKNOWN STEP	2026-06-24T00:02:03.2631608Z ^[[1m^[[92m  Downloaded^[[0m log v0.4.32
+build	UNKNOWN STEP	2026-06-24T00:02:03.2802651Z ^[[1m^[[92m  Downloaded^[[0m lock_api v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:02:03.2893491Z ^[[1m^[[92m  Downloaded^[[0m keyboard-types v0.7.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.3034492Z ^[[1m^[[92m  Downloaded^[[0m json-patch v3.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:03.3249828Z ^[[1m^[[92m  Downloaded^[[0m ipnet v2.12.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.3427118Z ^[[1m^[[92m  Downloaded^[[0m infer v0.19.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.3617692Z ^[[1m^[[92m  Downloaded^[[0m icu_normalizer v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.3899988Z ^[[1m^[[92m  Downloaded^[[0m icu_locale_core v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.4541794Z ^[[1m^[[92m  Downloaded^[[0m icu_collections v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.5176199Z ^[[1m^[[92m  Downloaded^[[0m ico v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:03.5436920Z ^[[1m^[[92m  Downloaded^[[0m hyper-util v0.1.20
+build	UNKNOWN STEP	2026-06-24T00:02:03.5872813Z ^[[1m^[[92m  Downloaded^[[0m http-body-util v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:02:03.6050942Z ^[[1m^[[92m  Downloaded^[[0m http v1.4.2
+build	UNKNOWN STEP	2026-06-24T00:02:03.6315136Z ^[[1m^[[92m  Downloaded^[[0m html5ever v0.38.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.0979263Z ^[[1m^[[92m  Downloaded^[[0m hashbrown v0.12.3
+build	UNKNOWN STEP	2026-06-24T00:02:04.1246835Z ^[[1m^[[92m  Downloaded^[[0m global-hotkey v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.1492728Z ^[[1m^[[92m  Downloaded^[[0m getrandom v0.4.2
+build	UNKNOWN STEP	2026-06-24T00:02:04.1830928Z ^[[1m^[[92m  Downloaded^[[0m getrandom v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:02:04.2088536Z ^[[1m^[[92m  Downloaded^[[0m flate2 v1.1.9
+build	UNKNOWN STEP	2026-06-24T00:02:04.2555142Z ^[[1m^[[92m  Downloaded^[[0m embed-resource v3.0.9
+build	UNKNOWN STEP	2026-06-24T00:02:04.2725998Z ^[[1m^[[92m  Downloaded^[[0m dom_query v0.27.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.3179312Z ^[[1m^[[92m  Downloaded^[[0m derive_more-impl v2.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.3622207Z ^[[1m^[[92m  Downloaded^[[0m derive_more v2.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.5006751Z ^[[1m^[[92m  Downloaded^[[0m darling v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.5624539Z ^[[1m^[[92m  Downloaded^[[0m cssparser v0.36.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.5813596Z ^[[1m^[[92m  Downloaded^[[0m crossbeam-utils v0.8.21
+build	UNKNOWN STEP	2026-06-24T00:02:04.6079099Z ^[[1m^[[92m  Downloaded^[[0m crossbeam-channel v0.5.15
+build	UNKNOWN STEP	2026-06-24T00:02:04.6409753Z ^[[1m^[[92m  Downloaded^[[0m cookie v0.18.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.6604512Z ^[[1m^[[92m  Downloaded^[[0m cfb v0.7.3
+build	UNKNOWN STEP	2026-06-24T00:02:04.6924250Z ^[[1m^[[92m  Downloaded^[[0m cc v1.2.63
+build	UNKNOWN STEP	2026-06-24T00:02:04.7143525Z ^[[1m^[[92m  Downloaded^[[0m cargo_toml v0.22.3
+build	UNKNOWN STEP	2026-06-24T00:02:04.7305410Z ^[[1m^[[92m  Downloaded^[[0m camino v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:04.7467688Z ^[[1m^[[92m  Downloaded^[[0m bs58 v0.5.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.7647542Z ^[[1m^[[92m  Downloaded^[[0m anyhow v1.0.102
+build	UNKNOWN STEP	2026-06-24T00:02:04.8016793Z ^[[1m^[[92m  Downloaded^[[0m string_cache_codegen v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.8079409Z ^[[1m^[[92m  Downloaded^[[0m stable_deref_trait v1.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.8158616Z ^[[1m^[[92m  Downloaded^[[0m sha2 v0.10.9
+build	UNKNOWN STEP	2026-06-24T00:02:04.8420590Z ^[[1m^[[92m  Downloaded^[[0m serialize-to-javascript-impl v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:04.8488287Z ^[[1m^[[92m  Downloaded^[[0m serde_urlencoded v0.7.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.8629633Z ^[[1m^[[92m  Downloaded^[[0m serde_repr v0.1.20
+build	UNKNOWN STEP	2026-06-24T00:02:04.8854815Z ^[[1m^[[92m  Downloaded^[[0m serde-untagged v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:02:04.8996464Z ^[[1m^[[92m  Downloaded^[[0m rustc_version v0.4.1
+build	UNKNOWN STEP	2026-06-24T00:02:04.9106016Z ^[[1m^[[92m  Downloaded^[[0m rustc-hash v2.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:04.9217718Z ^[[1m^[[92m  Downloaded^[[0m ref-cast-impl v1.0.25
+build	UNKNOWN STEP	2026-06-24T00:02:04.9290399Z ^[[1m^[[92m  Downloaded^[[0m ref-cast v1.0.25
+build	UNKNOWN STEP	2026-06-24T00:02:04.9588707Z ^[[1m^[[92m  Downloaded^[[0m raw-window-handle v0.6.2
+build	UNKNOWN STEP	2026-06-24T00:02:04.9756001Z ^[[1m^[[92m  Downloaded^[[0m rand_chacha v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:04.9853640Z ^[[1m^[[92m  Downloaded^[[0m psl-types v2.0.11
+build	UNKNOWN STEP	2026-06-24T00:02:04.9947129Z ^[[1m^[[92m  Downloaded^[[0m precomputed-hash v0.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.4428346Z ^[[1m^[[92m  Downloaded^[[0m powerfmt v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.4534506Z ^[[1m^[[92m  Downloaded^[[0m phf_shared v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.4614856Z ^[[1m^[[92m  Downloaded^[[0m phf_codegen v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.4697989Z ^[[1m^[[92m  Downloaded^[[0m phf v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.4821489Z ^[[1m^[[92m  Downloaded^[[0m os_pipe v1.2.3
+build	UNKNOWN STEP	2026-06-24T00:02:05.4970831Z ^[[1m^[[92m  Downloaded^[[0m option-ext v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.5044625Z ^[[1m^[[92m  Downloaded^[[0m num-conv v0.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:05.5118837Z ^[[1m^[[92m  Downloaded^[[0m new_debug_unreachable v1.0.6
+build	UNKNOWN STEP	2026-06-24T00:02:05.5228328Z ^[[1m^[[92m  Downloaded^[[0m litrs v1.0.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.5501765Z ^[[1m^[[92m  Downloaded^[[0m idna_adapter v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:05.5583174Z ^[[1m^[[92m  Downloaded^[[0m icu_provider v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.5786826Z ^[[1m^[[92m  Downloaded^[[0m hyper-rustls v0.27.9
+build	UNKNOWN STEP	2026-06-24T00:02:05.5920106Z ^[[1m^[[92m  Downloaded^[[0m glob v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:02:05.6051282Z ^[[1m^[[92m  Downloaded^[[0m futures-sink v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:05.6127481Z ^[[1m^[[92m  Downloaded^[[0m futures-io v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:05.6202816Z ^[[1m^[[92m  Downloaded^[[0m futures-core v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:05.6314376Z ^[[1m^[[92m  Downloaded^[[0m foldhash v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.6413731Z ^[[1m^[[92m  Downloaded^[[0m find-msvc-tools v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:02:05.6586844Z ^[[1m^[[92m  Downloaded^[[0m fastrand v2.4.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.6693688Z ^[[1m^[[92m  Downloaded^[[0m erased-serde v0.4.10
+build	UNKNOWN STEP	2026-06-24T00:02:05.6900789Z ^[[1m^[[92m  Downloaded^[[0m equivalent v1.0.2
+build	UNKNOWN STEP	2026-06-24T00:02:05.6991477Z ^[[1m^[[92m  Downloaded^[[0m dyn-clone v1.0.20
+build	UNKNOWN STEP	2026-06-24T00:02:05.7130130Z ^[[1m^[[92m  Downloaded^[[0m dunce v1.0.5
+build	UNKNOWN STEP	2026-06-24T00:02:05.7210044Z ^[[1m^[[92m  Downloaded^[[0m dtor v0.3.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.7298381Z ^[[1m^[[92m  Downloaded^[[0m dtoa v1.0.11
+build	UNKNOWN STEP	2026-06-24T00:02:05.7424439Z ^[[1m^[[92m  Downloaded^[[0m dpi v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:05.7511976Z ^[[1m^[[92m  Downloaded^[[0m displaydoc v0.2.6
+build	UNKNOWN STEP	2026-06-24T00:02:05.7712581Z ^[[1m^[[92m  Downloaded^[[0m dirs-sys v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.7825987Z ^[[1m^[[92m  Downloaded^[[0m digest v0.10.7
+build	UNKNOWN STEP	2026-06-24T00:02:05.7991782Z ^[[1m^[[92m  Downloaded^[[0m deranged v0.5.8
+build	UNKNOWN STEP	2026-06-24T00:02:05.8136917Z ^[[1m^[[92m  Downloaded^[[0m data-url v0.3.2
+build	UNKNOWN STEP	2026-06-24T00:02:05.8272324Z ^[[1m^[[92m  Downloaded^[[0m darling_macro v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.8335276Z ^[[1m^[[92m  Downloaded^[[0m ctor-proc-macro v0.0.7
+build	UNKNOWN STEP	2026-06-24T00:02:05.8409825Z ^[[1m^[[92m  Downloaded^[[0m ctor v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.8610217Z ^[[1m^[[92m  Downloaded^[[0m cssparser-macros v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.8666518Z ^[[1m^[[92m  Downloaded^[[0m cpufeatures v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:02:05.8782504Z ^[[1m^[[92m  Downloaded^[[0m cfg_aliases v0.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.8873659Z ^[[1m^[[92m  Downloaded^[[0m cfg-if v1.0.4
+build	UNKNOWN STEP	2026-06-24T00:02:05.8994224Z ^[[1m^[[92m  Downloaded^[[0m bytes v1.11.1
+build	UNKNOWN STEP	2026-06-24T00:02:05.9362892Z ^[[1m^[[92m  Downloaded^[[0m byteorder v1.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:05.9486285Z ^[[1m^[[92m  Downloaded^[[0m block-buffer v0.10.4
+build	UNKNOWN STEP	2026-06-24T00:02:05.9577478Z ^[[1m^[[92m  Downloaded^[[0m bitflags v2.13.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.0064780Z ^[[1m^[[92m  Downloaded^[[0m bit-set v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.0171707Z ^[[1m^[[92m  Downloaded^[[0m adler2 v2.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.0277249Z ^[[1m^[[92m  Downloaded^[[0m servo_arc v0.4.3
+build	UNKNOWN STEP	2026-06-24T00:02:06.0345965Z ^[[1m^[[92m  Downloaded^[[0m serialize-to-javascript v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:06.0440779Z ^[[1m^[[92m  Downloaded^[[0m serde_spanned v1.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.0526982Z ^[[1m^[[92m  Downloaded^[[0m scopeguard v1.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.0633452Z ^[[1m^[[92m  Downloaded^[[0m schemars_derive v0.8.22
+build	UNKNOWN STEP	2026-06-24T00:02:06.0779371Z ^[[1m^[[92m  Downloaded^[[0m schemars v0.8.22
+build	UNKNOWN STEP	2026-06-24T00:02:06.2223677Z ^[[1m^[[92m  Downloaded^[[0m same-file v1.0.6
+build	UNKNOWN STEP	2026-06-24T00:02:06.2341321Z ^[[1m^[[92m  Downloaded^[[0m rustls-webpki v0.103.13
+build	UNKNOWN STEP	2026-06-24T00:02:06.2577160Z ^[[1m^[[92m  Downloaded^[[0m reqwest v0.13.4
+build	UNKNOWN STEP	2026-06-24T00:02:06.2963320Z ^[[1m^[[92m  Downloaded^[[0m potential_utf v0.1.5
+build	UNKNOWN STEP	2026-06-24T00:02:06.3141172Z ^[[1m^[[92m  Downloaded^[[0m phf_generator v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.3234513Z ^[[1m^[[92m  Downloaded^[[0m percent-encoding v2.3.2
+build	UNKNOWN STEP	2026-06-24T00:02:06.3310743Z ^[[1m^[[92m  Downloaded^[[0m once_cell v1.21.4
+build	UNKNOWN STEP	2026-06-24T00:02:06.3535765Z ^[[1m^[[92m  Downloaded^[[0m muda v0.19.2
+build	UNKNOWN STEP	2026-06-24T00:02:06.3846333Z ^[[1m^[[92m  Downloaded^[[0m ident_case v1.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.3923857Z ^[[1m^[[92m  Downloaded^[[0m icu_properties v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.4080635Z ^[[1m^[[92m  Downloaded^[[0m http-body v1.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.4164820Z ^[[1m^[[92m  Downloaded^[[0m hex v0.4.3
+build	UNKNOWN STEP	2026-06-24T00:02:06.4300896Z ^[[1m^[[92m  Downloaded^[[0m heck v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.4435178Z ^[[1m^[[92m  Downloaded^[[0m getrandom v0.3.4
+build	UNKNOWN STEP	2026-06-24T00:02:06.7869473Z ^[[1m^[[92m  Downloaded^[[0m generic-array v0.14.7
+build	UNKNOWN STEP	2026-06-24T00:02:06.8000631Z ^[[1m^[[92m  Downloaded^[[0m futures-task v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:06.8127515Z ^[[1m^[[92m  Downloaded^[[0m futures-macro v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:06.8217599Z ^[[1m^[[92m  Downloaded^[[0m form_urlencoded v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:06.8293216Z ^[[1m^[[92m  Downloaded^[[0m fnv v1.0.7
+build	UNKNOWN STEP	2026-06-24T00:02:06.8373519Z ^[[1m^[[92m  Downloaded^[[0m dtor-proc-macro v0.0.6
+build	UNKNOWN STEP	2026-06-24T00:02:06.8454719Z ^[[1m^[[92m  Downloaded^[[0m dtoa-short v0.3.5
+build	UNKNOWN STEP	2026-06-24T00:02:06.8521798Z ^[[1m^[[92m  Downloaded^[[0m document-features v0.2.12
+build	UNKNOWN STEP	2026-06-24T00:02:06.8638685Z ^[[1m^[[92m  Downloaded^[[0m dirs v6.0.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.8754127Z ^[[1m^[[92m  Downloaded^[[0m crypto-common v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:02:06.8837356Z ^[[1m^[[92m  Downloaded^[[0m cookie_store v0.22.1
+build	UNKNOWN STEP	2026-06-24T00:02:06.9060206Z ^[[1m^[[92m  Downloaded^[[0m cargo_metadata v0.19.2
+build	UNKNOWN STEP	2026-06-24T00:02:06.9276793Z ^[[1m^[[92m  Downloaded^[[0m cargo-platform v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:02:06.9426573Z ^[[1m^[[92m  Downloaded^[[0m bit-vec v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:02:06.9603224Z ^[[1m^[[92m  Downloaded^[[0m base64 v0.22.1
+build	UNKNOWN STEP	2026-06-24T00:02:07.0041539Z ^[[1m^[[92m  Downloaded^[[0m autocfg v1.5.1
+build	UNKNOWN STEP	2026-06-24T00:02:07.0217950Z ^[[1m^[[92m  Downloaded^[[0m atomic-waker v1.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:07.0330332Z ^[[1m^[[92m  Downloaded^[[0m alloc-stdlib v0.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:07.0469195Z ^[[1m^[[92m  Downloaded^[[0m aho-corasick v1.1.4
+build	UNKNOWN STEP	2026-06-24T00:02:07.0892913Z ^[[1m^[[92m  Downloaded^[[0m mio v1.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:07.1465964Z ^[[1m^[[92m  Downloaded^[[0m mime v0.3.17
+build	UNKNOWN STEP	2026-06-24T00:02:07.1576729Z ^[[1m^[[92m  Downloaded^[[0m markup5ever v0.38.0
+build	UNKNOWN STEP	2026-06-24T00:02:07.1683357Z ^[[1m^[[92m  Downloaded^[[0m lru-slab v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:02:07.1767274Z ^[[1m^[[92m  Downloaded^[[0m litemap v0.8.2
+build	UNKNOWN STEP	2026-06-24T00:02:07.1999494Z ^[[1m^[[92m  Downloaded^[[0m itoa v1.0.18
+build	UNKNOWN STEP	2026-06-24T00:02:07.2131640Z ^[[1m^[[92m  Downloaded^[[0m icu_normalizer_data v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:07.2286652Z ^[[1m^[[92m  Downloaded^[[0m futures-channel v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:02:07.2468371Z ^[[1m^[[92m  Downloaded^[[0m darling_core v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:07.3080006Z ^[[1m^[[92m  Downloaded^[[0m crc32fast v1.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:07.3296555Z ^[[1m^[[92m  Downloaded^[[0m webview2-com-sys v0.38.2
+build	UNKNOWN STEP	2026-06-24T00:02:07.4439545Z ^[[1m^[[92m  Downloaded^[[0m windows v0.61.3
+build	UNKNOWN STEP	2026-06-24T00:02:10.8339034Z ^[[1m^[[92m   Compiling^[[0m proc-macro2 v1.0.106
+build	UNKNOWN STEP	2026-06-24T00:02:10.8341338Z ^[[1m^[[92m   Compiling^[[0m unicode-ident v1.0.24
+build	UNKNOWN STEP	2026-06-24T00:02:10.8354876Z ^[[1m^[[92m   Compiling^[[0m quote v1.0.45
+build	UNKNOWN STEP	2026-06-24T00:02:10.8355726Z ^[[1m^[[92m   Compiling^[[0m serde_core v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:26.8635384Z ^[[1m^[[92m   Compiling^[[0m icu_properties_data v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:30.3621554Z ^[[1m^[[92m   Compiling^[[0m icu_normalizer_data v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:30.4448555Z ^[[1m^[[92m   Compiling^[[0m siphasher v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:02:30.6163138Z ^[[1m^[[92m   Compiling^[[0m cfg-if v1.0.4
+build	UNKNOWN STEP	2026-06-24T00:02:30.8120951Z ^[[1m^[[92m   Compiling^[[0m zmij v1.0.21
+build	UNKNOWN STEP	2026-06-24T00:02:31.1195271Z ^[[1m^[[92m   Compiling^[[0m fastrand v2.4.1
+build	UNKNOWN STEP	2026-06-24T00:02:31.5672699Z ^[[1m^[[92m   Compiling^[[0m phf_shared v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:31.9651416Z ^[[1m^[[92m   Compiling^[[0m stable_deref_trait v1.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:32.0918254Z ^[[1m^[[92m   Compiling^[[0m phf_generator v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:32.0940692Z ^[[1m^[[92m   Compiling^[[0m thiserror v2.0.18
+build	UNKNOWN STEP	2026-06-24T00:02:32.4670736Z ^[[1m^[[92m   Compiling^[[0m smallvec v1.15.1
+build	UNKNOWN STEP	2026-06-24T00:02:32.7203025Z ^[[1m^[[92m   Compiling^[[0m parking_lot_core v0.9.12
+build	UNKNOWN STEP	2026-06-24T00:02:32.8449818Z ^[[1m^[[92m   Compiling^[[0m windows-link v0.2.1
+build	UNKNOWN STEP	2026-06-24T00:02:32.9099982Z ^[[1m^[[92m   Compiling^[[0m serde v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:33.5406714Z ^[[1m^[[92m   Compiling^[[0m syn v2.0.117
+build	UNKNOWN STEP	2026-06-24T00:02:33.6595869Z ^[[1m^[[92m   Compiling^[[0m num-conv v0.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:33.8688349Z ^[[1m^[[92m   Compiling^[[0m time-core v0.1.8
+build	UNKNOWN STEP	2026-06-24T00:02:33.9428105Z ^[[1m^[[92m   Compiling^[[0m memchr v2.8.1
+build	UNKNOWN STEP	2026-06-24T00:02:34.0979594Z ^[[1m^[[92m   Compiling^[[0m typeid v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:02:34.4109921Z ^[[1m^[[92m   Compiling^[[0m itoa v1.0.18
+build	UNKNOWN STEP	2026-06-24T00:02:34.6980401Z ^[[1m^[[92m   Compiling^[[0m phf_codegen v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:34.9584293Z ^[[1m^[[92m   Compiling^[[0m writeable v0.6.3
+build	UNKNOWN STEP	2026-06-24T00:02:35.0250771Z ^[[1m^[[92m   Compiling^[[0m ident_case v1.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:35.1341775Z ^[[1m^[[92m   Compiling^[[0m thiserror v1.0.69
+build	UNKNOWN STEP	2026-06-24T00:02:35.2050397Z ^[[1m^[[92m   Compiling^[[0m strsim v0.11.1
+build	UNKNOWN STEP	2026-06-24T00:02:35.4303020Z ^[[1m^[[92m   Compiling^[[0m litemap v0.8.2
+build	UNKNOWN STEP	2026-06-24T00:02:35.5036809Z ^[[1m^[[92m   Compiling^[[0m erased-serde v0.4.10
+build	UNKNOWN STEP	2026-06-24T00:02:35.6953483Z ^[[1m^[[92m   Compiling^[[0m getrandom v0.4.2
+build	UNKNOWN STEP	2026-06-24T00:02:35.8073355Z ^[[1m^[[92m   Compiling^[[0m utf8_iter v1.0.4
+build	UNKNOWN STEP	2026-06-24T00:02:35.8736260Z ^[[1m^[[92m   Compiling^[[0m new_debug_unreachable v1.0.6
+build	UNKNOWN STEP	2026-06-24T00:02:35.9490543Z ^[[1m^[[92m   Compiling^[[0m scopeguard v1.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:36.0109825Z ^[[1m^[[92m   Compiling^[[0m anyhow v1.0.102
+build	UNKNOWN STEP	2026-06-24T00:02:36.0462912Z ^[[1m^[[92m   Compiling^[[0m lock_api v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:02:36.4190767Z ^[[1m^[[92m   Compiling^[[0m string_cache_codegen v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:02:36.4802433Z ^[[1m^[[92m   Compiling^[[0m serde_json v1.0.150
+build	UNKNOWN STEP	2026-06-24T00:02:36.9324377Z ^[[1m^[[92m   Compiling^[[0m precomputed-hash v0.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:37.0093707Z ^[[1m^[[92m   Compiling^[[0m winnow v1.0.3
+build	UNKNOWN STEP	2026-06-24T00:02:37.1480204Z ^[[1m^[[92m   Compiling^[[0m web_atoms v0.2.4
+build	UNKNOWN STEP	2026-06-24T00:02:37.1760013Z ^[[1m^[[92m   Compiling^[[0m parking_lot v0.12.5
+build	UNKNOWN STEP	2026-06-24T00:02:37.5850458Z ^[[1m^[[92m   Compiling^[[0m toml_parser v1.1.2+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:02:38.1949641Z ^[[1m^[[92m   Compiling^[[0m serde_spanned v1.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:38.3383339Z ^[[1m^[[92m   Compiling^[[0m windows-sys v0.61.2
+build	UNKNOWN STEP	2026-06-24T00:02:38.5483287Z ^[[1m^[[92m   Compiling^[[0m toml_writer v1.1.1+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:02:38.7532577Z ^[[1m^[[92m   Compiling^[[0m ctor-proc-macro v0.0.7
+build	UNKNOWN STEP	2026-06-24T00:02:39.2014039Z ^[[1m^[[92m   Compiling^[[0m synstructure v0.13.2
+build	UNKNOWN STEP	2026-06-24T00:02:40.1647935Z ^[[1m^[[92m   Compiling^[[0m darling_core v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:41.4748072Z ^[[1m^[[92m   Compiling^[[0m string_cache v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:41.9532098Z ^[[1m^[[92m   Compiling^[[0m semver v1.0.28
+build	UNKNOWN STEP	2026-06-24T00:02:42.4273836Z ^[[1m^[[92m   Compiling^[[0m find-msvc-tools v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:02:42.7109237Z ^[[1m^[[92m   Compiling^[[0m zerofrom-derive v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:02:43.8382346Z ^[[1m^[[92m   Compiling^[[0m yoke-derive v0.8.2
+build	UNKNOWN STEP	2026-06-24T00:02:44.9452345Z ^[[1m^[[92m   Compiling^[[0m zerovec-derive v0.11.3
+build	UNKNOWN STEP	2026-06-24T00:02:45.2598415Z ^[[1m^[[92m   Compiling^[[0m serde_derive v1.0.228
+build	UNKNOWN STEP	2026-06-24T00:02:45.7688804Z ^[[1m^[[92m   Compiling^[[0m displaydoc v0.2.6
+build	UNKNOWN STEP	2026-06-24T00:02:47.3496969Z ^[[1m^[[92m   Compiling^[[0m zerofrom v0.1.8
+build	UNKNOWN STEP	2026-06-24T00:02:47.6056591Z ^[[1m^[[92m   Compiling^[[0m yoke v0.8.3
+build	UNKNOWN STEP	2026-06-24T00:02:47.8766560Z ^[[1m^[[92m   Compiling^[[0m thiserror-impl v2.0.18
+build	UNKNOWN STEP	2026-06-24T00:02:48.0603099Z ^[[1m^[[92m   Compiling^[[0m zerovec v0.11.6
+build	UNKNOWN STEP	2026-06-24T00:02:48.4003639Z ^[[1m^[[92m   Compiling^[[0m phf_macros v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:49.3225205Z ^[[1m^[[92m   Compiling^[[0m tinystr v0.8.3
+build	UNKNOWN STEP	2026-06-24T00:02:49.8962980Z ^[[1m^[[92m   Compiling^[[0m icu_locale_core v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:50.0156166Z ^[[1m^[[92m   Compiling^[[0m potential_utf v0.1.5
+build	UNKNOWN STEP	2026-06-24T00:02:50.3627983Z ^[[1m^[[92m   Compiling^[[0m zerotrie v0.2.4
+build	UNKNOWN STEP	2026-06-24T00:02:50.8943530Z ^[[1m^[[92m   Compiling^[[0m icu_collections v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:51.1020378Z ^[[1m^[[92m   Compiling^[[0m darling_macro v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:51.8225388Z ^[[1m^[[92m   Compiling^[[0m icu_provider v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:51.8369987Z ^[[1m^[[92m   Compiling^[[0m thiserror-impl v1.0.69
+build	UNKNOWN STEP	2026-06-24T00:02:52.2971925Z ^[[1m^[[92m   Compiling^[[0m darling v0.23.0
+build	UNKNOWN STEP	2026-06-24T00:02:52.3062367Z ^[[1m^[[92m   Compiling^[[0m phf v0.13.1
+build	UNKNOWN STEP	2026-06-24T00:02:52.3769243Z ^[[1m^[[92m   Compiling^[[0m serde_with_macros v3.21.0
+build	UNKNOWN STEP	2026-06-24T00:02:52.5048886Z ^[[1m^[[92m   Compiling^[[0m icu_properties v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:53.2942681Z ^[[1m^[[92m   Compiling^[[0m icu_normalizer v2.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:53.9430770Z ^[[1m^[[92m   Compiling^[[0m utf-8 v0.7.6
+build	UNKNOWN STEP	2026-06-24T00:02:54.1220212Z ^[[1m^[[92m   Compiling^[[0m dtoa v1.0.11
+build	UNKNOWN STEP	2026-06-24T00:02:54.1522993Z ^[[1m^[[92m   Compiling^[[0m shlex v2.0.1
+build	UNKNOWN STEP	2026-06-24T00:02:54.1907313Z ^[[1m^[[92m   Compiling^[[0m autocfg v1.5.1
+build	UNKNOWN STEP	2026-06-24T00:02:54.2873850Z ^[[1m^[[92m   Compiling^[[0m percent-encoding v2.3.2
+build	UNKNOWN STEP	2026-06-24T00:02:54.3824846Z ^[[1m^[[92m   Compiling^[[0m idna_adapter v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:54.5080791Z ^[[1m^[[92m   Compiling^[[0m log v0.4.32
+build	UNKNOWN STEP	2026-06-24T00:02:54.5310135Z ^[[1m^[[92m   Compiling^[[0m idna v1.1.0
+build	UNKNOWN STEP	2026-06-24T00:02:54.7452195Z ^[[1m^[[92m   Compiling^[[0m form_urlencoded v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:54.8082936Z ^[[1m^[[92m   Compiling^[[0m indexmap v1.9.3
+build	UNKNOWN STEP	2026-06-24T00:02:54.8344614Z ^[[1m^[[92m   Compiling^[[0m cc v1.2.63
+build	UNKNOWN STEP	2026-06-24T00:02:54.9419035Z ^[[1m^[[92m   Compiling^[[0m dtoa-short v0.3.5
+build	UNKNOWN STEP	2026-06-24T00:02:55.0574645Z ^[[1m^[[92m   Compiling^[[0m tendril v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:55.4453153Z ^[[1m^[[92m   Compiling^[[0m cssparser-macros v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:02:55.6168379Z ^[[1m^[[92m   Compiling^[[0m derive_more-impl v2.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:56.0056490Z ^[[1m^[[92m   Compiling^[[0m uuid v1.23.3
+build	UNKNOWN STEP	2026-06-24T00:02:56.4740237Z ^[[1m^[[92m   Compiling^[[0m aho-corasick v1.1.4
+build	UNKNOWN STEP	2026-06-24T00:02:56.6559122Z ^[[1m^[[92m   Compiling^[[0m toml_datetime v1.1.1+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:02:57.1427208Z ^[[1m^[[92m   Compiling^[[0m selectors v0.36.1
+build	UNKNOWN STEP	2026-06-24T00:02:57.2758131Z ^[[1m^[[92m   Compiling^[[0m regex-syntax v0.8.11
+build	UNKNOWN STEP	2026-06-24T00:02:57.3330973Z ^[[1m^[[92m   Compiling^[[0m camino v1.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:57.6676720Z ^[[1m^[[92m   Compiling^[[0m unic-char-range v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:57.7365364Z ^[[1m^[[92m   Compiling^[[0m alloc-no-stdlib v2.0.4
+build	UNKNOWN STEP	2026-06-24T00:02:57.7869803Z ^[[1m^[[92m   Compiling^[[0m powerfmt v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:02:57.8464190Z ^[[1m^[[92m   Compiling^[[0m byteorder v1.5.0
+build	UNKNOWN STEP	2026-06-24T00:02:58.0425288Z ^[[1m^[[92m   Compiling^[[0m unic-common v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:58.1430739Z ^[[1m^[[92m   Compiling^[[0m unic-ucd-version v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:58.1671639Z ^[[1m^[[92m   Compiling^[[0m deranged v0.5.8
+build	UNKNOWN STEP	2026-06-24T00:02:58.2100656Z ^[[1m^[[92m   Compiling^[[0m alloc-stdlib v0.2.2
+build	UNKNOWN STEP	2026-06-24T00:02:58.3299042Z ^[[1m^[[92m   Compiling^[[0m unic-char-property v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:02:58.5999470Z ^[[1m^[[92m   Compiling^[[0m derive_more v2.1.1
+build	UNKNOWN STEP	2026-06-24T00:02:58.7194503Z ^[[1m^[[92m   Compiling^[[0m toml v1.1.2+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:02:59.9412215Z ^[[1m^[[92m   Compiling^[[0m markup5ever v0.38.0
+build	UNKNOWN STEP	2026-06-24T00:03:00.0148353Z ^[[1m^[[92m   Compiling^[[0m cssparser v0.36.0
+build	UNKNOWN STEP	2026-06-24T00:03:00.2409600Z ^[[1m^[[92m   Compiling^[[0m regex-automata v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:03:01.3147970Z ^[[1m^[[92m   Compiling^[[0m url v2.5.8
+build	UNKNOWN STEP	2026-06-24T00:03:01.3342842Z ^[[1m^[[92m   Compiling^[[0m winapi-util v0.1.11
+build	UNKNOWN STEP	2026-06-24T00:03:01.6333342Z ^[[1m^[[92m   Compiling^[[0m serde_derive_internals v0.29.1
+build	UNKNOWN STEP	2026-06-24T00:03:01.9106091Z ^[[1m^[[92m   Compiling^[[0m servo_arc v0.4.3
+build	UNKNOWN STEP	2026-06-24T00:03:02.1118111Z ^[[1m^[[92m   Compiling^[[0m equivalent v1.0.2
+build	UNKNOWN STEP	2026-06-24T00:03:02.1832349Z ^[[1m^[[92m   Compiling^[[0m hashbrown v0.17.1
+build	UNKNOWN STEP	2026-06-24T00:03:02.6698036Z ^[[1m^[[92m   Compiling^[[0m bitflags v2.13.0
+build	UNKNOWN STEP	2026-06-24T00:03:02.9344608Z ^[[1m^[[92m   Compiling^[[0m rustc-hash v2.1.2
+build	UNKNOWN STEP	2026-06-24T00:03:03.0553398Z ^[[1m^[[92m   Compiling^[[0m schemars v0.8.22
+build	UNKNOWN STEP	2026-06-24T00:03:03.1313166Z ^[[1m^[[92m   Compiling^[[0m hashbrown v0.12.3
+build	UNKNOWN STEP	2026-06-24T00:03:03.2875223Z ^[[1m^[[92m   Compiling^[[0m fnv v1.0.7
+build	UNKNOWN STEP	2026-06-24T00:03:03.3192096Z ^[[1m^[[92m   Compiling^[[0m bit-vec v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:03:03.3706629Z ^[[1m^[[92m   Compiling^[[0m cfb v0.7.3
+build	UNKNOWN STEP	2026-06-24T00:03:03.6331700Z ^[[1m^[[92m   Compiling^[[0m bit-set v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:03:03.8290689Z ^[[1m^[[92m   Compiling^[[0m regex v1.12.4
+build	UNKNOWN STEP	2026-06-24T00:03:04.5400465Z ^[[1m^[[92m   Compiling^[[0m schemars_derive v0.8.22
+build	UNKNOWN STEP	2026-06-24T00:03:04.5425549Z ^[[1m^[[92m   Compiling^[[0m indexmap v2.14.0
+build	UNKNOWN STEP	2026-06-24T00:03:05.9850756Z ^[[1m^[[92m   Compiling^[[0m same-file v1.0.6
+build	UNKNOWN STEP	2026-06-24T00:03:06.1524542Z ^[[1m^[[92m   Compiling^[[0m html5ever v0.38.0
+build	UNKNOWN STEP	2026-06-24T00:03:06.3791403Z ^[[1m^[[92m   Compiling^[[0m time v0.3.47
+build	UNKNOWN STEP	2026-06-24T00:03:06.6981389Z ^[[1m^[[92m   Compiling^[[0m unic-ucd-ident v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:03:07.0314100Z ^[[1m^[[92m   Compiling^[[0m brotli-decompressor v5.0.1
+build	UNKNOWN STEP	2026-06-24T00:03:07.1938654Z ^[[1m^[[92m   Compiling^[[0m jsonptr v0.6.3
+build	UNKNOWN STEP	2026-06-24T00:03:07.5972265Z ^[[1m^[[92m   Compiling^[[0m cargo-platform v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:03:07.9356458Z ^[[1m^[[92m   Compiling^[[0m quick-xml v0.39.4
+build	UNKNOWN STEP	2026-06-24T00:03:08.0223737Z ^[[1m^[[92m   Compiling^[[0m bytes v1.11.1
+build	UNKNOWN STEP	2026-06-24T00:03:08.8116144Z ^[[1m^[[92m   Compiling^[[0m dyn-clone v1.0.20
+build	UNKNOWN STEP	2026-06-24T00:03:08.9470546Z ^[[1m^[[92m   Compiling^[[0m foldhash v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:03:09.0657338Z ^[[1m^[[92m   Compiling^[[0m dunce v1.0.5
+build	UNKNOWN STEP	2026-06-24T00:03:09.1827813Z ^[[1m^[[92m   Compiling^[[0m base64 v0.22.1
+build	UNKNOWN STEP	2026-06-24T00:03:09.2444187Z ^[[1m^[[92m   Compiling^[[0m dom_query v0.27.0
+build	UNKNOWN STEP	2026-06-24T00:03:09.4261773Z ^[[1m^[[92m   Compiling^[[0m http v1.4.2
+build	UNKNOWN STEP	2026-06-24T00:03:09.6627345Z ^[[1m^[[92m   Compiling^[[0m plist v1.9.0
+build	UNKNOWN STEP	2026-06-24T00:03:11.0120697Z ^[[1m^[[92m   Compiling^[[0m brotli v8.0.3
+build	UNKNOWN STEP	2026-06-24T00:03:11.5806799Z ^[[1m^[[92m   Compiling^[[0m cargo_metadata v0.19.2
+build	UNKNOWN STEP	2026-06-24T00:03:11.8560222Z ^[[1m^[[92m   Compiling^[[0m json-patch v3.0.1
+build	UNKNOWN STEP	2026-06-24T00:03:12.0243279Z ^[[1m^[[92m   Compiling^[[0m urlpattern v0.3.0
+build	UNKNOWN STEP	2026-06-24T00:03:12.5817141Z ^[[1m^[[92m   Compiling^[[0m serde-untagged v0.1.9
+build	UNKNOWN STEP	2026-06-24T00:03:12.9271702Z ^[[1m^[[92m   Compiling^[[0m walkdir v2.5.0
+build	UNKNOWN STEP	2026-06-24T00:03:13.3942166Z ^[[1m^[[92m   Compiling^[[0m infer v0.19.0
+build	UNKNOWN STEP	2026-06-24T00:03:13.7793669Z ^[[1m^[[92m   Compiling^[[0m serde_with v3.21.0
+build	UNKNOWN STEP	2026-06-24T00:03:14.0974332Z ^[[1m^[[92m   Compiling^[[0m ctor v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:03:14.1659371Z ^[[1m^[[92m   Compiling^[[0m glob v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:03:14.1926690Z ^[[1m^[[92m   Compiling^[[0m libc v0.2.186
+build	UNKNOWN STEP	2026-06-24T00:03:14.6814479Z ^[[1m^[[92m   Compiling^[[0m windows_x86_64_msvc v0.52.6
+build	UNKNOWN STEP	2026-06-24T00:03:16.9603209Z ^[[1m^[[92m   Compiling^[[0m tauri-utils v2.9.2
+build	UNKNOWN STEP	2026-06-24T00:03:17.6530574Z ^[[1m^[[92m   Compiling^[[0m vswhom-sys v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:03:17.9312700Z ^[[1m^[[92m   Compiling^[[0m windows-targets v0.52.6
+build	UNKNOWN STEP	2026-06-24T00:03:18.3311915Z ^[[1m^[[92m   Compiling^[[0m windows-sys v0.59.0
+build	UNKNOWN STEP	2026-06-24T00:03:22.8732620Z ^[[1m^[[92m   Compiling^[[0m once_cell v1.21.4
+build	UNKNOWN STEP	2026-06-24T00:03:24.5918909Z ^[[1m^[[92m   Compiling^[[0m winreg v0.55.0
+build	UNKNOWN STEP	2026-06-24T00:03:25.1925326Z ^[[1m^[[92m   Compiling^[[0m rustc_version v0.4.1
+build	UNKNOWN STEP	2026-06-24T00:03:25.5807554Z ^[[1m^[[92m   Compiling^[[0m vswhom v0.1.0
+build	UNKNOWN STEP	2026-06-24T00:03:25.5871099Z ^[[1m^[[92m   Compiling^[[0m toml_datetime v0.7.5+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:03:25.7093791Z ^[[1m^[[92m   Compiling^[[0m winnow v0.7.15
+build	UNKNOWN STEP	2026-06-24T00:03:25.8232718Z ^[[1m^[[92m   Compiling^[[0m option-ext v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:03:26.0090463Z ^[[1m^[[92m   Compiling^[[0m version_check v0.9.5
+build	UNKNOWN STEP	2026-06-24T00:03:28.5862158Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:03:28.7078182Z ^[[1m^[[92m   Compiling^[[0m toml v0.9.12+spec-1.1.0
+build	UNKNOWN STEP	2026-06-24T00:03:29.2412955Z ^[[1m^[[92m   Compiling^[[0m dirs-sys v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:03:29.3809012Z ^[[1m^[[92m   Compiling^[[0m embed-resource v3.0.9
+build	UNKNOWN STEP	2026-06-24T00:03:30.9964872Z ^[[1m^[[92m   Compiling^[[0m pin-project-lite v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:03:31.0916340Z ^[[1m^[[92m   Compiling^[[0m heck v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:03:32.8705551Z ^[[1m^[[92m   Compiling^[[0m cargo_toml v0.22.3
+build	UNKNOWN STEP	2026-06-24T00:03:33.0574961Z ^[[1m^[[92m   Compiling^[[0m tauri-winres v0.3.6
+build	UNKNOWN STEP	2026-06-24T00:03:33.6174258Z ^[[1m^[[92m   Compiling^[[0m dirs v6.0.0
+build	UNKNOWN STEP	2026-06-24T00:03:34.0471958Z ^[[1m^[[92m   Compiling^[[0m windows-link v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:03:36.9492510Z ^[[1m^[[92m   Compiling^[[0m tauri-build v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:03:42.1182449Z ^[[1m^[[92m   Compiling^[[0m windows-result v0.3.4
+build	UNKNOWN STEP	2026-06-24T00:03:42.3733995Z ^[[1m^[[92m   Compiling^[[0m windows-strings v0.4.2
+build	UNKNOWN STEP	2026-06-24T00:03:43.2640611Z ^[[1m^[[92m   Compiling^[[0m socket2 v0.6.4
+build	UNKNOWN STEP	2026-06-24T00:03:43.6687366Z ^[[1m^[[92m   Compiling^[[0m mio v1.2.1
+build	UNKNOWN STEP	2026-06-24T00:03:44.8250444Z ^[[1m^[[92m   Compiling^[[0m tokio-macros v2.7.0
+build	UNKNOWN STEP	2026-06-24T00:03:45.0846420Z ^[[1m^[[92m   Compiling^[[0m windows-interface v0.59.3
+build	UNKNOWN STEP	2026-06-24T00:03:45.9550860Z ^[[1m^[[92m   Compiling^[[0m tauri v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:03:46.0400246Z ^[[1m^[[92m   Compiling^[[0m windows-implement v0.60.2
+build	UNKNOWN STEP	2026-06-24T00:03:47.1970669Z ^[[1m^[[92m   Compiling^[[0m windows-core v0.61.2
+build	UNKNOWN STEP	2026-06-24T00:03:47.3087432Z ^[[1m^[[92m   Compiling^[[0m tokio v1.52.3
+build	UNKNOWN STEP	2026-06-24T00:03:47.5031676Z ^[[1m^[[92m   Compiling^[[0m crc32fast v1.5.0
+build	UNKNOWN STEP	2026-06-24T00:03:50.3386459Z ^[[1m^[[92m   Compiling^[[0m tracing-core v0.1.36
+build	UNKNOWN STEP	2026-06-24T00:03:52.6095085Z ^[[1m^[[92m   Compiling^[[0m tracing-attributes v0.1.31
+build	UNKNOWN STEP	2026-06-24T00:03:55.6133741Z ^[[1m^[[92m   Compiling^[[0m time-macros v0.2.27
+build	UNKNOWN STEP	2026-06-24T00:03:56.1789797Z ^[[1m^[[92m   Compiling^[[0m tracing v0.1.44
+build	UNKNOWN STEP	2026-06-24T00:03:56.4897546Z ^[[1m^[[92m   Compiling^[[0m windows-threading v0.1.0
+build	UNKNOWN STEP	2026-06-24T00:03:56.7365666Z ^[[1m^[[92m   Compiling^[[0m generic-array v0.14.7
+build	UNKNOWN STEP	2026-06-24T00:03:58.0550689Z ^[[1m^[[92m   Compiling^[[0m windows-future v0.2.1
+build	UNKNOWN STEP	2026-06-24T00:03:58.3762309Z ^[[1m^[[92m   Compiling^[[0m windows-collections v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:03:58.7778459Z ^[[1m^[[92m   Compiling^[[0m windows-numerics v0.2.0
+build	UNKNOWN STEP	2026-06-24T00:03:58.7779506Z ^[[1m^[[92m   Compiling^[[0m cookie v0.18.1
+build	UNKNOWN STEP	2026-06-24T00:03:59.1227503Z ^[[1m^[[92m   Compiling^[[0m raw-window-handle v0.6.2
+build	UNKNOWN STEP	2026-06-24T00:03:59.1918025Z ^[[1m^[[92m   Compiling^[[0m typenum v1.20.1
+build	UNKNOWN STEP	2026-06-24T00:03:59.5732792Z ^[[1m^[[92m   Compiling^[[0m simd-adler32 v0.3.9
+build	UNKNOWN STEP	2026-06-24T00:03:59.8605787Z ^[[1m^[[92m   Compiling^[[0m crossbeam-utils v0.8.21
+build	UNKNOWN STEP	2026-06-24T00:04:00.7356496Z ^[[1m^[[92m   Compiling^[[0m windows v0.61.3
+build	UNKNOWN STEP	2026-06-24T00:04:05.8562522Z ^[[1m^[[92m   Compiling^[[0m webview2-com-sys v0.38.2
+build	UNKNOWN STEP	2026-06-24T00:04:12.0959377Z ^[[1m^[[92m   Compiling^[[0m adler2 v2.0.1
+build	UNKNOWN STEP	2026-06-24T00:04:12.2317223Z ^[[1m^[[92m   Compiling^[[0m miniz_oxide v0.8.9
+build	UNKNOWN STEP	2026-06-24T00:04:20.7339735Z ^[[1m^[[92m   Compiling^[[0m dpi v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:04:24.9832058Z ^[[1m^[[92m   Compiling^[[0m unicode-segmentation v1.13.3
+build	UNKNOWN STEP	2026-06-24T00:04:32.2870733Z ^[[1m^[[92m   Compiling^[[0m crossbeam-channel v0.5.15
+build	UNKNOWN STEP	2026-06-24T00:04:34.0225866Z ^[[1m^[[92m   Compiling^[[0m flate2 v1.1.9
+build	UNKNOWN STEP	2026-06-24T00:04:37.1266486Z ^[[1m^[[92m   Compiling^[[0m block-buffer v0.10.4
+build	UNKNOWN STEP	2026-06-24T00:04:37.4791912Z ^[[1m^[[92m   Compiling^[[0m crypto-common v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:04:37.7836351Z ^[[1m^[[92m   Compiling^[[0m fdeflate v0.3.7
+build	UNKNOWN STEP	2026-06-24T00:04:46.0469300Z ^[[1m^[[92m   Compiling^[[0m webview2-com-macros v0.8.1
+build	UNKNOWN STEP	2026-06-24T00:04:47.2531380Z ^[[1m^[[92m   Compiling^[[0m windows-version v0.1.7
+build	UNKNOWN STEP	2026-06-24T00:04:47.7867906Z ^[[1m^[[92m   Compiling^[[0m bitflags v1.3.2
+build	UNKNOWN STEP	2026-06-24T00:04:47.8559018Z ^[[1m^[[92m   Compiling^[[0m png v0.17.16
+build	UNKNOWN STEP	2026-06-24T00:04:53.1133782Z ^[[1m^[[92m   Compiling^[[0m digest v0.10.7
+build	UNKNOWN STEP	2026-06-24T00:05:05.7658560Z ^[[1m^[[92m   Compiling^[[0m tauri-runtime v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:05:06.0788807Z ^[[1m^[[92m   Compiling^[[0m wry v0.55.1
+build	UNKNOWN STEP	2026-06-24T00:05:06.5508478Z ^[[1m^[[92m   Compiling^[[0m cpufeatures v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:05:08.0844390Z ^[[1m^[[92m   Compiling^[[0m futures-core v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:05:08.8084726Z ^[[1m^[[92m   Compiling^[[0m sha2 v0.10.9
+build	UNKNOWN STEP	2026-06-24T00:05:09.6227595Z ^[[1m^[[92m   Compiling^[[0m webview2-com v0.38.2
+build	UNKNOWN STEP	2026-06-24T00:05:18.1421523Z ^[[1m^[[92m   Compiling^[[0m ico v0.5.0
+build	UNKNOWN STEP	2026-06-24T00:05:18.4597923Z ^[[1m^[[92m   Compiling^[[0m keyboard-types v0.7.0
+build	UNKNOWN STEP	2026-06-24T00:05:19.1375460Z ^[[1m^[[92m   Compiling^[[0m tauri-runtime-wry v2.11.2
+build	UNKNOWN STEP	2026-06-24T00:05:19.4152087Z ^[[1m^[[92m   Compiling^[[0m getrandom v0.3.4
+build	UNKNOWN STEP	2026-06-24T00:05:20.0752682Z ^[[1m^[[92m   Compiling^[[0m tauri-codegen v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:05:23.4982990Z ^[[1m^[[92m   Compiling^[[0m tao v0.35.3
+build	UNKNOWN STEP	2026-06-24T00:05:24.0679492Z ^[[1m^[[92m   Compiling^[[0m softbuffer v0.4.8
+build	UNKNOWN STEP	2026-06-24T00:05:27.6612632Z ^[[1m^[[92m   Compiling^[[0m serialize-to-javascript-impl v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:05:28.2094625Z ^[[1m^[[92m   Compiling^[[0m mime v0.3.17
+build	UNKNOWN STEP	2026-06-24T00:05:28.8654473Z ^[[1m^[[92m   Compiling^[[0m serialize-to-javascript v0.1.2
+build	UNKNOWN STEP	2026-06-24T00:05:29.1422325Z ^[[1m^[[92m   Compiling^[[0m tauri-macros v2.6.2
+build	UNKNOWN STEP	2026-06-24T00:05:31.5914539Z ^[[1m^[[92m   Compiling^[[0m muda v0.19.2
+build	UNKNOWN STEP	2026-06-24T00:05:34.0763300Z ^[[1m^[[92m   Compiling^[[0m window-vibrancy v0.6.0
+build	UNKNOWN STEP	2026-06-24T00:05:34.3468112Z ^[[1m^[[92m   Compiling^[[0m ring v0.17.14
+build	UNKNOWN STEP	2026-06-24T00:05:34.6723253Z ^[[1m^[[92m   Compiling^[[0m serde_repr v0.1.20
+build	UNKNOWN STEP	2026-06-24T00:05:40.9135773Z ^[[1m^[[92m   Compiling^[[0m slab v0.4.12
+build	UNKNOWN STEP	2026-06-24T00:05:41.0827551Z ^[[1m^[[92m   Compiling^[[0m zeroize v1.9.0
+build	UNKNOWN STEP	2026-06-24T00:05:41.1605162Z ^[[1m^[[92m   Compiling^[[0m getrandom v0.2.17
+build	UNKNOWN STEP	2026-06-24T00:05:41.3298125Z ^[[1m^[[92m   Compiling^[[0m rustls-pki-types v1.14.1
+build	UNKNOWN STEP	2026-06-24T00:05:41.3794508Z ^[[1m^[[92m   Compiling^[[0m untrusted v0.9.0
+build	UNKNOWN STEP	2026-06-24T00:05:41.5037799Z ^[[1m^[[92m   Compiling^[[0m windows_x86_64_msvc v0.53.1
+build	UNKNOWN STEP	2026-06-24T00:05:43.0502946Z ^[[1m^[[92m   Compiling^[[0m http-body v1.0.1
+build	UNKNOWN STEP	2026-06-24T00:05:43.2184105Z ^[[1m^[[92m   Compiling^[[0m futures-macro v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:05:44.4302939Z ^[[1m^[[92m   Compiling^[[0m rustls v0.23.40
+build	UNKNOWN STEP	2026-06-24T00:05:44.6713496Z ^[[1m^[[92m   Compiling^[[0m futures-task v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:05:44.8685542Z ^[[1m^[[92m   Compiling^[[0m httparse v1.10.1
+build	UNKNOWN STEP	2026-06-24T00:05:45.3004634Z ^[[1m^[[92m   Compiling^[[0m futures-sink v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:05:45.4134049Z ^[[1m^[[92m   Compiling^[[0m tokio-util v0.7.18
+build	UNKNOWN STEP	2026-06-24T00:05:47.6288879Z ^[[1m^[[92m   Compiling^[[0m futures-util v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:05:50.9523645Z ^[[1m^[[92m   Compiling^[[0m rustls-webpki v0.103.13
+build	UNKNOWN STEP	2026-06-24T00:05:51.0134897Z ^[[1m^[[92m   Compiling^[[0m tower-service v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:05:51.0996713Z ^[[1m^[[92m   Compiling^[[0m try-lock v0.2.5
+build	UNKNOWN STEP	2026-06-24T00:05:51.2033280Z ^[[1m^[[92m   Compiling^[[0m atomic-waker v1.1.2
+build	UNKNOWN STEP	2026-06-24T00:05:51.3396545Z ^[[1m^[[92m   Compiling^[[0m subtle v2.6.1
+build	UNKNOWN STEP	2026-06-24T00:05:51.5154255Z ^[[1m^[[92m   Compiling^[[0m h2 v0.4.14
+build	UNKNOWN STEP	2026-06-24T00:06:04.9700098Z ^[[1m^[[92m   Compiling^[[0m want v0.3.1
+build	UNKNOWN STEP	2026-06-24T00:06:05.1862283Z ^[[1m^[[92m   Compiling^[[0m windows-targets v0.53.5
+build	UNKNOWN STEP	2026-06-24T00:06:06.1080542Z ^[[1m^[[92m   Compiling^[[0m futures-channel v0.3.32
+build	UNKNOWN STEP	2026-06-24T00:06:06.4594099Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-fs v2.5.1
+build	UNKNOWN STEP	2026-06-24T00:06:08.0623193Z ^[[1m^[[92m   Compiling^[[0m windows-strings v0.5.1
+build	UNKNOWN STEP	2026-06-24T00:06:09.1726849Z ^[[1m^[[92m   Compiling^[[0m windows-result v0.4.1
+build	UNKNOWN STEP	2026-06-24T00:06:09.7263981Z ^[[1m^[[92m   Compiling^[[0m windows-registry v0.6.1
+build	UNKNOWN STEP	2026-06-24T00:06:10.5935400Z ^[[1m^[[92m   Compiling^[[0m hyper v1.10.1
+build	UNKNOWN STEP	2026-06-24T00:06:18.9679348Z ^[[1m^[[92m   Compiling^[[0m windows-sys v0.60.2
+build	UNKNOWN STEP	2026-06-24T00:06:19.8451714Z ^[[1m^[[92m   Compiling^[[0m sync_wrapper v1.0.2
+build	UNKNOWN STEP	2026-06-24T00:06:19.9488557Z ^[[1m^[[92m   Compiling^[[0m tower-layer v0.3.3
+build	UNKNOWN STEP	2026-06-24T00:06:20.2228088Z ^[[1m^[[92m   Compiling^[[0m ipnet v2.12.0
+build	UNKNOWN STEP	2026-06-24T00:06:23.1519985Z ^[[1m^[[92m   Compiling^[[0m hyper-util v0.1.20
+build	UNKNOWN STEP	2026-06-24T00:06:23.7473506Z ^[[1m^[[92m   Compiling^[[0m tower v0.5.3
+build	UNKNOWN STEP	2026-06-24T00:06:24.7137892Z ^[[1m^[[92m   Compiling^[[0m tokio-rustls v0.26.4
+build	UNKNOWN STEP	2026-06-24T00:06:25.1893703Z ^[[1m^[[92m   Compiling^[[0m webpki-roots v1.0.7
+build	UNKNOWN STEP	2026-06-24T00:06:25.3227597Z ^[[1m^[[92m   Compiling^[[0m hyper-rustls v0.27.9
+build	UNKNOWN STEP	2026-06-24T00:06:26.6196076Z ^[[1m^[[92m   Compiling^[[0m tower-http v0.6.11
+build	UNKNOWN STEP	2026-06-24T00:06:27.9007803Z ^[[1m^[[92m   Compiling^[[0m http-body-util v0.1.3
+build	UNKNOWN STEP	2026-06-24T00:06:28.2915337Z ^[[1m^[[92m   Compiling^[[0m psl-types v2.0.11
+build	UNKNOWN STEP	2026-06-24T00:06:28.4331546Z ^[[1m^[[92m   Compiling^[[0m litrs v1.0.0
+build	UNKNOWN STEP	2026-06-24T00:06:29.2447854Z ^[[1m^[[92m   Compiling^[[0m document-features v0.2.12
+build	UNKNOWN STEP	2026-06-24T00:06:29.3282494Z ^[[1m^[[92m   Compiling^[[0m publicsuffix v2.3.0
+build	UNKNOWN STEP	2026-06-24T00:06:29.6042774Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-global-shortcut v2.3.2
+build	UNKNOWN STEP	2026-06-24T00:06:30.0710161Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-store v2.4.3
+build	UNKNOWN STEP	2026-06-24T00:06:30.6207267Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-updater v2.10.1
+build	UNKNOWN STEP	2026-06-24T00:06:31.1139127Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-dialog v2.7.1
+build	UNKNOWN STEP	2026-06-24T00:06:31.6578681Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-shell v2.3.5
+build	UNKNOWN STEP	2026-06-24T00:06:32.1750937Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-http v2.5.9
+build	UNKNOWN STEP	2026-06-24T00:06:32.9638285Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-opener v2.5.4
+build	UNKNOWN STEP	2026-06-24T00:06:33.3553795Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-process v2.3.1
+build	UNKNOWN STEP	2026-06-24T00:06:34.1772497Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-window-state v2.4.1
+build	UNKNOWN STEP	2026-06-24T00:06:34.3950566Z ^[[1m^[[92m   Compiling^[[0m encoding_rs v0.8.35
+build	UNKNOWN STEP	2026-06-24T00:06:35.1862290Z ^[[1m^[[92m   Compiling^[[0m rfd v0.16.0
+build	UNKNOWN STEP	2026-06-24T00:06:35.4562844Z ^[[1m^[[92m   Compiling^[[0m ryu v1.0.23
+build	UNKNOWN STEP	2026-06-24T00:06:36.0584963Z ^[[1m^[[92m   Compiling^[[0m serde_urlencoded v0.7.1
+build	UNKNOWN STEP	2026-06-24T00:06:36.9223271Z ^[[1m^[[92m   Compiling^[[0m cookie_store v0.22.1
+build	UNKNOWN STEP	2026-06-24T00:06:41.2038229Z ^[[1m^[[92m   Compiling^[[0m rustls-platform-verifier v0.7.0
+build	UNKNOWN STEP	2026-06-24T00:06:42.2776483Z ^[[1m^[[92m   Compiling^[[0m open v5.3.5
+build	UNKNOWN STEP	2026-06-24T00:06:42.6835893Z ^[[1m^[[92m   Compiling^[[0m tempfile v3.27.0
+build	UNKNOWN STEP	2026-06-24T00:06:42.7028204Z ^[[1m^[[92m   Compiling^[[0m reqwest v0.13.4
+build	UNKNOWN STEP	2026-06-24T00:06:43.5459636Z ^[[1m^[[92m   Compiling^[[0m zip v4.6.1
+build	UNKNOWN STEP	2026-06-24T00:06:44.5343006Z ^[[1m^[[92m   Compiling^[[0m reqwest v0.12.28
+build	UNKNOWN STEP	2026-06-24T00:06:47.5667538Z ^[[1m^[[92m   Compiling^[[0m shared_child v1.1.1
+build	UNKNOWN STEP	2026-06-24T00:06:47.9593175Z ^[[1m^[[92m   Compiling^[[0m global-hotkey v0.8.0
+build	UNKNOWN STEP	2026-06-24T00:06:49.4513050Z ^[[1m^[[92m   Compiling^[[0m autodub-studio v0.0.1 (D:\a\autodubstudio\autodubstudio\gui\src-tauri)
+build	UNKNOWN STEP	2026-06-24T00:06:50.7556759Z ^[[1m^[[92m   Compiling^[[0m os_pipe v1.2.3
+build	UNKNOWN STEP	2026-06-24T00:06:50.7922007Z ^[[1m^[[92m   Compiling^[[0m data-url v0.3.2
+build	UNKNOWN STEP	2026-06-24T00:06:50.9411471Z ^[[1m^[[92m   Compiling^[[0m minisign-verify v0.2.5
+build	UNKNOWN STEP	2026-06-24T00:07:15.1909809Z ^[[1m^[[92m   Compiling^[[0m tauri-plugin-single-instance v2.4.2
+build	UNKNOWN STEP	2026-06-24T00:08:58.9991847Z ^[[1m^[[92m    Finished^[[0m `release` profile [optimized] target(s) in 7m 10s
+build	UNKNOWN STEP	2026-06-24T00:08:59.1743694Z        Built application at: D:\a\autodubstudio\autodubstudio\gui\src-tauri\target\release\autodub-studio.exe
+build	UNKNOWN STEP	2026-06-24T00:08:59.2016373Z         Info Patching D:\a\autodubstudio\autodubstudio\gui\src-tauri\target\release\autodub-studio.exe with bundle type information: nsis
+build	UNKNOWN STEP	2026-06-24T00:08:59.2306868Z      Signing D:\a\autodubstudio\autodubstudio\gui\src-tauri\target\release\autodub-studio.exe
+build	UNKNOWN STEP	2026-06-24T00:08:59.2308906Z      Signing D:\a\autodubstudio\autodubstudio\gui\src-tauri\target\release\autodub-studio.exe with a custom signing command
+build	UNKNOWN STEP	2026-06-24T00:08:59.7550709Z failed to bundle project `failed to run signtool`
+build	UNKNOWN STEP	2026-06-24T00:08:59.7558325Z        Error failed to bundle project `failed to run signtool`
+build	UNKNOWN STEP	2026-06-24T00:08:59.7938698Z ##[error]Command "npm ["run","tauri","build"]" failed with exit code 1
+build	UNKNOWN STEP	2026-06-24T00:08:59.8301017Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-06-24T00:08:59.8302396Z Post job cleanup.
+build	UNKNOWN STEP	2026-06-24T00:08:59.9284113Z ##[group]Unloading eSignerCKA
+build	UNKNOWN STEP	2026-06-24T00:08:59.9312398Z [command]D:\a\_temp\cc4b6f9f-79d3-4b9e-85db-a04476046994\install\eSignerCKATool.exe load
+build	UNKNOWN STEP	2026-06-24T00:08:59.9663168Z LoadAllCertToStore: Load all certificates to Window-MY with csp eSignerKSP
+build	UNKNOWN STEP	2026-06-24T00:09:00.0218832Z LoadAllCertToStore: All certificates already imported.
+build	UNKNOWN STEP	2026-06-24T00:09:00.0292020Z ##[endgroup]
+build	UNKNOWN STEP	2026-06-24T00:09:00.0729789Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-06-24T00:09:00.0731530Z Post job cleanup.
+build	UNKNOWN STEP	2026-06-24T00:09:00.2828070Z [command]"C:\Program Files\Git\bin\git.exe" version
+build	UNKNOWN STEP	2026-06-24T00:09:00.3120223Z git version 2.54.0.windows.1
+build	UNKNOWN STEP	2026-06-24T00:09:00.3193501Z Temporarily overriding HOME='D:\a\_temp\72715003-cdf9-4624-92da-ffcc9eb5033a' before making global git config changes
+build	UNKNOWN STEP	2026-06-24T00:09:00.3194617Z Adding repository directory to the temporary git global config as a safe directory
+build	UNKNOWN STEP	2026-06-24T00:09:00.3205191Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\autodubstudio\autodubstudio
+build	UNKNOWN STEP	2026-06-24T00:09:00.3531842Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build	UNKNOWN STEP	2026-06-24T00:09:00.3853777Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build	UNKNOWN STEP	2026-06-24T00:09:00.9902089Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	UNKNOWN STEP	2026-06-24T00:09:01.0209357Z http.https://github.com/.extraheader
+build	UNKNOWN STEP	2026-06-24T00:09:01.0282483Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+build	UNKNOWN STEP	2026-06-24T00:09:01.0682613Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build	UNKNOWN STEP	2026-06-24T00:09:01.6440236Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	UNKNOWN STEP	2026-06-24T00:09:01.6752801Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build	UNKNOWN STEP	2026-06-24T00:09:02.2458075Z Cleaning up orphan processes
+build	UNKNOWN STEP	2026-06-24T00:09:02.2844466Z Terminate orphan process: pid (8760) (vctip)
+build	UNKNOWN STEP	2026-06-24T00:09:02.2980121Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, anatawa12/setup-eSigner-CKA@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
