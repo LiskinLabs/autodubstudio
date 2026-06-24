@@ -48,22 +48,24 @@ jobs:
 
       - name: Get Credential ID
         id: get_cred
-        shell: powershell
+        shell: cmd
         run: |
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri "https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip" -OutFile "CodeSignTool.zip"
-          Expand-Archive -Path CodeSignTool.zip -DestinationPath CodeSignTool -Force
-          $output = .\CodeSignTool\CodeSignTool.bat credential_info -username="${{ secrets.ESIGNER_USERNAME }}" -password="${{ secrets.ESIGNER_PASSWORD }}" -totp_secret="${{ secrets.ESIGNER_TOTP_SECRET }}"
-          $credIdLine = $output | Select-String "Credential ID :"
-          if ($credIdLine) {
-              $credId = ($credIdLine -split " : ")[1].Trim()
-              Write-Host "Found Credential ID: $credId"
-              echo "CREDENTIAL_ID=$credId" >> $env:GITHUB_OUTPUT
-          } else {
-              Write-Error "Could not find Credential ID"
-              Write-Host $output
-              exit 1
-          }
+          curl -L -o CodeSignTool.zip https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip
+          mkdir CodeSignTool
+          tar -xf CodeSignTool.zip -C CodeSignTool
+          dir /s /b CodeSignTool
+          FOR /F "tokens=*" %%g IN ('dir /s /b CodeSignTool\CodeSignTool.bat') do (SET CST_PATH=%%g)
+          echo Found CST at: %CST_PATH%
+          for /f "tokens=*" %%i in ('%CST_PATH% credential_info -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" -totp_secret="%ESIGNER_TOTP_SECRET%" ^| findstr /C:"Credential ID"') do set CRED_OUTPUT=%%i
+          echo CRED_OUTPUT is %CRED_OUTPUT%
+          for /f "tokens=2 delims=:" %%a in ("%CRED_OUTPUT%") do set CRED_ID=%%a
+          set CRED_ID=%CRED_ID: =%
+          echo Found Credential ID: %CRED_ID%
+          echo CREDENTIAL_ID=%CRED_ID%>> %GITHUB_OUTPUT%
+        env:
+          ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
+          ESIGNER_PASSWORD: ${{ secrets.ESIGNER_PASSWORD }}
+          ESIGNER_TOTP_SECRET: ${{ secrets.ESIGNER_TOTP_SECRET }}
 
       - name: Sign Executable with eSigner
         uses: sslcom/esigner-codesign@v1.3.2
