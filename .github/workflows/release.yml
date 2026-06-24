@@ -34,39 +34,6 @@ jobs:
           echo "{}" > config.json
           echo "" > github_token.txt
 
-      - name: Setup eSigner CKA
-        uses: anatawa12/setup-eSigner-CKA@v1
-        with:
-          mode: product
-          username: ${{ secrets.ESIGNER_USERNAME }}
-          password: ${{ secrets.ESIGNER_PASSWORD }}
-          totp-secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-
-      - name: Add signtool to PATH
-        run: |
-          $windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"
-          $signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName.EndsWith("\x86") }
-          if ($signtoolPaths.Count -gt 0) {
-              $signtoolDir = $signtoolPaths[0].DirectoryName
-              Write-Host "Found signtool at $signtoolDir"
-              echo "$signtoolDir" >> $env:GITHUB_PATH
-          } else {
-              Write-Error "signtool.exe not found"
-          }
-
-      - name: Remove certificateThumbprint and signCommand
-        shell: powershell
-        run: |
-          $tauriPath = "gui/src-tauri/tauri.conf.json"
-          $tauri = Get-Content $tauriPath | ConvertFrom-Json
-          if ($tauri.bundle.windows.PSObject.Properties.Match('certificateThumbprint').Count -gt 0) {
-              $tauri.bundle.windows.PSObject.Properties.Remove('certificateThumbprint')
-          }
-          if ($tauri.bundle.windows.PSObject.Properties.Match('signCommand').Count -gt 0) {
-              $tauri.bundle.windows.PSObject.Properties.Remove('signCommand')
-          }
-          $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
-
       - name: Build Tauri App (Unsigned)
         shell: powershell
         run: |
@@ -74,11 +41,14 @@ jobs:
           npm run tauri build
 
       - name: Sign Executable with eSigner
-        shell: powershell
-        run: |
-          $exe = Get-ChildItem -Path "gui/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
-          Write-Host "Signing $($exe.FullName)"
-          .github\scripts\sign.ps1 $exe.FullName
+        uses: sslcom/esigner-codesign@v1
+        with:
+          command: sign
+          username: ${{ secrets.ESIGNER_USERNAME }}
+          password: ${{ secrets.ESIGNER_PASSWORD }}
+          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          dir_path: gui/src-tauri/target/release/bundle/nsis
+          malware_block: "true"
 
       - name: Generate Updater Artifacts
         shell: powershell
