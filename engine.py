@@ -718,6 +718,7 @@ class AutoDubWorker(threading.Thread):
                     "-n", demucs_model,
                     "-d", self.device,  # Force CUDA/CPU
                     "--two-stems=vocals",
+                    "--segment", "20",
                     "-o", demucs_out_dir,
                     self.video_path
                 ]
