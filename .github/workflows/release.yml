@@ -55,9 +55,22 @@ jobs:
           }
 
       - name: Test signtool
+        shell: powershell
         run: |
           echo "Write-Host 'Test'" > test.ps1
-          signtool sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n "Silvestr Liskin" test.ps1 || echo "Test sign failed, but continuing..."
+          $maxRetries = 10
+          $retryDelaySeconds = 30
+          for ($i = 0; $i -lt $maxRetries; $i++) {
+              signtool sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n "Silvestr Liskin" test.ps1
+              if ($LASTEXITCODE -eq 0) {
+                  Write-Host "Signing succeeded!"
+                  exit 0
+              }
+              Write-Host "Signing failed. Waiting $retryDelaySeconds seconds for malware scan..."
+              Start-Sleep -Seconds $retryDelaySeconds
+          }
+          Write-Error "Test sign failed after $maxRetries attempts."
+          exit 1
 
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
