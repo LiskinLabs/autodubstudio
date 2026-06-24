@@ -50,12 +50,13 @@ jobs:
         id: get_cred
         shell: powershell
         run: |
+          $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest -Uri "https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip" -OutFile "CodeSignTool.zip"
           Expand-Archive -Path CodeSignTool.zip -DestinationPath CodeSignTool -Force
-          $output = .\CodeSignTool\CodeSignTool-v1.3.0\CodeSignTool.bat credential_info -username="${{ secrets.ESIGNER_USERNAME }}" -password="${{ secrets.ESIGNER_PASSWORD }}" -totp_secret="${{ secrets.ESIGNER_TOTP_SECRET }}"
-          $credIdLine = $output | Select-String "Credential ID"
+          $output = .\CodeSignTool\CodeSignTool.bat credential_info -username="${{ secrets.ESIGNER_USERNAME }}" -password="${{ secrets.ESIGNER_PASSWORD }}" -totp_secret="${{ secrets.ESIGNER_TOTP_SECRET }}"
+          $credIdLine = $output | Select-String "Credential ID :"
           if ($credIdLine) {
-              $credId = ($credIdLine -split ":")[1].Trim()
+              $credId = ($credIdLine -split " : ")[1].Trim()
               Write-Host "Found Credential ID: $credId"
               echo "CREDENTIAL_ID=$credId" >> $env:GITHUB_OUTPUT
           } else {
