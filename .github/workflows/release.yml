@@ -53,7 +53,7 @@ jobs:
           curl.exe -L -o CodeSignTool.zip https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip
           Expand-Archive -LiteralPath CodeSignTool.zip -DestinationPath CodeSignTool -Force
           Set-Location CodeSignTool
-          $output = .\CodeSignTool.bat get_credential_ids -username="$env:ESIGNER_USERNAME" -password="$env:ESIGNER_PASSWORD"
+          $output = .\CodeSignTool.bat get_credential_ids -username="$env:ESIGNER_USERNAME" -password="$env:ESIGNER_PASSWORD" -totp_secret="$env:ESIGNER_TOTP_SECRET"
           Write-Output "CodeSignTool Output: $output"
           $credId = $output | Select-String -Pattern "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" | ForEach-Object { $_.Matches.Value } | Select-Object -First 1
           Write-Output "Found Credential ID: $credId"
