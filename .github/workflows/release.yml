@@ -53,10 +53,8 @@ jobs:
           curl -L -o CodeSignTool.zip https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip
           mkdir CodeSignTool
           tar -xf CodeSignTool.zip -C CodeSignTool
-          dir /s /b CodeSignTool
-          FOR /F "tokens=*" %%g IN ('dir /s /b CodeSignTool\CodeSignTool.bat') do (SET CST_PATH=%%g)
-          echo Found CST at: %CST_PATH%
-          for /f "tokens=*" %%i in ('%CST_PATH% credential_info -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" -totp_secret="%ESIGNER_TOTP_SECRET%" ^| findstr /C:"Credential ID"') do set CRED_OUTPUT=%%i
+          cd CodeSignTool
+          for /f "tokens=*" %%i in ('CodeSignTool.bat credential_info -username="%ESIGNER_USERNAME%" -password="%ESIGNER_PASSWORD%" -totp_secret="%ESIGNER_TOTP_SECRET%" ^| findstr /C:"Credential ID"') do set CRED_OUTPUT=%%i
           echo CRED_OUTPUT is %CRED_OUTPUT%
           for /f "tokens=2 delims=:" %%a in ("%CRED_OUTPUT%") do set CRED_ID=%%a
           set CRED_ID=%CRED_ID: =%
