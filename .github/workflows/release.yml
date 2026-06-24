@@ -60,7 +60,7 @@ jobs:
           $binDir = "$pwd\.github\scripts\bin"
           New-Item -ItemType Directory -Force -Path $binDir
           rustc .github\scripts\signtool_wrapper.rs -o $binDir\signtool.exe
-          echo "$binDir" >> $env:GITHUB_PATH
+          Add-Content -Path $env:GITHUB_PATH -Value $binDir
           Write-Host "Injected custom signtool wrapper at $binDir\signtool.exe"
 
       - name: Build and Sign Tauri App

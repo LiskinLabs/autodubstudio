@@ -17,6 +17,7 @@ def main():
     import io
     sys.stdout.reconfigure(encoding='utf-8')
     videos = [
+        r"C:\Users\silvestr.liskin\Downloads\recordings\ACP training-20251008_100238-Meeting Recording 1.mp4",
         r"C:\Users\silvestr.liskin\Downloads\recordings\ACP training-20251008_100238-Meeting Recording.mp4",
         r"C:\Users\silvestr.liskin\Downloads\recordings\ACP training-20251008_130639-Meeting Recording.mp4"
     ]
