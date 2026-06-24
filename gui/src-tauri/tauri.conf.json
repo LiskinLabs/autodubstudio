@@ -61,7 +61,7 @@
         "bannerPath": "icons/StoreLogo.png",
         "dialogImagePath": "icons/StoreLogo.png"
       },
-      "signCommand": "signtool sign /tr http://ts.ssl.com /td sha256 /fd sha256 /n \"Silvestr Liskin\" \"%1\""
+      "signCommand": "powershell.exe -ExecutionPolicy Bypass -File \"../../.github/scripts/sign.ps1\" \"%1\""
     },
     "resources": [
       "../../backend/*.py",
