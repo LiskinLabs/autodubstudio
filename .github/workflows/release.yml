@@ -110,7 +110,8 @@ jobs:
           
           cd ..
           $version = "${{ github.ref_name }}"
-          $url = "https://github.com/LiskinLabs/autodubstudio/releases/download/$version/$exeName"
+          $encodedExeName = [uri]::EscapeDataString($exeName)
+          $url = "https://github.com/LiskinLabs/autodubstudio/releases/download/$version/$encodedExeName"
           
           $latestJson = @{
               version = $version
