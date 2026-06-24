@@ -54,51 +54,85 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
-      - name: Inject certificateThumbprint into tauri.conf.json
+      - name: Remove certificateThumbprint and signCommand
         shell: powershell
         run: |
-          # Wait a moment for eSigner CKA to be fully loaded
-          Start-Sleep -Seconds 5
-          
-          # Find the certificate loaded by eSigner CKA
-          $certs = Get-ChildItem -Path Cert:\CurrentUser\My
-          Write-Host "Available certificates:"
-          $certs | Format-Table -Property Subject, Thumbprint
-          
-          $cert = $certs | Where-Object { $_.Subject -match "Silvestr Liskin" }
-          if (-not $cert) {
-              $cert = $certs | Select-Object -First 1
+          $tauriPath = "gui/src-tauri/tauri.conf.json"
+          $tauri = Get-Content $tauriPath | ConvertFrom-Json
+          if ($tauri.bundle.windows.PSObject.Properties.Match('certificateThumbprint').Count -gt 0) {
+              $tauri.bundle.windows.PSObject.Properties.Remove('certificateThumbprint')
           }
-          
-          if ($cert) {
-              Write-Host "Using certificate: $($cert.Subject) with thumbprint: $($cert.Thumbprint)"
-              $tauriPath = "gui/src-tauri/tauri.conf.json"
-              $tauri = Get-Content $tauriPath | ConvertFrom-Json
-              
-              # Remove signCommand if it exists
-              if ($tauri.bundle.windows.PSObject.Properties.Match('signCommand').Count -gt 0) {
-                  $tauri.bundle.windows.PSObject.Properties.Remove('signCommand')
-              }
-              
-              $tauri.bundle.windows | Add-Member -MemberType NoteProperty -Name "certificateThumbprint" -Value $cert.Thumbprint -Force
-              $tauri.bundle.windows | Add-Member -MemberType NoteProperty -Name "timestampUrl" -Value "http://ts.ssl.com" -Force
-              
-              $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
-              Write-Host "Injected certificateThumbprint: $($tauri.bundle.windows.certificateThumbprint)"
-          } else {
-              Write-Error "No certificate found in CurrentUser\My!"
+          if ($tauri.bundle.windows.PSObject.Properties.Match('signCommand').Count -gt 0) {
+              $tauri.bundle.windows.PSObject.Properties.Remove('signCommand')
           }
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
 
-      - name: Build and Sign Tauri App
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri App (Unsigned)
+        shell: powershell
+        run: |
+          cd gui
+          npm run tauri build
+
+      - name: Sign Executable with eSigner
+        shell: powershell
+        run: |
+          $exe = Get-ChildItem -Path "gui/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          Write-Host "Signing $($exe.FullName)"
+          .github\scripts\sign.ps1 $exe.FullName
+
+      - name: Generate Updater Artifacts
+        shell: powershell
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          $exe = Get-ChildItem -Path "gui/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          $exeName = $exe.Name
+          Write-Host "Generating signature for $exeName"
+          
+          # We use tauri cli to sign it
+          cd gui
+          $sigOutput = npx tauri signer sign -k $env:TAURI_PRIVATE_KEY $exe.FullName
+          
+          # The output format is usually just the signature string
+          # Or we can just read the generated .sig file if tauri creates it
+          # Actually `tauri signer sign` prints the signature and creates a .sig file?
+          # Let's just create latest.json directly
+          # Wait! It might prompt for password if we don't set TAURI_SIGNING_PRIVATE_KEY_PASSWORD!
+          $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = $env:TAURI_KEY_PASSWORD
+          $env:TAURI_SIGNING_PRIVATE_KEY = $env:TAURI_PRIVATE_KEY
+          
+          $sigContent = npx tauri signer sign -k $env:TAURI_PRIVATE_KEY $exe.FullName
+          Write-Host "Raw Signature Output: $sigContent"
+          # Usually the last line is the signature, or it just prints the signature.
+          $sigContent = $sigContent -split "`n" | Select-Object -Last 1 | Out-String
+          $sigContent = $sigContent.Trim()
+          
+          cd ..
+          $version = "${{ github.ref_name }}"
+          $url = "https://github.com/LiskinLabs/autodubstudio/releases/download/$version/$exeName"
+          
+          $latestJson = @{
+              version = $version
+              notes = "Automatic release"
+              pub_date = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+              platforms = @{
+                  "windows-x86_64" = @{
+                      signature = $sigContent
+                      url = $url
+                  }
+              }
+          }
+          $latestJson | ConvertTo-Json -Depth 10 | Set-Content "latest.json"
+          Write-Host "Generated latest.json:"
+          Get-Content "latest.json"
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            gui/src-tauri/target/release/bundle/nsis/*.exe
+            latest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          projectPath: ./gui
-          tagName: ${{ github.ref_name }}
-          releaseName: 'AutoDub Studio ${{ github.ref_name }}'
-          releaseBody: 'Automatic release'
-          releaseDraft: false
-          prerelease: false
