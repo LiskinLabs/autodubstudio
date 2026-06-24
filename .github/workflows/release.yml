@@ -60,8 +60,13 @@ jobs:
           $binDir = "$pwd\.github\scripts\bin"
           New-Item -ItemType Directory -Force -Path $binDir
           rustc .github\scripts\signtool_wrapper.rs -o $binDir\signtool.exe
-          Add-Content -Path $env:GITHUB_PATH -Value $binDir
-          Write-Host "Injected custom signtool wrapper at $binDir\signtool.exe"
+          
+          $tauriPath = "gui/src-tauri/tauri.conf.json"
+          $tauri = Get-Content $tauriPath | ConvertFrom-Json
+          $absPath = "$pwd/.github/scripts/bin/signtool.exe".Replace('\', '/')
+          $tauri.bundle.windows.signCommand = "$absPath sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n `"Silvestr Liskin`" `"%1`""
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
+          Write-Host "Injected signCommand: $($tauri.bundle.windows.signCommand)"
 
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
