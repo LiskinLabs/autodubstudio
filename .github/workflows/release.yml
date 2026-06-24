@@ -54,14 +54,40 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
-      - name: Inject pwsh sign wrapper into tauri.conf.json
+      - name: Inject certificateThumbprint into tauri.conf.json
         shell: powershell
         run: |
-          $tauriPath = "gui/src-tauri/tauri.conf.json"
-          $tauri = Get-Content $tauriPath | ConvertFrom-Json
-          $tauri.bundle.windows.signCommand = "pwsh.exe -ExecutionPolicy Bypass -File .github\scripts\sign.ps1 `"%1`""
-          $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
-          Write-Host "Injected signCommand: $($tauri.bundle.windows.signCommand)"
+          # Wait a moment for eSigner CKA to be fully loaded
+          Start-Sleep -Seconds 5
+          
+          # Find the certificate loaded by eSigner CKA
+          $certs = Get-ChildItem -Path Cert:\CurrentUser\My
+          Write-Host "Available certificates:"
+          $certs | Format-Table -Property Subject, Thumbprint
+          
+          $cert = $certs | Where-Object { $_.Subject -match "Silvestr Liskin" }
+          if (-not $cert) {
+              $cert = $certs | Select-Object -First 1
+          }
+          
+          if ($cert) {
+              Write-Host "Using certificate: $($cert.Subject) with thumbprint: $($cert.Thumbprint)"
+              $tauriPath = "gui/src-tauri/tauri.conf.json"
+              $tauri = Get-Content $tauriPath | ConvertFrom-Json
+              
+              # Remove signCommand if it exists
+              if ($tauri.bundle.windows.PSObject.Properties.Match('signCommand').Count -gt 0) {
+                  $tauri.bundle.windows.PSObject.Properties.Remove('signCommand')
+              }
+              
+              $tauri.bundle.windows | Add-Member -MemberType NoteProperty -Name "certificateThumbprint" -Value $cert.Thumbprint -Force
+              $tauri.bundle.windows | Add-Member -MemberType NoteProperty -Name "timestampUrl" -Value "http://ts.ssl.com" -Force
+              
+              $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
+              Write-Host "Injected certificateThumbprint: $($tauri.bundle.windows.certificateThumbprint)"
+          } else {
+              Write-Error "No certificate found in CurrentUser\My!"
+          }
 
       - name: Build and Sign Tauri App
         uses: tauri-apps/tauri-action@v0
