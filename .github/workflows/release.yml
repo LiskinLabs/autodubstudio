@@ -40,6 +40,30 @@ jobs:
           cd gui
           npm run tauri build
 
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'corretto'
+          java-version: '11'
+
+      - name: Get Credential ID
+        id: get_cred
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0-windows.zip" -OutFile "CodeSignTool.zip"
+          Expand-Archive -Path CodeSignTool.zip -DestinationPath CodeSignTool -Force
+          $output = .\CodeSignTool\CodeSignTool-v1.3.0\CodeSignTool.bat credential_info -username="${{ secrets.ESIGNER_USERNAME }}" -password="${{ secrets.ESIGNER_PASSWORD }}" -totp_secret="${{ secrets.ESIGNER_TOTP_SECRET }}"
+          $credIdLine = $output | Select-String "Credential ID"
+          if ($credIdLine) {
+              $credId = ($credIdLine -split ":")[1].Trim()
+              Write-Host "Found Credential ID: $credId"
+              echo "CREDENTIAL_ID=$credId" >> $env:GITHUB_OUTPUT
+          } else {
+              Write-Error "Could not find Credential ID"
+              Write-Host $output
+              exit 1
+          }
+
       - name: Sign Executable with eSigner
         uses: sslcom/esigner-codesign@v1.3.2
         with:
@@ -47,6 +71,7 @@ jobs:
           username: ${{ secrets.ESIGNER_USERNAME }}
           password: ${{ secrets.ESIGNER_PASSWORD }}
           totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          credential_id: ${{ steps.get_cred.outputs.CREDENTIAL_ID }}
           dir_path: gui/src-tauri/target/release/bundle/nsis
           malware_block: "true"
 

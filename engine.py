@@ -1414,8 +1414,8 @@ class AutoDubWorker(threading.Thread):
                 PIPELINE_BUSY = False
             # ── Aggressive cleanup: remove all intermediate files ──
             # 1. Demucs output directory (large, always remove)
-            if demucs_out_dir:
-                shutil.rmtree(demucs_out_dir, ignore_errors=True)
+            # if demucs_out_dir:
+            #     shutil.rmtree(demucs_out_dir, ignore_errors=True)
             # 2. Tracked intermediate files (checkpoints, SRT, temp audio)
             for f in all_created_files:
                 try:
