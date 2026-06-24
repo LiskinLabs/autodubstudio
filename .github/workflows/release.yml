@@ -45,7 +45,7 @@ jobs:
       - name: Add signtool to PATH
         run: |
           $windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"
-          $signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName -match "x64" }
+          $signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName -match "x86" }
           if ($signtoolPaths.Count -gt 0) {
               $signtoolDir = $signtoolPaths[0].DirectoryName
               Write-Host "Found signtool at $signtoolDir"

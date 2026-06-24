@@ -1,0 +1,407 @@
+build	Set up job	﻿2026-06-24T01:18:38.1029158Z Current runner version: '2.335.1'
+build	Set up job	2026-06-24T01:18:38.1151111Z ##[group]Runner Image Provisioner
+build	Set up job	2026-06-24T01:18:38.1151996Z Hosted Compute Agent
+build	Set up job	2026-06-24T01:18:38.1152635Z Version: 20260611.554
+build	Set up job	2026-06-24T01:18:38.1153922Z Commit: 5e0782fdc9014723d3be820dd114dd31555c2bd1
+build	Set up job	2026-06-24T01:18:38.1154915Z Build Date: 2026-06-11T21:40:46Z
+build	Set up job	2026-06-24T01:18:38.1155630Z Worker ID: {578052f2-0a75-4b86-b673-3d194ffba55d}
+build	Set up job	2026-06-24T01:18:38.1156365Z Azure Region: centralus
+build	Set up job	2026-06-24T01:18:38.1157004Z ##[endgroup]
+build	Set up job	2026-06-24T01:18:38.1158807Z ##[group]Operating System
+build	Set up job	2026-06-24T01:18:38.1159878Z Microsoft Windows Server 2025
+build	Set up job	2026-06-24T01:18:38.1160514Z 10.0.26100
+build	Set up job	2026-06-24T01:18:38.1161029Z Datacenter
+build	Set up job	2026-06-24T01:18:38.1161594Z ##[endgroup]
+build	Set up job	2026-06-24T01:18:38.1162166Z ##[group]Runner Image
+build	Set up job	2026-06-24T01:18:38.1162803Z Image: windows-2025-vs2026
+build	Set up job	2026-06-24T01:18:38.1163404Z Version: 20260614.141.1
+build	Set up job	2026-06-24T01:18:38.1164552Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260614.141/images/windows/Windows2025-VS2026-Readme.md
+build	Set up job	2026-06-24T01:18:38.1166529Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260614.141
+build	Set up job	2026-06-24T01:18:38.1167533Z ##[endgroup]
+build	Set up job	2026-06-24T01:18:38.1168756Z ##[group]GITHUB_TOKEN Permissions
+build	Set up job	2026-06-24T01:18:38.1171079Z Contents: read
+build	Set up job	2026-06-24T01:18:38.1172369Z Metadata: read
+build	Set up job	2026-06-24T01:18:38.1173245Z Packages: read
+build	Set up job	2026-06-24T01:18:38.1173997Z ##[endgroup]
+build	Set up job	2026-06-24T01:18:38.1176400Z Secret source: Actions
+build	Set up job	2026-06-24T01:18:38.1177277Z Prepare workflow directory
+build	Set up job	2026-06-24T01:18:38.1565821Z Prepare all required actions
+build	Set up job	2026-06-24T01:18:38.1605389Z Getting action download info
+build	Set up job	2026-06-24T01:18:38.4088821Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+build	Set up job	2026-06-24T01:18:38.5473166Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+build	Set up job	2026-06-24T01:18:38.7201913Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:29eef336d9b2848a0b548edc03f92a220660cdb8)
+build	Set up job	2026-06-24T01:18:38.8930178Z Download action repository 'anatawa12/setup-eSigner-CKA@v1' (SHA:3cb974b12fb7b56945756850ede8322383e1438b)
+build	Set up job	2026-06-24T01:18:39.2409339Z Download action repository 'tauri-apps/tauri-action@v0' (SHA:84b9d35b5fc46c1e45415bdb6144030364f7ebc5)
+build	Set up job	2026-06-24T01:18:39.8924466Z Complete job name: build
+build	Run actions/checkout@v4	﻿2026-06-24T01:18:40.1767766Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1781357Z ##[group]Run actions/checkout@v4
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1782671Z with:
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1783678Z   repository: ***/autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1793355Z   token: ***
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1794278Z   ssh-strict: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1795193Z   ssh-user: git
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1796101Z   persist-credentials: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1797544Z   clean: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1798923Z   sparse-checkout-cone-mode: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1800418Z   fetch-depth: 1
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1802129Z   fetch-tags: false
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1803640Z   show-progress: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1805116Z   lfs: false
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1806825Z   submodules: false
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1808350Z   set-safe-directory: true
+build	Run actions/checkout@v4	2026-06-24T01:18:40.1810262Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:40.3533647Z Syncing repository: ***/autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:40.3536508Z ##[group]Getting Git version info
+build	Run actions/checkout@v4	2026-06-24T01:18:40.3537776Z Working directory is 'D:\a\autodubstudio\autodubstudio'
+build	Run actions/checkout@v4	2026-06-24T01:18:40.4307152Z [command]"C:\Program Files\Git\bin\git.exe" version
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8104249Z git version 2.54.0.windows.1
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8152621Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8173958Z Temporarily overriding HOME='D:\a\_temp\f090e9e5-4887-492e-a1a3-72ed55ed91ad' before making global git config changes
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8178889Z Adding repository directory to the temporary git global config as a safe directory
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8185330Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\autodubstudio\autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8485919Z Deleting the contents of 'D:\a\autodubstudio\autodubstudio'
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8493452Z ##[group]Initializing the repository
+build	Run actions/checkout@v4	2026-06-24T01:18:40.8501632Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\autodubstudio\autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:40.9434297Z Initialized empty Git repository in D:/a/autodubstudio/autodubstudio/.git/
+build	Run actions/checkout@v4	2026-06-24T01:18:40.9494386Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/***/autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:40.9831824Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:40.9843727Z ##[group]Disabling automatic garbage collection
+build	Run actions/checkout@v4	2026-06-24T01:18:40.9845268Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+build	Run actions/checkout@v4	2026-06-24T01:18:41.0137260Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:41.0139446Z ##[group]Setting up auth
+build	Run actions/checkout@v4	2026-06-24T01:18:41.0149456Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build	Run actions/checkout@v4	2026-06-24T01:18:41.0479207Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build	Run actions/checkout@v4	2026-06-24T01:18:42.6013978Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Run actions/checkout@v4	2026-06-24T01:18:42.6318568Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build	Run actions/checkout@v4	2026-06-24T01:18:43.1883907Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Run actions/checkout@v4	2026-06-24T01:18:43.2200999Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build	Run actions/checkout@v4	2026-06-24T01:18:43.7793332Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+build	Run actions/checkout@v4	2026-06-24T01:18:43.8119552Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:43.8123151Z ##[group]Fetching the repository
+build	Run actions/checkout@v4	2026-06-24T01:18:43.8134399Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +356d3b6728136204a05250c9a79ed4de7e855225:refs/tags/v0.1.5
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2415919Z From https://github.com/***/autodubstudio
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2416595Z  * [new ref]         356d3b6728136204a05250c9a79ed4de7e855225 -> v0.1.5
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2617124Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2617698Z ##[group]Determining the checkout info
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2620964Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2629475Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+build	Run actions/checkout@v4	2026-06-24T01:18:45.2955238Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+build	Run actions/checkout@v4	2026-06-24T01:18:45.3241616Z ##[group]Checking out the ref
+build	Run actions/checkout@v4	2026-06-24T01:18:45.3250428Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/tags/v0.1.5
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4009906Z Note: switching to 'refs/tags/v0.1.5'.
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4010477Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4010877Z You are in 'detached HEAD' state. You can look around, make experimental
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4012151Z changes and commit them, and you can discard any commits you make in this
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4013060Z state without impacting any branches by switching back to a branch.
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4013612Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4013978Z If you want to create a new branch to retain commits you create, you may
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4014911Z do so (now or later) by using -c with the switch command. Example:
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4016577Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4016786Z   git switch -c <new-branch-name>
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4017130Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4017333Z Or undo this operation with:
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4017670Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4017849Z   git switch -
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4018092Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4018497Z Turn off this advice by setting config variable advice.detachedHead to false
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4019105Z 
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4019589Z HEAD is now at 356d3b6 chore: test signtool locally in github actions before tauri
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4083042Z ##[endgroup]
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4463769Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+build	Run actions/checkout@v4	2026-06-24T01:18:45.4729867Z 356d3b6728136204a05250c9a79ed4de7e855225
+build	Setup Node.js	﻿2026-06-24T01:18:45.5191188Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Setup Node.js	2026-06-24T01:18:45.5193295Z ##[group]Run actions/setup-node@v4
+build	Setup Node.js	2026-06-24T01:18:45.5193559Z with:
+build	Setup Node.js	2026-06-24T01:18:45.5193739Z   node-version: 20
+build	Setup Node.js	2026-06-24T01:18:45.5193951Z   always-auth: false
+build	Setup Node.js	2026-06-24T01:18:45.5194160Z   check-latest: false
+build	Setup Node.js	2026-06-24T01:18:45.5197023Z   token: ***
+build	Setup Node.js	2026-06-24T01:18:45.5197220Z ##[endgroup]
+build	Setup Node.js	2026-06-24T01:18:45.6980434Z Attempting to download 20...
+build	Setup Node.js	2026-06-24T01:18:45.7198077Z (node:6420) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	Setup Node.js	2026-06-24T01:18:45.7199107Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	Setup Node.js	2026-06-24T01:18:46.3424646Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-win32-x64.7z
+build	Setup Node.js	2026-06-24T01:18:46.7984810Z Extracting ...
+build	Setup Node.js	2026-06-24T01:18:49.1256586Z Adding to the cache ...
+build	Setup Node.js	2026-06-24T01:18:52.1041635Z ##[group]Environment details
+build	Setup Node.js	2026-06-24T01:18:53.1641206Z node: v20.20.2
+build	Setup Node.js	2026-06-24T01:18:53.1641547Z npm: 10.8.2
+build	Setup Node.js	2026-06-24T01:18:53.1641737Z yarn: 1.22.22
+build	Setup Node.js	2026-06-24T01:18:53.1642177Z ##[endgroup]
+build	Setup Rust	﻿2026-06-24T01:18:53.2038101Z ##[group]Run dtolnay/rust-toolchain@stable
+build	Setup Rust	2026-06-24T01:18:53.2038485Z with:
+build	Setup Rust	2026-06-24T01:18:53.2038667Z   toolchain: stable
+build	Setup Rust	2026-06-24T01:18:53.2038865Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:53.2255352Z ##[group]Run : parse toolchain version
+build	Setup Rust	2026-06-24T01:18:53.2255728Z ^[[36;1m: parse toolchain version^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2256003Z ^[[36;1mif [[ -z $toolchain ]]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2256800Z ^[[36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2257382Z ^[[36;1m  echo "'toolchain' is a required input" >&2^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2257677Z ^[[36;1m  exit 1^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2258014Z ^[[36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2258438Z ^[[36;1m  if [[ Windows == macOS ]]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2258966Z ^[[36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2259516Z ^[[36;1m  else^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2259924Z ^[[36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2260372Z ^[[36;1m  fi^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2260659Z ^[[36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2261193Z ^[[36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2261663Z ^[[36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2262179Z ^[[36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2262893Z ^[[36;1melse^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2263360Z ^[[36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2263652Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2281281Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:53.2281702Z env:
+build	Setup Rust	2026-06-24T01:18:53.2281874Z   toolchain: stable
+build	Setup Rust	2026-06-24T01:18:53.2282073Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:53.2914945Z ##[group]Run : construct rustup command line
+build	Setup Rust	2026-06-24T01:18:53.2915283Z ^[[36;1m: construct rustup command line^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2915734Z ^[[36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2916400Z ^[[36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2916880Z ^[[36;1mecho "downgrade=" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:53.2929077Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:53.2929498Z env:
+build	Setup Rust	2026-06-24T01:18:53.2929667Z   targets: 
+build	Setup Rust	2026-06-24T01:18:53.2929844Z   components: 
+build	Setup Rust	2026-06-24T01:18:53.2930033Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:53.3741054Z ##[group]Run : set $CARGO_HOME
+build	Setup Rust	2026-06-24T01:18:53.3741370Z ^[[36;1m: set $CARGO_HOME^[[0m
+build	Setup Rust	2026-06-24T01:18:53.3741716Z ^[[36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:53.3755826Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:53.3756248Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:53.4299633Z ##[group]Run : install rustup if needed on windows
+build	Setup Rust	2026-06-24T01:18:53.4299999Z ^[[36;1m: install rustup if needed on windows^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4300317Z ^[[36;1mif ! command -v rustup &>/dev/null; then^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4301075Z ^[[36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4302514Z ^[[36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4302976Z ^[[36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4303248Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4315496Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:53.4317710Z env:
+build	Setup Rust	2026-06-24T01:18:53.4317921Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:53.4318189Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:53.4915168Z ##[group]Run rustup toolchain install stable --profile minimal --no-self-update
+build	Setup Rust	2026-06-24T01:18:53.4915712Z ^[[36;1mrustup toolchain install stable --profile minimal --no-self-update^[[0m
+build	Setup Rust	2026-06-24T01:18:53.4928820Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:53.4929226Z env:
+build	Setup Rust	2026-06-24T01:18:53.4929422Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:53.4929703Z   RUSTUP_PERMIT_COPY_RENAME: 1
+build	Setup Rust	2026-06-24T01:18:53.4929931Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:56.6940128Z info: syncing channel updates for stable-x86_64-pc-windows-msvc
+build	Setup Rust	2026-06-24T01:18:57.1907856Z 
+build	Setup Rust	2026-06-24T01:18:57.2116064Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+build	Setup Rust	2026-06-24T01:18:57.2261760Z 
+build	Setup Rust	2026-06-24T01:18:57.2393423Z ##[group]Run rustup default stable
+build	Setup Rust	2026-06-24T01:18:57.2393717Z ^[[36;1mrustup default stable^[[0m
+build	Setup Rust	2026-06-24T01:18:57.2406083Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:57.2406484Z env:
+build	Setup Rust	2026-06-24T01:18:57.2406682Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:57.2406935Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:57.3100554Z info: using existing install for stable-x86_64-pc-windows-msvc
+build	Setup Rust	2026-06-24T01:18:57.3168044Z info: default toolchain set to stable-x86_64-pc-windows-msvc
+build	Setup Rust	2026-06-24T01:18:57.3168468Z 
+build	Setup Rust	2026-06-24T01:18:57.3370165Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+build	Setup Rust	2026-06-24T01:18:57.3370625Z 
+build	Setup Rust	2026-06-24T01:18:57.3566124Z ##[group]Run : create cachekey
+build	Setup Rust	2026-06-24T01:18:57.3566585Z ^[[36;1m: create cachekey^[[0m
+build	Setup Rust	2026-06-24T01:18:57.3567084Z ^[[36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')^[[0m
+build	Setup Rust	2026-06-24T01:18:57.3567748Z ^[[36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')^[[0m
+build	Setup Rust	2026-06-24T01:18:57.3568236Z ^[[36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT^[[0m
+build	Setup Rust	2026-06-24T01:18:57.3580369Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:57.3580778Z env:
+build	Setup Rust	2026-06-24T01:18:57.3580973Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:57.3581654Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.2339557Z ##[group]Run : disable incremental compilation
+build	Setup Rust	2026-06-24T01:18:58.2339928Z ^[[36;1m: disable incremental compilation^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2340247Z ^[[36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2340565Z ^[[36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2340852Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2353361Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:58.2353758Z env:
+build	Setup Rust	2026-06-24T01:18:58.2353976Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:58.2354242Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.2902568Z ##[group]Run : enable colors in Cargo output
+build	Setup Rust	2026-06-24T01:18:58.2902929Z ^[[36;1m: enable colors in Cargo output^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2903241Z ^[[36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2903577Z ^[[36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2903861Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:58.2916357Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:58.2916772Z env:
+build	Setup Rust	2026-06-24T01:18:58.2916978Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:58.2917248Z   CARGO_INCREMENTAL: 0
+build	Setup Rust	2026-06-24T01:18:58.2917449Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.3483647Z ##[group]Run : enable Cargo sparse registry
+build	Setup Rust	2026-06-24T01:18:58.3484009Z ^[[36;1m: enable Cargo sparse registry^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3484357Z ^[[36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3485834Z ^[[36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3486501Z ^[[36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3487017Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3487495Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3487986Z ^[[36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3488493Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3488962Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3489310Z ^[[36;1m  fi^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3489490Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:58.3502598Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:58.3503014Z env:
+build	Setup Rust	2026-06-24T01:18:58.3503217Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:58.3503490Z   CARGO_INCREMENTAL: 0
+build	Setup Rust	2026-06-24T01:18:58.3503707Z   CARGO_TERM_COLOR: always
+build	Setup Rust	2026-06-24T01:18:58.3503924Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.5407614Z ##[group]Run : work around spurious network errors in curl 8.0
+build	Setup Rust	2026-06-24T01:18:58.5408050Z ^[[36;1m: work around spurious network errors in curl 8.0^[[0m
+build	Setup Rust	2026-06-24T01:18:58.5408586Z ^[[36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation^[[0m
+build	Setup Rust	2026-06-24T01:18:58.5409192Z ^[[36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then^[[0m
+build	Setup Rust	2026-06-24T01:18:58.5409641Z ^[[36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV^[[0m
+build	Setup Rust	2026-06-24T01:18:58.5410708Z ^[[36;1mfi^[[0m
+build	Setup Rust	2026-06-24T01:18:58.5422732Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:58.5423577Z env:
+build	Setup Rust	2026-06-24T01:18:58.5423801Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:58.5424064Z   CARGO_INCREMENTAL: 0
+build	Setup Rust	2026-06-24T01:18:58.5424286Z   CARGO_TERM_COLOR: always
+build	Setup Rust	2026-06-24T01:18:58.5424499Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.6678725Z ##[group]Run rustc +stable --version --verbose
+build	Setup Rust	2026-06-24T01:18:58.6679065Z ^[[36;1mrustc +stable --version --verbose^[[0m
+build	Setup Rust	2026-06-24T01:18:58.6691173Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build	Setup Rust	2026-06-24T01:18:58.6691582Z env:
+build	Setup Rust	2026-06-24T01:18:58.6691776Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup Rust	2026-06-24T01:18:58.6692044Z   CARGO_INCREMENTAL: 0
+build	Setup Rust	2026-06-24T01:18:58.6692253Z   CARGO_TERM_COLOR: always
+build	Setup Rust	2026-06-24T01:18:58.6692465Z ##[endgroup]
+build	Setup Rust	2026-06-24T01:18:58.7520589Z rustc 1.96.0 (ac68faa20 2026-05-25)
+build	Setup Rust	2026-06-24T01:18:58.7521203Z binary: rustc
+build	Setup Rust	2026-06-24T01:18:58.7521725Z commit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96
+build	Setup Rust	2026-06-24T01:18:58.7522130Z commit-date: 2026-05-25
+build	Setup Rust	2026-06-24T01:18:58.7522394Z host: x86_64-pc-windows-msvc
+build	Setup Rust	2026-06-24T01:18:58.7522659Z release: 1.96.0
+build	Setup Rust	2026-06-24T01:18:58.7523913Z LLVM version: 22.1.2
+build	Install Dependencies	﻿2026-06-24T01:18:58.7799269Z ##[group]Run npm install
+build	Install Dependencies	2026-06-24T01:18:58.7799620Z ^[[36;1mnpm install^[[0m
+build	Install Dependencies	2026-06-24T01:18:58.8240637Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	Install Dependencies	2026-06-24T01:18:58.8241011Z env:
+build	Install Dependencies	2026-06-24T01:18:58.8241215Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Install Dependencies	2026-06-24T01:18:58.8241492Z   CARGO_INCREMENTAL: 0
+build	Install Dependencies	2026-06-24T01:18:58.8241712Z   CARGO_TERM_COLOR: always
+build	Install Dependencies	2026-06-24T01:18:58.8241933Z ##[endgroup]
+build	Install Dependencies	2026-06-24T01:19:30.4122808Z 
+build	Install Dependencies	2026-06-24T01:19:30.4124847Z added 270 packages, and audited 271 packages in 26s
+build	Install Dependencies	2026-06-24T01:19:30.4125314Z 
+build	Install Dependencies	2026-06-24T01:19:30.4125655Z 95 packages are looking for funding
+build	Install Dependencies	2026-06-24T01:19:30.4126147Z   run `npm fund` for details
+build	Install Dependencies	2026-06-24T01:19:30.4191818Z 
+build	Install Dependencies	2026-06-24T01:19:30.4192327Z 1 low severity vulnerability
+build	Install Dependencies	2026-06-24T01:19:30.4192710Z 
+build	Install Dependencies	2026-06-24T01:19:30.4192999Z To address all issues, run:
+build	Install Dependencies	2026-06-24T01:19:30.4193488Z   npm audit fix
+build	Install Dependencies	2026-06-24T01:19:30.4193757Z 
+build	Install Dependencies	2026-06-24T01:19:30.4194014Z Run `npm audit` for details.
+build	Create dummy resource files	﻿2026-06-24T01:19:30.9022013Z ##[group]Run echo "{}" > config.json
+build	Create dummy resource files	2026-06-24T01:19:30.9022433Z ^[[36;1mecho "{}" > config.json^[[0m
+build	Create dummy resource files	2026-06-24T01:19:30.9022702Z ^[[36;1mecho "" > github_token.txt^[[0m
+build	Create dummy resource files	2026-06-24T01:19:30.9082688Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	Create dummy resource files	2026-06-24T01:19:30.9083057Z env:
+build	Create dummy resource files	2026-06-24T01:19:30.9083259Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Create dummy resource files	2026-06-24T01:19:30.9083528Z   CARGO_INCREMENTAL: 0
+build	Create dummy resource files	2026-06-24T01:19:30.9083738Z   CARGO_TERM_COLOR: always
+build	Create dummy resource files	2026-06-24T01:19:30.9083961Z ##[endgroup]
+build	Setup eSigner CKA	﻿2026-06-24T01:19:31.8899111Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Setup eSigner CKA	2026-06-24T01:19:31.8900604Z ##[group]Run anatawa12/setup-eSigner-CKA@v1
+build	Setup eSigner CKA	2026-06-24T01:19:31.8900879Z with:
+build	Setup eSigner CKA	2026-06-24T01:19:31.8901067Z   mode: product
+build	Setup eSigner CKA	2026-06-24T01:19:31.8901573Z   username: ***
+build	Setup eSigner CKA	2026-06-24T01:19:31.8902242Z   password: ***
+build	Setup eSigner CKA	2026-06-24T01:19:31.8902550Z   totp-secret: ***
+build	Setup eSigner CKA	2026-06-24T01:19:31.8902745Z env:
+build	Setup eSigner CKA	2026-06-24T01:19:31.8902933Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Setup eSigner CKA	2026-06-24T01:19:31.8903200Z   CARGO_INCREMENTAL: 0
+build	Setup eSigner CKA	2026-06-24T01:19:31.8903411Z   CARGO_TERM_COLOR: always
+build	Setup eSigner CKA	2026-06-24T01:19:31.8903616Z ##[endgroup]
+build	Setup eSigner CKA	2026-06-24T01:19:31.9920902Z ##[group]Downloading eSignerCKA from https://github.com/SSLcom/eSignerCKA/releases/download/v1.0.7/SSL.COM-eSigner-CKA_1.0.7.zip
+build	Setup eSigner CKA	2026-06-24T01:19:32.7188123Z ##[endgroup]
+build	Setup eSigner CKA	2026-06-24T01:19:32.7189006Z ##[group]Extracting eSignerCKA to D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\extracted
+build	Setup eSigner CKA	2026-06-24T01:19:32.8080380Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\downloaded.zip', 'D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\extracted', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\downloaded.zip' -DestinationPath 'D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\extracted' -Force } else { throw $_ } } ;"
+build	Setup eSigner CKA	2026-06-24T01:19:36.2097996Z ##[endgroup]
+build	Setup eSigner CKA	2026-06-24T01:19:36.2098580Z Using installer: SSL.COM eSigner CKA_1.0.7_build_20240717.exe
+build	Setup eSigner CKA	2026-06-24T01:19:36.2107916Z ##[group]Running installer in silent mode
+build	Setup eSigner CKA	2026-06-24T01:19:36.2114930Z [command]D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\extracted\installer.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /DIR=D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install
+build	Setup eSigner CKA	2026-06-24T01:19:48.3255214Z ##[endgroup]
+build	Setup eSigner CKA	2026-06-24T01:19:48.3256032Z ##[group]Logging in to SSL.com
+build	Setup eSigner CKA	2026-06-24T01:19:48.3261904Z [command]D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install\eSignerCKATool.exe config -mode *** -user *** -pass *** -totp *** -key D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install\master.key
+build	Setup eSigner CKA	2026-06-24T01:19:56.9185493Z Configuration successful!
+build	Setup eSigner CKA	2026-06-24T01:19:56.9446037Z ##[endgroup]
+build	Setup eSigner CKA	2026-06-24T01:19:56.9446688Z Reloading certificates to Windows
+build	Setup eSigner CKA	2026-06-24T01:19:56.9450908Z [command]D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install\eSignerCKATool.exe unload
+build	Setup eSigner CKA	2026-06-24T01:19:56.9801896Z UnloadAllCertificate: Unload all certificates from Window-MY with csp eSignerKSP
+build	Setup eSigner CKA	2026-06-24T01:19:57.0362724Z UnloadAllCertificate: All certificates already removed.
+build	Setup eSigner CKA	2026-06-24T01:19:57.0407887Z [command]D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install\eSignerCKATool.exe load
+build	Setup eSigner CKA	2026-06-24T01:19:57.0702970Z LoadAllCertToStore: Load all certificates to Window-MY with csp eSignerKSP
+build	Setup eSigner CKA	2026-06-24T01:19:57.2024481Z LoadAllCertToStore: All certificates already imported.
+build	Add signtool to PATH	﻿2026-06-24T01:19:57.2368257Z ##[group]Run $windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"
+build	Add signtool to PATH	2026-06-24T01:19:57.2368918Z ^[[36;1m$windowsKitsDir = "C:\Program Files (x86)\Windows Kits\10\bin"^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2369668Z ^[[36;1m$signtoolPaths = Get-ChildItem -Path $windowsKitsDir -Filter "signtool.exe" -Recurse | Where-Object { $_.DirectoryName -match "x64" }^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2370340Z ^[[36;1mif ($signtoolPaths.Count -gt 0) {^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2370701Z ^[[36;1m    $signtoolDir = $signtoolPaths[0].DirectoryName^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2371090Z ^[[36;1m    Write-Host "Found signtool at $signtoolDir"^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2371439Z ^[[36;1m    echo "$signtoolDir" >> $env:GITHUB_PATH^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2371718Z ^[[36;1m} else {^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2371949Z ^[[36;1m    Write-Error "signtool.exe not found"^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2372226Z ^[[36;1m}^[[0m
+build	Add signtool to PATH	2026-06-24T01:19:57.2439419Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	Add signtool to PATH	2026-06-24T01:19:57.2439790Z env:
+build	Add signtool to PATH	2026-06-24T01:19:57.2440026Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Add signtool to PATH	2026-06-24T01:19:57.2440310Z   CARGO_INCREMENTAL: 0
+build	Add signtool to PATH	2026-06-24T01:19:57.2440536Z   CARGO_TERM_COLOR: always
+build	Add signtool to PATH	2026-06-24T01:19:57.2440769Z ##[endgroup]
+build	Add signtool to PATH	2026-06-24T01:19:57.8891212Z Found signtool at C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64
+build	Test signtool	﻿2026-06-24T01:19:57.9585435Z ##[group]Run echo "Write-Host 'Test'" > test.ps1
+build	Test signtool	2026-06-24T01:19:57.9585913Z ^[[36;1mecho "Write-Host 'Test'" > test.ps1^[[0m
+build	Test signtool	2026-06-24T01:19:57.9586566Z ^[[36;1msigntool sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n "Silvestr Liskin" test.ps1 || echo "Test sign failed, but continuing..."^[[0m
+build	Test signtool	2026-06-24T01:19:57.9655817Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	Test signtool	2026-06-24T01:19:57.9656192Z env:
+build	Test signtool	2026-06-24T01:19:57.9656414Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build	Test signtool	2026-06-24T01:19:57.9656693Z   CARGO_INCREMENTAL: 0
+build	Test signtool	2026-06-24T01:19:57.9656918Z   CARGO_TERM_COLOR: always
+build	Test signtool	2026-06-24T01:19:57.9657138Z ##[endgroup]
+build	Test signtool	2026-06-24T01:19:58.6331008Z 
+build	Test signtool	2026-06-24T01:19:58.6331684Z The following certificates were considered:
+build	Test signtool	2026-06-24T01:19:58.6892790Z SignTool Error: No certificates were found that met all the given criteria.
+build	Test signtool	2026-06-24T01:19:58.6893961Z     Issued to: Silvestr Liskin
+build	Test signtool	2026-06-24T01:19:58.6894164Z 
+build	Test signtool	2026-06-24T01:19:58.6894364Z     Issued by: SSL.com Code Signing Intermediate CA RSA R1
+build	Test signtool	2026-06-24T01:19:58.6894671Z 
+build	Test signtool	2026-06-24T01:19:58.6894799Z     Expires:   Wed Jun 23 16:17:00 2027
+build	Test signtool	2026-06-24T01:19:58.6894984Z 
+build	Test signtool	2026-06-24T01:19:58.6895155Z     SHA1 hash: 56810BD6675C75A2299BDE5FD3FC0B9F380ADA9B
+build	Test signtool	2026-06-24T01:19:58.6895393Z 
+build	Test signtool	2026-06-24T01:19:58.6895400Z 
+build	Test signtool	2026-06-24T01:19:58.6895544Z After EKU filter, 1 certs were left.
+build	Test signtool	2026-06-24T01:19:58.6895867Z After expiry filter, 1 certs were left.
+build	Test signtool	2026-06-24T01:19:58.6896212Z After Subject Name filter, 1 certs were left.
+build	Test signtool	2026-06-24T01:19:58.6896764Z After Private Key filter, 0 certs were left.
+build	Test signtool	2026-06-24T01:19:58.6944694Z Test sign failed, but continuing...
+build	Test signtool	2026-06-24T01:19:58.7682297Z ##[error]Process completed with exit code 1.
+build	Post Setup eSigner CKA	﻿2026-06-24T01:19:58.7898270Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.7899662Z Post job cleanup.
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.8990470Z ##[group]Unloading eSignerCKA
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.9028786Z [command]D:\a\_temp\8e5173f5-0b57-4ea4-a565-972060c29270\install\eSignerCKATool.exe load
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.9412205Z LoadAllCertToStore: Load all certificates to Window-MY with csp eSignerKSP
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.9909674Z LoadAllCertToStore: All certificates already imported.
+build	Post Setup eSigner CKA	2026-06-24T01:19:58.9995499Z ##[endgroup]
+build	Post Run actions/checkout@v4	﻿2026-06-24T01:19:59.0409505Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.0411098Z Post job cleanup.
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2320507Z [command]"C:\Program Files\Git\bin\git.exe" version
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2588984Z git version 2.54.0.windows.1
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2661901Z Temporarily overriding HOME='D:\a\_temp\b0973616-7737-4e4e-83b9-704343152661' before making global git config changes
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2662987Z Adding repository directory to the temporary git global config as a safe directory
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2672803Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\autodubstudio\autodubstudio
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.2974981Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.3269486Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.8702068Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.8959378Z http.https://github.com/.extraheader
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.9011434Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+build	Post Run actions/checkout@v4	2026-06-24T01:19:59.9337802Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build	Post Run actions/checkout@v4	2026-06-24T01:20:00.5306409Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Post Run actions/checkout@v4	2026-06-24T01:20:00.5616304Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build	Complete job	﻿2026-06-24T01:20:01.1252598Z Cleaning up orphan processes
+build	Complete job	2026-06-24T01:20:01.1374655Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, anatawa12/setup-eSigner-CKA@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
