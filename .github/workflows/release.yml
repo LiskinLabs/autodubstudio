@@ -54,12 +54,12 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
-      - name: Inject Python sign wrapper into tauri.conf.json
+      - name: Inject pwsh sign wrapper into tauri.conf.json
         shell: powershell
         run: |
           $tauriPath = "gui/src-tauri/tauri.conf.json"
           $tauri = Get-Content $tauriPath | ConvertFrom-Json
-          $tauri.bundle.windows.signCommand = "python .github/scripts/signtool.py `"%1`""
+          $tauri.bundle.windows.signCommand = "pwsh.exe -ExecutionPolicy Bypass -File .github\scripts\sign.ps1 `"%1`""
           $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
           Write-Host "Injected signCommand: $($tauri.bundle.windows.signCommand)"
 
