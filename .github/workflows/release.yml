@@ -54,12 +54,17 @@ jobs:
               Write-Error "signtool.exe not found"
           }
 
-      - name: Inject PowerShell sign wrapper into tauri.conf.json
+      - name: Build and inject custom signtool
         shell: powershell
         run: |
+          $binDir = "$pwd\.github\scripts\bin"
+          New-Item -ItemType Directory -Force -Path $binDir
+          rustc .github\scripts\signtool_wrapper.rs -o $binDir\signtool.exe
+          
           $tauriPath = "gui/src-tauri/tauri.conf.json"
           $tauri = Get-Content $tauriPath | ConvertFrom-Json
-          $tauri.bundle.windows.signCommand = "cmd.exe /c `"powershell.exe -ExecutionPolicy Bypass -File .github\scripts\sign.ps1 `\`"`%1`\`"`""
+          $absPath = "$binDir\signtool.exe"
+          $tauri.bundle.windows.signCommand = "$absPath sign /debug /tr http://ts.ssl.com /td sha256 /fd sha256 /n `"Silvestr Liskin`" `"%1`""
           $tauri | ConvertTo-Json -Depth 10 | Set-Content $tauriPath
           Write-Host "Injected signCommand: $($tauri.bundle.windows.signCommand)"
 
