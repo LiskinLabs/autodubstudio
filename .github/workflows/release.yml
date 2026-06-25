@@ -53,7 +53,7 @@ jobs:
           cd codesigntool
           curl -sL https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0.zip -o CodeSignTool.zip
           unzip -q CodeSignTool.zip
-          echo "CODE_SIGN_TOOL_PATH=$PWD/CodeSignTool-v1.3.0" >> $GITHUB_ENV
+          echo "CODE_SIGN_TOOL_PATH=$PWD" >> $GITHUB_ENV
 
       - name: Get Credential ID dynamically
         id: get_cred

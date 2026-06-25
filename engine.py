@@ -713,16 +713,76 @@ class AutoDubWorker(threading.Thread):
             no_vocals_path = os.path.join(demucs_out_dir, demucs_model, base_name, "no_vocals.wav")
 
             if not (os.path.exists(vocals_path) and os.path.exists(no_vocals_path)):
-                demucs_cmd = [
-                    sys.executable, "-m", "demucs.separate",
-                    "-n", demucs_model,
-                    "-d", self.device,  # Force CUDA/CPU
-                    "--two-stems=vocals",
-                    "--segment", "20",
-                    "-o", demucs_out_dir,
-                    self.video_path
-                ]
-                self._run_subprocess(demucs_cmd, check=True)
+                import json, subprocess
+                try:
+                    probe = subprocess.check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", self.video_path], creationflags=subprocess.CREATE_NO_WINDOW)
+                    duration = float(json.loads(probe)["format"]["duration"])
+                except Exception:
+                    duration = 0
+
+                if duration > 1800:
+                    self.log_signal.emit(f"  ⚡ Умная нарезка: Видео длится {duration/60:.1f} мин. Делим аудио на куски по 15 минут для безопасного извлечения голоса...")
+                    chunk_dir = os.path.join(demucs_out_dir, "chunks", base_name)
+                    os.makedirs(chunk_dir, exist_ok=True)
+                    full_audio = os.path.join(chunk_dir, "full.wav")
+                    self._run_subprocess(["ffmpeg", "-y", "-i", self.video_path, "-vn", "-c:a", "pcm_s16le", full_audio], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self._run_subprocess(["ffmpeg", "-y", "-i", full_audio, "-f", "segment", "-segment_time", "900", "-c", "copy", os.path.join(chunk_dir, "chunk_%03d.wav")], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    chunks = sorted([f for f in os.listdir(chunk_dir) if f.startswith("chunk_") and f.endswith(".wav")])
+                    for i, chunk in enumerate(chunks):
+                        self.log_signal.emit(f"  ⚡ Обработка куска {i+1} из {len(chunks)}...")
+                        c_path = os.path.join(chunk_dir, chunk)
+                        d_cmd = [sys.executable, "-m", "demucs.separate", "-n", demucs_model, "-d", self.device, "--two-stems=vocals", "--segment", "20", "-o", chunk_dir, c_path]
+                        try:
+                            self._run_subprocess(d_cmd, check=True)
+                        except subprocess.CalledProcessError as e:
+                            if "-d" in d_cmd and "cuda" in d_cmd:
+                                self.log_signal.emit(f"  ⚠ Кусок {i+1} не поместился в VRAM (CUDA). Пробуем на CPU...")
+                                d_cmd[d_cmd.index("cuda")] = "cpu"
+                                try:
+                                    self._run_subprocess(d_cmd, check=True)
+                                except subprocess.CalledProcessError:
+                                    self.log_signal.emit(f"  ❌ Ошибка куска {i+1} на CPU. Пропускаем.")
+                            else:
+                                self.log_signal.emit(f"  ❌ Ошибка куска {i+1}. Пропускаем.")
+
+                    v_list = os.path.join(chunk_dir, "v_list.txt")
+                    nv_list = os.path.join(chunk_dir, "nv_list.txt")
+                    with open(v_list, "w", encoding="utf-8") as f_v, open(nv_list, "w", encoding="utf-8") as f_nv:
+                        for chunk in chunks:
+                            c_base = os.path.splitext(chunk)[0]
+                            v_p = os.path.join(chunk_dir, demucs_model, c_base, "vocals.wav")
+                            nv_p = os.path.join(chunk_dir, demucs_model, c_base, "no_vocals.wav")
+                            f_v.write(f"file '{v_p}'\n".replace("\\", "/"))
+                            f_nv.write(f"file '{nv_p}'\n".replace("\\", "/"))
+                    
+                    self.log_signal.emit(f"  ⚡ Склеиваем извлеченные куски обратно в единый файл...")
+                    os.makedirs(os.path.dirname(vocals_path), exist_ok=True)
+                    self._run_subprocess(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", v_list, "-c", "copy", vocals_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self._run_subprocess(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", nv_list, "-c", "copy", no_vocals_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    demucs_cmd = [
+                        sys.executable, "-m", "demucs.separate",
+                        "-n", demucs_model,
+                        "-d", self.device,  # Force CUDA/CPU
+                        "--two-stems=vocals",
+                        "--segment", "20",
+                        "-o", demucs_out_dir,
+                        self.video_path
+                    ]
+                    try:
+                        self._run_subprocess(demucs_cmd, check=True)
+                    except subprocess.CalledProcessError as e:
+                        if "-d" in demucs_cmd and "cuda" in demucs_cmd:
+                            self.log_signal.emit(f"  ⚠ Demucs failed on CUDA (exit {e.returncode}). Retrying on CPU...")
+                            idx = demucs_cmd.index("cuda")
+                            demucs_cmd[idx] = "cpu"
+                            try:
+                                self._run_subprocess(demucs_cmd, check=True)
+                            except subprocess.CalledProcessError as e2:
+                                self.log_signal.emit(f"  ❌ Demucs failed on CPU (exit {e2.returncode}). Skipping Demucs for this huge video.")
+                        else:
+                            self.log_signal.emit(f"  ❌ Demucs failed (exit {e.returncode}). Skipping Demucs.")
 
                 # ── Находим РЕАЛЬНУЮ папку, которую создал Demucs ──
                 model_out = os.path.join(demucs_out_dir, demucs_model)
