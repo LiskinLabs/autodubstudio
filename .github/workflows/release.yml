@@ -46,6 +46,31 @@ jobs:
           distribution: 'corretto'
           java-version: '11'
 
+      - name: Setup CodeSignTool
+        run: |
+          mkdir -p codesigntool
+          cd codesigntool
+          curl -sL https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.0/CodeSignTool-v1.3.0.zip -o CodeSignTool.zip
+          unzip -q CodeSignTool.zip
+          echo "CODE_SIGN_TOOL_PATH=$PWD/CodeSignTool-v1.3.0" >> $GITHUB_ENV
+
+      - name: Get Credential ID dynamically
+        id: get_cred
+        shell: bash
+        env:
+          USERNAME: ${{ secrets.ESIGNER_USERNAME }}
+          PASSWORD: ${{ secrets.ESIGNER_PASSWORD }}
+        run: |
+          cd "$CODE_SIGN_TOOL_PATH"
+          # Выполняем команду и сохраняем вывод
+          OUTPUT=$(./CodeSignTool.sh get_credential_ids -username="$USERNAME" -password="$PASSWORD")
+          echo "Command output:"
+          echo "$OUTPUT"
+          # Ищем строку с Credential ID и извлекаем сам ID (обычно это UUID или hex)
+          CRED_ID=$(echo "$OUTPUT" | grep -oP '(?<=Credential ID: )[a-zA-Z0-9-]+' | head -n 1)
+          echo "Extracted Credential ID: $CRED_ID"
+          echo "CREDENTIAL_ID=$CRED_ID" >> $GITHUB_ENV
+
       - name: Sign Executable with eSigner
         uses: sslcom/esigner-codesign@v1.3.2
         with:
@@ -53,7 +78,7 @@ jobs:
           username: ${{ secrets.ESIGNER_USERNAME }}
           password: ${{ secrets.ESIGNER_PASSWORD }}
           totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+          credential_id: ${{ env.CREDENTIAL_ID }}
           dir_path: gui/src-tauri/target/release/bundle/nsis
           malware_block: "true"
 
