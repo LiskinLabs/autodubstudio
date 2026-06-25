@@ -47,6 +47,7 @@ jobs:
           java-version: '11'
 
       - name: Setup CodeSignTool
+        shell: bash
         run: |
           mkdir -p codesigntool
           cd codesigntool
