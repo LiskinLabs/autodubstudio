@@ -101,7 +101,7 @@ const TTS_BY_LANG: Record<string, string[]> = {
   // Common TTS voices (xttsv2, azure, edge-tts, openai, gpt-sovits)
   "ru": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
   "en": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "tr": ["f5-tts", "xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
+  "tr": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
   "es": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
   "fr": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
   "de": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
@@ -121,8 +121,7 @@ ALL_LANGUAGES.forEach(l => {
 
 const TTS_T_KEY: Record<string, string> = {
   "xttsv2": "dubbing.voice.xttsv2_full",
-  "f5-tts": "dubbing.voice.f5tts_full",
-  "azure": "dubbing.voice.azure_cloud", 
+  "azure": "dubbing.voice.azure_cloud",
   "edge-tts": "dubbing.voice.edge_cloud",
   "openai": "dubbing.voice.openai_cloud",
   "gpt-sovits": "dubbing.voice.gpt_sovits",
@@ -258,11 +257,19 @@ export default function DubbingStudio() {
   const handleDragLeave = useCallback(() => setIsDragging(false), []);
   const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault(); setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) setFileName(e.dataTransfer.files[0].name);
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0] as any;
+      setFileName(file.path || file.name);
+    }
   }, []);
 
   const handlePaste = useCallback(async () => {
-    try { const text = await navigator.clipboard.readText(); if (text) setYoutubeUrl(text); } catch {}
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setYoutubeUrl(text);
+    } catch {
+      notifyToast.error("Clipboard access denied", { description: "Please paste the URL manually or grant clipboard permission." });
+    }
   }, []);
 
   const handleScanYoutube = async () => {

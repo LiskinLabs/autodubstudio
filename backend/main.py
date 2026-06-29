@@ -284,23 +284,21 @@ async def read_root():
 
 
 @app.get("/api/models")
-async def get_models():
+def get_models():
     return {
         "models": [
-            {"id": "qwen3-tts", "name": "Qwen3-TTS (Русский)", "type": "local"},
             {
-                "id": "f5-tts",
-                "name": "F5-TTS (Мультиязычный Zero-Shot)",
+                "id": "xttsv2",
+                "name": "XTTS v2 (Мультиязычный, 14 языков)",
                 "type": "local",
             },
-            {"id": "f5-tts-onnx-tr", "name": "F5-TTS ONNX (Turkish)", "type": "local"},
         ]
     }
 
 
 # ── GPU Status endpoint (polled by StatusBar every 5s) ──
 @app.get("/api/system/gpu")
-async def get_gpu_status():
+def get_gpu_status():
     """Return CUDA availability, VRAM, and GPU name for the StatusBar component."""
     try:
         import torch  # noqa: PLC0415
@@ -370,7 +368,7 @@ async def get_gpu_status():
 
 
 @app.get("/api/pipeline/status")
-async def get_pipeline_status():
+def get_pipeline_status():
     """Live model status during dubbing — polled by StatusBar every 2s."""
     try:
         import torch  # noqa: PLC0415
@@ -442,7 +440,7 @@ SAFE_TO_KILL = {
 
 
 @app.get("/api/system/processes")
-async def get_heavy_processes():
+def get_heavy_processes():
     """Return top VRAM/RAM-consuming SAFE-TO-KILL processes for the cleaner dialog."""
     import getpass  # noqa: PLC0415
 
@@ -513,7 +511,7 @@ async def get_ws_token(request: Request):
 
 
 @app.get("/api/ollama/status")
-async def ollama_status():
+def ollama_status():
     """Check if Ollama is running and accessible."""
     try:
         result = subprocess.run(
@@ -901,7 +899,6 @@ VALID_MODEL_IDS = {
     "pyannote-segmentation",
     "xttsv2",
     "qwen3-tts",
-    "f5-tts",
     "f5-tts-onnx-tr",
     "htdemucs",
     "gemma4",
@@ -958,7 +955,7 @@ async def get_logs(lines: int = 200, authorization: str = Header("")):
 
 
 @app.get("/api/models/status")
-async def get_model_status():
+def get_model_status():
     """Check which models are cached locally."""
     models_status = {}
 
@@ -1392,25 +1389,6 @@ print('PYANNOTE_OK')
                     _model_download_status[model_id]["progress"] = 5
                 snapshot_download("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", max_workers=1)
                 snapshot_download("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", max_workers=1)
-                with _model_download_lock:
-                    _model_download_status[model_id] = {
-                        "done": True,
-                        "progress": 100,
-                        "error": None,
-                    }
-
-            elif model_id == "f5-tts":
-                from huggingface_hub import snapshot_download  # noqa: PLC0415
-
-                f5_cache = os.path.expanduser(
-                    "~/.cache/huggingface/hub/models--SWivid--F5-TTS"
-                )
-                threading.Thread(
-                    target=_monitor_dir_size, args=(f5_cache, 1300, 5, 95), daemon=True
-                ).start()
-                with _model_download_lock:
-                    _model_download_status[model_id]["progress"] = 5
-                snapshot_download("SWivid/F5-TTS", max_workers=1)
                 with _model_download_lock:
                     _model_download_status[model_id] = {
                         "done": True,

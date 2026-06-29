@@ -411,16 +411,20 @@ class AutoDubWorker(threading.Thread):
                 default_out = (
                     os.path.dirname(self.video_path) if self.video_path else os.getcwd()
                 )
+                if not default_out:
+                    default_out = os.getcwd()
 
             # Safe makedirs with validation (defence against URL-as-path)
             def _safe_makedirs(path: str):
                 """Only create directories on local filesystem, never for URLs."""
-                if not path or any(
+                if any(
                     path.startswith(p) for p in ("http://", "https://", "ftp://")
                 ):
                     raise ValueError(
-                        f"Refusing to create directory from URL/empty path: {path!r}"
+                        f"Refusing to create directory from URL: {path!r}"
                     )
+                if not path:
+                    path = os.getcwd()
                 os.makedirs(path, exist_ok=True)
 
             _safe_makedirs(default_out)
@@ -845,7 +849,6 @@ class AutoDubWorker(threading.Thread):
             DISPLAY_TO_ID = {
                 "Edge-TTS (Cloud, Free, Fast)": "edge-tts",
                 "XTTSv2 Local": "xttsv2",
-                "F5-TTS Local": "f5-tts",
                 "Azure OpenAI (Cloud)": "azure",
             }
             engine_id = self.dub_engine.lower()
