@@ -1,0 +1,11 @@
+{
+  "name": "autodubstudio-root",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "cd gui && npm run lint",
+    "build": "cd gui && npm run build",
+    "storybook": "cd gui && npm run storybook",
+    "chromatic": "cd gui && npm run chromatic"
+  }
+}

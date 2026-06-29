@@ -1,0 +1,26 @@
+# AutoDubStudio — Ruff Configuration
+target-version = "py312"
+
+[lint]
+preview = true
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes (отловит UnboundLocalError и переопределения)
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "PLC0415", # Запрет import внутри функций (import-outside-toplevel)
+    "F811",    # Переопределение ранее импортированного модуля
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top (qfluentwidgets after GPU force)
+    "E701",   # multiple statements on one line (colon) — style preference
+    "E702",   # semicolons — style preference
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

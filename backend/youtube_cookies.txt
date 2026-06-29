@@ -1,0 +1,7 @@
+# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.google.com	TRUE	/	TRUE	1900000000	NID	532=ZVN60LmqzVq8RAHoT7rFEiyv5A9oGJRXh-uFyHMeTseDkbj2cKpuO_Ln5Z5jsFgqdi-ojZ3p3UuG6EILeetBWa7d9ez7N7vtKrU2fNjjRMrT_jrWvDYd9uX2Z9VyllXpczprKvgCaLkpPivrvXy5BgC9END9ynCTWhE6QbHsJZYjYglbYydoPN7ijq2t3iHqy1iDPg
+accounts.google.com	FALSE	/	TRUE	1900000000	__Host-GAPS	1:vohRTuSunbRbORslM7vJhxzmpl5oug:9qO364kUU2_ReqQu
+accounts.google.com	FALSE	/	TRUE	1900000000	OTZ	8665045_44_48_123900_44_436380

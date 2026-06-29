@@ -1,0 +1,97 @@
+# 🎬 AutoDub Studio v0.0.1 Beta
+
+**Yapay Zeka Destekli Video Dublaj Sistemi** / **Система ИИ-Дубляжа Видео**
+Локальное десктоп-приложение для Windows 11 для профессионального перевода и дубляжа видео с использованием ИИ.
+
+> Транскрибация → Перевод → Озвучка (14 языков) → MKV
+> Всё локально. Всё бесплатно. Интерфейс: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
+
+<p align="center">
+  <img src="gui/public/logo-icon.png" alt="AutoDub Studio" width="128"/>
+</p>
+
+---
+
+## 🪟 Нативный интерфейс Windows 11
+
+- **Fluent UI v9** — Официальная библиотека компонентов Microsoft.
+- **Mica-эффект** — Нативная прозрачность окон Windows 11.
+- **3 Темы** — Светлая, Темная, Тусклая (Teams Dark).
+- **Мультиязычность** — Полная поддержка русского, английского и турецкого языков.
+
+---
+
+## 🚀 Возможности
+
+### Пайплайн (Process Flow)
+
+| Шаг | Технология | Статус | Описание |
+|------|-----------|-------|----------|
+| 📥 **Загрузка** | yt-dlp | ✅ | Поддержка любых ссылок (YouTube, X, TikTok) или локальных файлов |
+| 🎵 **Разделение голоса** | Demucs (htdemucs_ft) | ✅ | Извлечение вокала студийного качества (4 модели на выбор) |
+| 📝 **Транскрибация** | Faster-Whisper / WhisperX | ✅ | Выбор движка распознавания (Standard / Better Align) с поддержкой CUDA |
+| 👥 **Диаризация** | Pyannote 3.1 | ✅ | Разделение спикеров по голосам (требует токен HF) |
+| 🧠 **ИИ Перевод** | DeepSeek + Google | ✅ | Гибридный перевод с автокоррекцией ошибок |
+| 🎙️ **Озвучка (TTS)** | XTTS v2 / F5-TTS | ✅ | Клонирование голоса спикера с сохранением интонаций |
+| 🎬 **Сборка** | FFmpeg MKV | ✅ | Оригинальная дорожка + Дубляж + Чистый дубляж + Субтитры SRT |
+
+### 14 Поддерживаемых Языков Озвучки
+🇷🇺 🇹🇷 🇬🇧 🇸🇦 🇪🇸 🇫🇷 🇩🇪 🇨🇳 🇯🇵 🇰🇷 🇮🇹 🇵🇹 🇵🇱 🇮🇳
+
+### Умные функции
+- **Универсальная загрузка**: Сканируйте ссылки с любых сайтов и качайте видео напрямую.
+- **Выбор субтитров**: Использование нативных субтитров YouTube или автоматическая транскрибация Whisper.
+- **ИИ-Подбор пола**: Автоматическое определение гендера спикера для генерации корректного голоса.
+- **Монитор ресурсов**: Отслеживание нагрузки на GPU/VRAM/RAM в реальном времени.
+- **VRAM Cleaner**: Автоматическая и ручная очистка видеопамяти от тяжелых ИИ моделей.
+
+---
+
+## 🏗️ Архитектура
+
+```
+AutoDubStudio/
+├── backend/                 # FastAPI + WebSocket
+│   ├── main.py              # Основной сервер и роутеры
+│   ├── translator.py        # ИИ-перевод (DeepL + Gemma4/DeepSeek)
+│   ├── engine.py            # Основной пайплайн дубляжа (AutoDubWorker)
+│   └── *_worker.py          # Изолированные воркеры для TTS и VRAM
+├── gui/
+│   ├── src/                 # React + Fluent UI v9 + TypeScript
+│   │   ├── pages/           # Страницы (DubbingStudio, AIChat и т.д.)
+│   │   └── store.ts         # Глобальный стейт и система i18n
+│   └── src-tauri/           # Rust-бэкенд для нативных окон и автоапдейтов
+└── config.json              # Конфиги и токены
+```
+
+---
+
+## 📦 Установка и Сборка
+
+### Требования
+- Windows 10/11
+- Python 3.12 · Node.js 20+ · Rust · FFmpeg
+- NVIDIA GPU 4+ GB VRAM (настоятельно рекомендуется)
+
+### Сборка приложения (.exe)
+
+```bash
+git clone https://github.com/LiskinLabs/autodubstudio.git
+cd AutoDubStudio/gui
+
+npm install
+npm run tauri build
+# Готовые инсталляторы будут в папке: gui/src-tauri/target/release/bundle/nsis/
+```
+
+---
+
+## 🤝 Автор
+
+**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer  
+Teknorob Robot ve Otomasyon — Bursa, TR  
+[GitHub](https://github.com/LiskinLabs) · [LinkedIn](https://www.linkedin.com/in/silvestr-liskin-ab712920b)
+
+---
+
+MIT License

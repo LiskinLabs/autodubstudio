@@ -1,0 +1,91 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AutoDub Studio",
+  "version": "0.2.22",
+  "identifier": "com.silvestrliskin.autodubstudio",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npx vite build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AutoDub Studio",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 680,
+        "minHeight": 480,
+        "transparent": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://api.deepseek.com https://generativelanguage.googleapis.com https://api-free.deepl.com https://api.deepl.com https://api.openai.com https://huggingface.co https://github.com https://api.github.com https://objects.githubusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://asset.localhost; font-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/StoreLogo.png",
+        "languages": [
+          "English",
+          "Russian",
+          "Turkish"
+        ],
+        "displayLanguageSelector": true,
+        "startMenuFolder": "AutoDub Studio"
+      },
+      "wix": {
+        "language": [
+          "en-US",
+          "ru-RU",
+          "tr-TR"
+        ],
+        "bannerPath": "icons/StoreLogo.png",
+        "dialogImagePath": "icons/StoreLogo.png"
+      }
+    },
+    "resources": [
+      "../../backend/*.py",
+      "../../engine.py",
+      "../../live_engine.py",
+      "../../f5_worker.py",
+      "../../xtts_worker.py",
+      "../../lip_sync_worker.py",
+      "../../diarization_worker.py",
+      "../../gender_worker.py",
+      "../../cli_run.py",
+      "../../*.bat",
+      "../../teknorob.png",
+      "../../pyproject.toml",
+      "../../uv.lock",
+      "../../config.json",
+      "../../github_token.txt"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "RWQTa8K7NxwUW8oTPVLoKJBzlfW8LrZBGBG2DoMnrclfsQicLAPo3rsr",
+      "endpoints": [
+        "https://github.com/LiskinLabs/autodubstudio/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}
