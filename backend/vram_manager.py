@@ -212,7 +212,11 @@ class ResourceMonitor(threading.Thread):
             self.last_level = "normal"
 
     def _do_cleanup(self, level: str, vram: int = 0, ram: int = 0, reason: str = "") -> dict:
-        """Execute cleanup actions appropriate for the level."""
+        """Execute cleanup actions appropriate for the level.
+
+        Integrates Windows native memory optimization (same APIs as WinMemoryCleaner)
+        plus CUDA-specific cleanup.
+        """
         now = time.time()
         # Don't spam cleanup more than once every 30 s
         if now - self.last_cleanup_time < 30 and reason != "manual":
@@ -223,12 +227,23 @@ class ResourceMonitor(threading.Thread):
         self.last_level = level
         actions = []
 
-        if level == "critical":
-            # Aggressive: kill background hogs
-            killed = free_up_vram(self._emit if self.on_cleanup else None)
-            if killed:
-                actions.append(f"killed_{killed}_hogs")
-            # Empty CUDA cache
+        # ── Windows system optimization (WinMemoryCleaner APIs) ──
+        try:
+            from backend.system_optimizer import system_optimize
+
+            opt = system_optimize(
+                hogs_to_kill=[name for _, name in VRAM_HOGS] if level == "critical" else None
+            )
+            if level == "critical":
+                opt.hogs_killed = free_up_vram()
+            summary = opt.summary()
+            if summary != "nothing to clean":
+                actions.append(summary)
+        except ImportError:
+            pass
+
+        # ── CUDA-specific cleanup (torch.cuda) ──
+        if level in ("critical", "warning"):
             try:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -236,9 +251,9 @@ class ResourceMonitor(threading.Thread):
             except Exception:
                 pass
 
-        # Always run gc on warning/critical
+        # Python GC
         gc.collect()
-        actions.append("gc_collect")
+        actions.append("gc")
 
         result = {
             "level": level,

@@ -1295,7 +1295,7 @@ class AutoDubWorker(threading.Thread):
                         "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;"
                         "import whisperx;"
                         "ct='float16' if p['device']=='cuda' else 'int8';"
-                        "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct);"
+                        "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct,vad_method='silero');"
                         "audio=whisperx.load_audio(p['audio_path']);"
                         "res=m.transcribe(audio,batch_size=4);"
                         "print('LANG:'+res['language']);"
