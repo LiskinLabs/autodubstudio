@@ -2305,6 +2305,9 @@ async def background_self_test():
 
 @app.on_event("startup")
 async def startup_event():
+    # ── Start background resource monitor (VRAM + RAM, auto-cleanup) ──
+    from backend.vram_manager import get_monitor
+    get_monitor()
     asyncio.create_task(background_self_test())
     asyncio.create_task(send_pending_crash_report())
 

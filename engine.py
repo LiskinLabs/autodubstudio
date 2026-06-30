@@ -48,7 +48,7 @@ import psutil
 from pydub import AudioSegment
 
 from backend.translator import Translator
-from backend.vram_manager import free_up_vram, get_free_vram_mb
+from backend.vram_manager import free_up_vram, get_free_vram_mb, get_monitor
 
 
 def kill_process_tree(pid):
@@ -781,6 +781,16 @@ class AutoDubWorker(threading.Thread):
         all_created_files = []
         demucs_out_dir = None
         _was_url_source = False  # Track if source was URL for cleanup
+
+        # ── Start continuous resource monitor (VRAM + RAM) ──
+        monitor = get_monitor(
+            on_cleanup=lambda level, vram, ram, actions: self.log_signal.emit(
+                f"  🧹 Auto-cleanup [{level}]: VRAM={vram}MB RAM={ram}MB → {', '.join(actions)}"
+            )
+        )
+        self.log_signal.emit(
+            f"  📊 Resource monitor active — VRAM: {monitor.vram_free_mb}MB free, RAM: {monitor.ram_free_mb}MB free"
+        )
         try:
             # Handle YouTube/TikTok/Vimeo URLs — download first
             if self.video_path.startswith("http://") or self.video_path.startswith(
@@ -1094,6 +1104,15 @@ class AutoDubWorker(threading.Thread):
                         )
                         use_demucs = False
                 else:
+                    # ── Resource check: skip CUDA if VRAM is tight ──
+                    monitor = get_monitor()
+                    use_cuda = self.device == "cuda"
+                    if use_cuda and monitor.vram_free_mb < 2500:
+                        self.log_signal.emit(
+                            f"  ⚠ Low VRAM ({monitor.vram_free_mb}MB free). Switching Demucs to CPU."
+                        )
+                        use_cuda = False
+
                     demucs_cmd = [
                         sys.executable,
                         "-m",
@@ -1101,7 +1120,7 @@ class AutoDubWorker(threading.Thread):
                         "-n",
                         demucs_model,
                         "-d",
-                        self.device,  # Force CUDA/CPU
+                        "cuda" if use_cuda else "cpu",
                         "--two-stems=vocals",
                         "-o",
                         demucs_out_dir,
@@ -1184,18 +1203,20 @@ class AutoDubWorker(threading.Thread):
             )
 
             if self.device == "cuda":
-                if get_free_vram_mb() < 3000:
-                    self.log_signal.emit(
-                        _pipeline_t("low_vram_cleaning", self.ui_language)
-                    )
-                    free_up_vram(self.log_signal.emit)
-                if get_free_vram_mb() < 2000:
+                monitor = get_monitor()
+                vram_free = monitor.vram_free_mb
+                if vram_free < 2000:
                     self.log_signal.emit(
                         _pipeline_t("low_vram_cpu_fallback", self.ui_language)
                     )
                     self.device = "cpu"
-                else:
-                    torch.cuda.empty_cache()  # noqa: F823
+                elif vram_free < 3500:
+                    self.log_signal.emit(
+                        _pipeline_t("low_vram_cleaning", self.ui_language)
+                    )
+                    monitor.force_cleanup()
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
 
             # 2. Транскрибация (Whisper) — или загрузка из чекпойнта
             self._check_cancelled()
