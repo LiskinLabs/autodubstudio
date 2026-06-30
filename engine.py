@@ -152,9 +152,9 @@ _PIPELINE_LOG = {
         "tr": "✅ Segmentler önbellekten yüklendi ({n} adet, Whisper atlanıyor)",
     },
     "whisper_loading": {
-        "ru": "🔄 Загрузка Faster-Whisper ({model}) на {device}...",
-        "en": "🔄 Loading Faster-Whisper ({model}) on {device}...",
-        "tr": "🔄 Faster-Whisper ({model}) {device} üzerinde yükleniyor...",
+        "ru": "🔄 Загрузка {engine} ({model}) на {device}...",
+        "en": "🔄 Loading {engine} ({model}) on {device}...",
+        "tr": "🔄 {engine} ({model}) {device} üzerinde yükleniyor...",
     },
     "segments_found": {
         "ru": "✅ Найдено и размечено {n} сегментов.",
@@ -1230,6 +1230,7 @@ class AutoDubWorker(threading.Thread):
                 srt_files = glob.glob(os.path.join(self.out_dir, "*.srt"))
                 if srt_files:
                     srt_files.sort(key=lambda x: ("ru" not in x, "en" not in x))
+                    segments = []  # Initialize before parsing
                     try:
                         import pysrt  # noqa: PLC0415
 
@@ -1269,6 +1270,7 @@ class AutoDubWorker(threading.Thread):
                     _pipeline_t(
                         "whisper_loading",
                         self.ui_language,
+                        engine=self.whisper_engine,
                         model=self.model_size,
                         device=self.device,
                     )
