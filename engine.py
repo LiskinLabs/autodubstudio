@@ -1295,6 +1295,7 @@ class AutoDubWorker(threading.Thread):
                         "import sys,json,warnings,types; warnings.filterwarnings('ignore'); p=json.loads(sys.argv[1]);"
                         "m=types.ModuleType('speechbrain.integrations.k2_fsa'); m.__file__='mock_k2_fsa'; m.__path__=[]; sys.modules['speechbrain.integrations.k2_fsa']=m;"
                         "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;"
+                        "try:\n import nltk; nltk.download('punkt_tab',quiet=True); nltk.download('averaged_perceptron_tagger_eng',quiet=True)\n except: pass\n"
                         "import whisperx;"
                         "ct='float16' if p['device']=='cuda' else 'int8';"
                         "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct,vad_method='silero');"
