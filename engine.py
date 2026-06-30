@@ -658,7 +658,7 @@ class AutoDubWorker(threading.Thread):
             "merge_output_format": "mp4",
             "writesubtitles": True,
             "writeautomaticsub": True,
-            "subtitleslangs": ["ru", "en"],
+            "subtitleslangs": ["en", "ru"],
             "quiet": True,
             "no_warnings": True,
             "postprocessors": [
