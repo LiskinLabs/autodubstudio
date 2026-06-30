@@ -266,6 +266,8 @@ app.add_middleware(
 
 # ── Shared state (imported by engine.py without circular import) ──
 from shared import pipeline_status, reset_pipeline_status
+from glossary_api import router as glossary_router
+app.include_router(glossary_router)
 
 # ── WebSocket auth token (generated fresh each backend startup) ──
 WS_AUTH_TOKEN = secrets.token_urlsafe(32)
