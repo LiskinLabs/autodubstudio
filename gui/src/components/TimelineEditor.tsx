@@ -188,7 +188,7 @@ export default function TimelineEditor({ mediaPath, segments, onSegmentsChange, 
       
       {!isReady && (
         <div className={styles.loadingContainer}>
-          <Spinner size="medium" label="Loading Waveform..." />
+          <Spinner size="medium" label={t("loading.waveform") || "Loading Waveform..."} />
         </div>
       )}
       

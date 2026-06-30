@@ -167,9 +167,9 @@ _PIPELINE_LOG = {
         "tr": "👥 Diarizasyon (Pyannote) — konuşmacılar belirleniyor...",
     },
     "diarization_done": {
-        "ru": "✅ Диаризация: {n} спикеров определено.",
-        "en": "✅ Diarization: {n} speakers identified.",
-        "tr": "✅ Diarizasyon: {n} konuşmacı belirlendi.",
+        "ru": "✅ Диаризация: {pyannote} спикеров в аудио, {n} в сегментах.",
+        "en": "✅ Diarization: {pyannote} in audio, {n} in segments.",
+        "tr": "✅ Diarizasyon: {pyannote} seste, {n} segmentte.",
     },
     "diarization_failed": {
         "ru": "⚠ Диаризация не удалась: {e}. Использую SPEAKER_00.",
@@ -1411,8 +1411,9 @@ class AutoDubWorker(threading.Thread):
                                     seg["speaker"] = d["speaker"]
                                     break
                         unique = len(set(s["speaker"] for s in segments))  # noqa: C401
+                        pyannote_count = len(set(d["speaker"] for d in diar_data))  # noqa: C401
                         self.log_signal.emit(
-                            _pipeline_t("diarization_done", self.ui_language, n=unique)
+                            _pipeline_t("diarization_done", self.ui_language, pyannote=pyannote_count, n=unique)
                         )
                         all_created_files.append(diar_json)
                 except Exception as e:
