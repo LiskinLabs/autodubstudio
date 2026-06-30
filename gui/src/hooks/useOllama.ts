@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { fetch } from '@tauri-apps/plugin-http';
+import { notifyToast } from '../lib/toast';
 
 export interface OllamaMessage {
   role: 'user' | 'assistant' | 'system';
@@ -60,8 +61,8 @@ export function useOllama() {
       await fetch(`http://127.0.0.1:8000/api/ollama/start`, { method: 'POST' });
       // give it a sec to start
       setTimeout(() => checkConnection(), 2000);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      notifyToast.error("Failed to start Ollama", { description: "Make sure Ollama is installed and try again." });
     }
   }, [checkConnection]);
 
@@ -70,8 +71,8 @@ export function useOllama() {
       await fetch(`http://127.0.0.1:8000/api/ollama/stop`, { method: 'POST' });
       updateConnected(false);
       setModels([]);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      notifyToast.error("Failed to stop Ollama", { description: "Try stopping it manually via Task Manager." });
     }
   }, []);
 

@@ -9,11 +9,12 @@ import { useSettings, Language } from "../store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { fetch } from "@tauri-apps/plugin-http";
 import { notifyToast } from "../lib/toast";
+import GlossaryManager from "../components/GlossaryManager";
 import { useModelStatus, ALL_MODELS } from "../hooks/useModelStatus";
 import { THEME_OPTIONS } from "../theme";
 
 
-type SettingsTab = "general" | "models" | "keys" | "about";
+type SettingsTab = "general" | "models" | "keys" | "glossaries" | "about";
 
 interface ApiKeys {
   deepseek: string; openai: string; azure: string; google: string;
@@ -493,6 +494,7 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
       <div style={{ display: currentTab === "general" ? "block" : "none" }}>{renderGeneral()}</div>
       <div style={{ display: currentTab === "models" ? "block" : "none" }}>{renderModels()}</div>
       <div style={{ display: currentTab === "keys" ? "block" : "none" }}>{renderKeys()}</div>
+      <div style={{ display: currentTab === "glossaries" ? "block" : "none" }}><GlossaryManager /></div>
       <div style={{ display: currentTab === "about" ? "block" : "none" }}>{renderAbout()}</div>
     </div>
   );

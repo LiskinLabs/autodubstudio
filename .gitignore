@@ -64,6 +64,7 @@ Desktop.ini
 .env.local
 github_token.txt
 config.json
+youtube_cookies.txt
 !gui/src-tauri/config.json
 
 # ==========================================

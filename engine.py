@@ -11,8 +11,8 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # ── Venv resolution with fallback for installed app ──
 # In the installed version (AppData), only .venv is bundled.
-# Other venvs (.venv-f5, .venv-xtts, .venv-qwen3-tts) may only
-# exist in the dev project directory.
+# .venv-xtts may only exist in the dev project directory.
+# (F5-TTS, Qwen3-TTS, ONNX removed — not stable on Windows)
 _ENGINE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Go up one level if we're inside an extracted resource dir
 _PARENT_DIR = os.path.dirname(_ENGINE_DIR)
@@ -843,7 +843,6 @@ class AutoDubWorker(threading.Thread):
                     "pl",
                     "hi",
                 },
-                "f5-tts": {"tr"},
             }
             # Fallback for display names if sent instead of IDs
             DISPLAY_TO_ID = {
@@ -856,13 +855,6 @@ class AutoDubWorker(threading.Thread):
                 engine_id = DISPLAY_TO_ID[self.dub_engine]
 
             for lang, _ in self.langs.items():
-                if engine_id == "f5-tts" and lang != "tr":
-                    self.log_signal.emit(
-                        f"⚠️ F5-TTS поддерживает только турецкий. Авто-переключение на XTTSv2 для языка '{lang}'."
-                    )
-                    engine_id = "xttsv2"
-                    self.dub_engine = "XTTSv2 Local"
-
                 compat = TTS_COMPAT.get(engine_id, set())
                 if lang not in compat:
                     err = f"❌ {self.dub_engine} не поддерживает язык '{lang}'. Совместимые языки: {sorted(compat)}"
@@ -1521,16 +1513,8 @@ class AutoDubWorker(threading.Thread):
                 _set_pipeline_step("tts", 4)
                 _set_model_status("tts", "running")
                 _set_engine_info("tts", engine_id)
-                if "f5-onnx" in engine_id:
-                    self.log_signal.emit(
-                        "⚠️ ONNX TTS (int32/int64) is unstable. Falling back to XTTS v2..."
-                    )
-                    engine_id = "xttsv2"
 
-                use_f5 = "f5-tts" in engine_id
-                use_f5_onnx = False
                 use_xtts = "xttsv2" in engine_id
-                use_qwen = "qwen3-tts" in engine_id
                 audio_clips = []
 
                 # Pre-extract skip_dub segments
@@ -1538,11 +1522,7 @@ class AutoDubWorker(threading.Thread):
                 tts_segments = []
 
                 for idx, tseg in enumerate(translated_segments):
-                    ext = (
-                        "mp3"
-                        if not (use_f5 or use_f5_onnx or use_xtts or use_qwen)
-                        else "wav"
-                    )
+                    ext = "wav" if use_xtts else "mp3"
                     clip_path = os.path.join(self.out_dir, f"temp_{lang}_{idx}.{ext}")
 
                     if tseg.get("skip_dub", False):
@@ -1555,7 +1535,7 @@ class AutoDubWorker(threading.Thread):
                     else:
                         tts_segments.append((idx, tseg, clip_path))
 
-                if use_f5 or use_f5_onnx or use_xtts:
+                if use_xtts:
                     # ── Выбор лучшего референс-аудио для каждого спикера ──
                     # НЕ просто самый длинный сегмент (может быть с пыхтением/молчанием).
                     # Критерии: высокая плотность слов (активная речь), чистая длина 3-8 сек.
@@ -1658,7 +1638,7 @@ class AutoDubWorker(threading.Thread):
                                 f"  ⚠ Gender AI Error (Fallback to unknown): {e}"
                             )
 
-                if use_f5 or use_f5_onnx or use_xtts:
+                if use_xtts:
                     tasks = []
                     for idx, tseg, clip_path in tts_segments:  # noqa: B007
                         spk = tseg.get("speaker", "SPEAKER_00")
@@ -1681,31 +1661,7 @@ class AutoDubWorker(threading.Thread):
                         with open(tasks_file, "w", encoding="utf-8") as f:
                             json.dump(tasks, f)
 
-                        if use_f5:
-                            f5_py = _resolve_venv_python(".venv-f5")
-                            f5_worker_script = os.path.join(
-                                os.path.dirname(__file__), "f5_worker.py"
-                            )
-                            try:
-                                self._run_subprocess(
-                                    [f5_py, f5_worker_script, tasks_file],
-                                    check=True,
-                                    timeout=14400,
-                                )
-                            except Exception as e:
-                                self.log_signal.emit(
-                                    f"  ⚠ F5-TTS failed or timed out: {e}. Falling back to XTTSv2..."
-                                )
-                                xtts_py = _resolve_venv_python(".venv-xtts")
-                                xtts_worker_script = os.path.join(
-                                    os.path.dirname(__file__), "xtts_worker.py"
-                                )
-                                self._run_subprocess(
-                                    [xtts_py, xtts_worker_script, tasks_file],
-                                    check=True,
-                                    timeout=14400,
-                                )
-                        else:
+                        if use_xtts:
                             xtts_py = _resolve_venv_python(".venv-xtts")
                             xtts_worker_script = os.path.join(
                                 os.path.dirname(__file__), "xtts_worker.py"

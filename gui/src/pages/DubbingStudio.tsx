@@ -334,7 +334,9 @@ export default function DubbingStudio() {
           notifyToast.error(t("toast.backend_error"), { description: "Installing AI dependencies. Please wait." });
           return;
         }
-      } catch {}
+      } catch {
+        console.warn("[DubbingStudio] Could not query backend state — assuming offline");
+      }
       notifyToast.error(t("toast.backend_error"), { description: t("toast.backend_offline") });
       onLog(`[SYSTEM] ${t("toast.backend_offline")}`);
       return;
