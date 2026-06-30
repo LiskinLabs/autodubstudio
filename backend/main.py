@@ -2210,7 +2210,15 @@ class PreviewTTSRequest(BaseModel):
 async def preview_tts(req: PreviewTTSRequest):
     global active_worker
     from fastapi.responses import FileResponse
-    out_dir = getattr(active_worker, "out_dir", tempfile.gettempdir()) if active_worker else tempfile.gettempdir()
+    out_dir = getattr(active_worker, "out_dir", None) if active_worker else None
+    if not out_dir or not os.path.isdir(out_dir):
+        # Fallback: search most recent download directory
+        import glob as _glob
+        downloads = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "downloads")
+        if os.path.isdir(downloads):
+            out_dir = downloads
+        else:
+            out_dir = tempfile.gettempdir()
     
     import time
     out_path = os.path.join(out_dir, f"preview_{int(time.time())}.wav")
@@ -2224,7 +2232,12 @@ async def preview_tts(req: PreviewTTSRequest):
             if refs:
                 ref_audio = refs[0]
             else:
-                raise HTTPException(status_code=400, detail="Reference audio not found. Please run dubbing pipeline first.")
+                # Fallback: search demucs vocals
+                vocals_candidates = glob.glob(os.path.join(out_dir, "demucs_out", "**", "vocals.wav"), recursive=True)
+                if vocals_candidates:
+                    ref_audio = vocals_candidates[0]
+                else:
+                    raise HTTPException(status_code=400, detail="Reference audio not found. Please run dubbing pipeline first.")
         
         import json
         tasks_file = os.path.join(out_dir, f"preview_tasks_{int(time.time())}.json")
