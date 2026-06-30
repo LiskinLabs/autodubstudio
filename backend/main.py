@@ -2261,6 +2261,8 @@ async def preview_tts(req: PreviewTTSRequest):
             xtts_py = os.path.join(root, ".venv-xtts", "Scripts", "python.exe")
         else:
             xtts_py = os.path.join(root, ".venv-xtts", "bin", "python")
+        if not os.path.isfile(xtts_py):
+            xtts_py = sys.executable  # fallback to main venv
         
         proc = await asyncio.create_subprocess_exec(
             xtts_py, xtts_script, tasks_file,
