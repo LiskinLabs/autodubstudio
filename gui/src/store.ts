@@ -351,6 +351,7 @@ const translations: Record<Language, Record<string, string>> = {
     'app.search_commands': 'Search commands (Ctrl+K)',
     'app.toggle_theme': 'Toggle theme',
     'app.toggle_menu': 'Toggle Menu',
+    'app.close_menu': 'Close Menu',
 
     // Breadcrumbs
     'breadcrumb.dubbing': 'Dubbing Studio',
@@ -815,6 +816,7 @@ const translations: Record<Language, Record<string, string>> = {
     'app.search_commands': 'Поиск команд (Ctrl+K)',
     'app.toggle_theme': 'Сменить тему',
     'app.toggle_menu': 'Меню',
+    'app.close_menu': 'Закрыть меню',
 
     // Breadcrumbs
     'breadcrumb.dubbing': 'Студия Дубляжа',
@@ -1281,6 +1283,7 @@ const translations: Record<Language, Record<string, string>> = {
     'app.search_commands': 'Komut ara (Ctrl+K)',
     'app.toggle_theme': 'Tema değiştir',
     'app.toggle_menu': 'Menü',
+    'app.close_menu': 'Menüyü kapat',
 
     // Breadcrumbs
     'breadcrumb.dubbing': 'Dublaj Stüdyosu',

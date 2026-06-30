@@ -11,7 +11,12 @@
 body {
   font-family: 'Segoe UI Variable', 'Segoe UI', 'Inter', -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-  user-select: none; overflow: hidden;
+  overflow: hidden;
+}
+
+/* Text selection: enabled everywhere except window chrome */
+.titlebar, .win11-sidebar, .statusbar {
+  user-select: none;
 }
 
 /* ─── Win11 Scrollbar (thin overlay) ─── */
