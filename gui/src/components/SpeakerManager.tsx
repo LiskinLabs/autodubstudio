@@ -110,11 +110,12 @@ export default function SpeakerManager({ segments, onRenameSpeaker }: SpeakerMan
               <div className={styles.speakerInfo}>
                 {editingSpeaker === spk ? (
                   <div className={styles.editRow}>
-                    <Input 
-                      size="small" 
-                      value={tempName} 
-                      onChange={(e, d) => setTempName(d.value)} 
+                    <Input
+                      size="small"
+                      value={tempName}
+                      onChange={(e, d) => setTempName(d.value)}
                       onKeyDown={e => e.key === "Enter" && commitEdit()}
+                      onBlur={commitEdit}
                       autoFocus
                     />
                     <Button size="small" icon={<CheckmarkRegular />} appearance="subtle" onClick={commitEdit} />

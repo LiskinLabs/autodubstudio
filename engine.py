@@ -1251,6 +1251,19 @@ class AutoDubWorker(threading.Thread):
                                     }
                                 )
                         if segments:
+                            # ── Dedup: remove micro-slices (<0.3s) and overlapping duplicates ──
+                            deduped = []
+                            for i, seg in enumerate(segments):
+                                dur = seg["end"] - seg["start"]
+                                # Skip micro-slices that are subsets of next/prev segment
+                                if dur < 0.3:
+                                    # Check if text is fully contained in adjacent segment
+                                    prev_text = deduped[-1]["text"] if deduped else ""
+                                    next_text = segments[i+1]["text"] if i+1 < len(segments) else ""
+                                    if (prev_text and seg["text"] in prev_text) or (next_text and seg["text"] in next_text):
+                                        continue
+                                deduped.append(seg)
+                            segments = deduped
                             self.log_signal.emit(
                                 f"  > Loaded {len(segments)} segments from YouTube Subtitles ({os.path.basename(srt_files[0])})."
                             )

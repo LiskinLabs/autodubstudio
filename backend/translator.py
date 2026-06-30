@@ -108,6 +108,22 @@ _T = {
     },
 }
 from deep_translator import GoogleTranslator
+import time as _time
+
+
+def _google_translate_with_retry(text: str, target_lang: str, max_retries: int = 5) -> str:
+    """Google Translate with exponential backoff for 429 rate limits."""
+    for attempt in range(max_retries):
+        try:
+            return GoogleTranslator(source="auto", target=target_lang).translate(text)
+        except Exception as e:
+            if "429" in str(e) or "Too Many" in str(e):
+                _time.sleep(2 ** (attempt + 1))
+                continue
+            if attempt < max_retries - 1:
+                _time.sleep(1)
+                continue
+    return text  # fallback: return original text
 
 # LLM imports
 try:
@@ -253,9 +269,7 @@ class Translator:
             elif "ollama" in self.engine_name.lower():
                 # Base translation: always use Google Translate (fast, reliable).
                 # Gemma4 refinement happens in smart_translate_segments batches.
-                return GoogleTranslator(source="auto", target=target_lang).translate(
-                    text
-                )
+                return _google_translate_with_retry(text, target_lang)
 
             elif "llamacpp" in self.engine_name.lower() and self.gguf_model_path:
                 from llama_cpp import Llama  # noqa: PLC0415
@@ -274,9 +288,7 @@ class Translator:
                 return response["choices"][0]["message"]["content"].strip()
 
             else:
-                return GoogleTranslator(source="auto", target=target_lang).translate(
-                    text
-                )
+                return _google_translate_with_retry(text, target_lang)
         except Exception as e:
             print(f"Translation error: {e}")
             return text
@@ -755,9 +767,7 @@ JSON:"""
                     if log_callback:
                         log_callback(_l("deepl_segment_failed", e=str(e)[:80]))
                     try:
-                        seg["translated_base"] = GoogleTranslator(
-                            source="auto", target=target_lang
-                        ).translate(orig_text)
+                        seg["translated_base"] = _google_translate_with_retry(orig_text, target_lang)
                     except Exception:
                         seg["translated_base"] = orig_text
         else:
@@ -772,9 +782,7 @@ JSON:"""
                     seg["translated_base"] = ""
                     continue
                 try:
-                    seg["translated_base"] = GoogleTranslator(
-                        source="auto", target=target_lang
-                    ).translate(orig_text)
+                    seg["translated_base"] = _google_translate_with_retry(orig_text, target_lang)
                 except Exception as e:
                     google_errors += 1
                     if log_callback and google_errors <= 2:
