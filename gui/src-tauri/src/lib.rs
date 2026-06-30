@@ -356,15 +356,35 @@ pub fn run() {
 // Проверяет и устанавливает Python, uv, Ollama, FFmpeg при первом запуске
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Check if a command is available on PATH
-fn check_command(cmd: &str, args: &[&str]) -> bool {
-    StdCommand::new(cmd)
-        .args(args)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+/// Check if a command is available on PATH or fallback paths
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn check_command(cmd: &str, args: &[&str], fallback_paths: &[&str]) -> bool {
+    let mut command = StdCommand::new(cmd);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    if command.args(args).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false) {
+        return true;
+    }
+
+    for path in fallback_paths {
+        let expanded = path.replace("%USERPROFILE%", &std::env::var("USERPROFILE").unwrap_or_default())
+                           .replace("%LOCALAPPDATA%", &std::env::var("LOCALAPPDATA").unwrap_or_default());
+        if std::path::Path::new(&expanded).exists() {
+            let mut cmd_fallback = StdCommand::new(&expanded);
+            #[cfg(target_os = "windows")]
+            cmd_fallback.creation_flags(CREATE_NO_WINDOW);
+
+            if cmd_fallback.args(args).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn get_backend_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
@@ -373,6 +393,8 @@ fn get_backend_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
     ).join("Desktop").join("AutoDubStudio");
     if desktop.join("backend").join("main.py").exists() {
         desktop
+    } else if std::path::PathBuf::from("C:\\Projects\\AutoDubStudio\\backend\\main.py").exists() {
+        std::path::PathBuf::from("C:\\Projects\\AutoDubStudio")
     } else {
         app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
     }
@@ -383,41 +405,36 @@ fn get_backend_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
 fn check_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
     let (installed, version) = match name.as_str() {
         "python" => {
-            let ok = check_command("python", &["--version"])
-                || check_command("python3", &["--version"]);
-            let ver = if ok {
-                StdCommand::new("python")
-                    .arg("--version")
-                    .output()
-                    .ok()
-                    .and_then(|o| String::from_utf8(o.stdout).ok())
-                    .unwrap_or_default()
-                    .trim()
-                    .to_string()
-            } else {
-                String::new()
-            };
+            let ok = check_command("python", &["--version"], &["%LOCALAPPDATA%\\Microsoft\\WindowsApps\\python.exe", "%LOCALAPPDATA%\\Programs\\Python\\Python312\\python.exe"])
+                || check_command("python3", &["--version"], &[]);
+            let ver = if ok { "installed".to_string() } else { String::new() };
             (ok, ver)
         }
         "uv" => {
-            let ok = check_command("uv", &["--version"]);
+            let ok = check_command("uv", &["--version"], &["%USERPROFILE%\\.cargo\\bin\\uv.exe"]);
             (ok, String::new())
         }
         "ollama" => {
-            let ok = check_command("ollama", &["--version"]);
+            let ok = check_command("ollama", &["--version"], &["%LOCALAPPDATA%\\Programs\\Ollama\\ollama.exe"]);
             (ok, String::new())
         }
         "ffmpeg" => {
-            let ok = check_command("ffmpeg", &["-version"]);
+            let ok = check_command("ffmpeg", &["-version"], &["C:\\ffmpeg\\bin\\ffmpeg.exe"]);
             (ok, String::new())
         }
         "packages" => {
             let backend_dir = get_backend_dir(&app);
-            // set UV_PROJECT_ENVIRONMENT to local_appdata/.venv if needed, but uv run will resolve it
             let local_appdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
             let uv_env_dir = std::path::PathBuf::from(&local_appdata).join("AutoDub Studio").join(".venv");
             
-            let ok = StdCommand::new("uv")
+            let uv_path = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join(".cargo").join("bin").join("uv.exe");
+            let uv_cmd = if check_command("uv", &["--version"], &[]) { "uv".to_string() } else { uv_path.to_string_lossy().to_string() };
+
+            let mut cmd = StdCommand::new(uv_cmd);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(CREATE_NO_WINDOW);
+
+            let ok = cmd
                 .arg("run")
                 .arg("python")
                 .arg("-c")
@@ -444,7 +461,7 @@ fn check_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
 /// Возвращает URL для ручной установки если winget недоступен
 #[tauri::command]
 fn install_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
-    let winget_ok = check_command("winget", &["--version"]);
+    let winget_ok = check_command("winget", &["--version"], &[]);
 
     // Пробуем установить через winget (тихо, с согласия пользователя)
     if winget_ok {
@@ -516,10 +533,10 @@ fn get_missing_deps() -> serde_json::Value {
 
     let mut missing = Vec::new();
     for (id, _label, _desc, url) in &deps {
-        if !check_command(id, &["--version"]) && !check_command(id, &["-version"]) {
+        if !check_command(id, &["--version"], &[]) && !check_command(id, &["-version"], &[]) {
             // Special check for python: try python3 too
             if *id == "python" {
-                if !check_command("python3", &["--version"]) {
+                if !check_command("python3", &["--version"], &[]) {
                     missing.push(serde_json::json!({
                         "id": id, "label": _label, "description": _desc, "url": url,
                     }));

@@ -148,8 +148,9 @@ function OllamaDot() {
     let cancelled = false;
     async function check() {
       try {
-        const r = await fetch(`${BACKEND}/api/ollama/status`);
-        if (!cancelled && r.ok) { const d = await r.json(); setOnline(d.available === true); }
+        const r = await fetch(`http://127.0.0.1:11434/api/tags`);
+        if (!cancelled && r.ok) { setOnline(true); }
+        else if (!cancelled) { setOnline(false); }
       } catch { if (!cancelled) setOnline(false); }
     }
     check();
@@ -178,10 +179,11 @@ const StatusBar: React.FC = () => {
   const [backendState, setBackendState] = useState("");
 
   const fetchStatus = useCallback(async () => {
+    let tauriState = "";
     try {
-      const state = await invoke<string>("get_backend_state");
-      setBackendState(state);
+      tauriState = await invoke<string>("get_backend_state");
     } catch {}
+    
     try {
       const [gpuResp, pipeResp] = await Promise.all([
         fetch(`${BACKEND}/api/system/gpu`),
@@ -190,9 +192,13 @@ const StatusBar: React.FC = () => {
       if (gpuResp.ok) {
         setGpu(await gpuResp.json());
         setBackendState("Online");
+      } else {
+        setBackendState(tauriState);
       }
       if (pipeResp.ok) setPipeline(await pipeResp.json());
-    } catch {}
+    } catch {
+      setBackendState(tauriState);
+    }
   }, []);
 
   useEffect(() => {
@@ -330,10 +336,10 @@ const StatusBar: React.FC = () => {
 
       {/* VRAM Cleaner button — always visible when VRAM is high */}
       {vramHigh && (
-        <span onClick={() => { fetchProcesses(); setCleanerOpen(true); }}
+        <Button appearance="transparent" onClick={() => { fetchProcesses(); setCleanerOpen(true); }}
           title={t("statusbar.vram_high_tooltip") || "High VRAM usage — click to clean up background processes"}
           style={{
-            cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, marginRight: 4,
+            display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4, marginRight: 4, minWidth: "auto", height: 24,
             background: vramCritical ? "var(--colorPaletteRedBackground2)" : "var(--colorPaletteYellowBackground2)",
             border: `1px solid ${vramCritical ? "var(--colorPaletteRedBorder1)" : "var(--colorPaletteYellowBorder1)"}`,
             transition: "all 200ms",
@@ -348,11 +354,11 @@ const StatusBar: React.FC = () => {
             fontSize: 9, fontWeight: 600,
             color: vramCritical ? "var(--colorPaletteRedForeground1)" : "var(--colorPaletteYellowForeground1)",
           }}>{vramPctDisplay}</span>
-        </span>
+        </Button>
       )}
 
       <Tooltip content={t("statusbar.restart_tooltip") || "Restart backend & clear Python cache"} relationship="label" showDelay={300}>
-        <span onClick={async () => {
+        <Button appearance="transparent" onClick={async () => {
           if (isRestarting) return;
           setIsRestarting(true);
           // Мгновенный сброс индикаторов → серые (не ждём бекенд)
@@ -369,12 +375,10 @@ const StatusBar: React.FC = () => {
             setIsRestarting(false);
           }
         }}
-        style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "0 4px", opacity: 0.4, transition: "opacity 150ms" }}
-        onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
-        onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
+        style={{ display: "flex", alignItems: "center", padding: "0 4px", minWidth: "auto", height: 24, opacity: 0.4 }}
         >
           <Restart className={isRestarting ? "animate-spin" : ""} style={{ fontSize: 12 }} />
-        </span>
+        </Button>
       </Tooltip>
       <OllamaDot />
       <UpdateChecker />

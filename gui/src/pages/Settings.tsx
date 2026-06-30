@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Button, Select, Input, Switch, Badge, Dialog, DialogSurface, DialogBody, DialogTitle, DialogActions, Checkbox, ProgressBar  } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, Badge, Dialog, DialogSurface, DialogBody, DialogTitle, DialogActions, Checkbox, ProgressBar, Spinner  } from "@fluentui/react-components";
 import {
   InfoRegular as Info, ArrowDownloadRegular as Download, DeleteRegular as Trash,
   DismissRegular as X, CheckmarkRegular as Check, SpinnerIosRegular as LoaderCircle,
@@ -11,6 +11,7 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { notifyToast } from "../lib/toast";
 import GlossaryManager from "../components/GlossaryManager";
 import { useModelStatus, ALL_MODELS } from "../hooks/useModelStatus";
+import SystemDependencies from "../components/SystemDependencies";
 import { THEME_OPTIONS } from "../theme";
 
 
@@ -245,6 +246,8 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
         </div>
       </div>
 
+      <SystemDependencies />
+
       <div className="win11-card">
         <div className="win11-card-header">{t("settings.model_status")}</div>
         <div className="win11-card-body">
@@ -270,7 +273,15 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
             </Button>
           </div>
 
-          {ALL_MODELS.map((model, i, arr) => {
+          {Object.keys(modelStatus).length === 0 && (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <Spinner size="medium" />
+              <div className="text-sm mt-4 font-medium">{t("settings.models.loading") || "Connecting to AI Backend..."}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.models.loading_desc")}</div>
+            </div>
+          )}
+
+          {Object.keys(modelStatus).length > 0 && ALL_MODELS.map((model, i, arr) => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
             const isDownloading = !isDone && st?.progress !== undefined && st.progress > 0 && st.progress < 100;

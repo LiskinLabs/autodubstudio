@@ -177,9 +177,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("dubbing");
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showFirstRun, setShowFirstRun] = useState(
-    () => localStorage.getItem("autodub_first_run_completed") !== "true",
-  );
+  const [showFirstRun, setShowFirstRun] = useState(false);
   const { t, theme, themeLight, themeDark, setTheme } = useSettings();
 
   const dark = isThemeDark(theme);
@@ -256,7 +254,8 @@ const App: React.FC = () => {
         {!sidebarCollapsed && (
           <div className={mergeClasses("win11-sidebar-backdrop", "visible")}
             onClick={() => setSidebarCollapsed(true)}
-            role="button" tabIndex={-1}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setSidebarCollapsed(true); }}
+            role="button" tabIndex={0}
             aria-label={t("app.close_menu") || "Close menu"} />
         )}
 

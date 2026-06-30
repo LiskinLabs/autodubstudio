@@ -1,5 +1,14 @@
 # AutoDubStudio - Project Journal & Memory
 
+## [2026-06-30] UI/UX Audit & Accessibility Fixes (Fluent UI strict compliance)
+### 🎯 Current State & Hand-off
+- **UI/UX Crash Recovery:** Subagents hit API quota limits (`RESOURCE_EXHAUSTED`). Manually intervened to apply all critical UI/UX fixes.
+- **Fluent UI Compliance:** Removed all native HTML elements (`<input type="checkbox">`, `<label>`) and replaced them with Fluent UI components (`<Checkbox>`, `<Badge>`, `<Spinner>`).
+- **Accessibility (WCAG):** Removed all non-semantic interactive elements (`<span onClick>`, `<div onClick>`) in `StatusBar`, `ModelDownloader`, `UpdateChecker`, replacing them with transparent `<Button>` components. Fixed Sidebar backdrop `tabIndex` and `onKeyDown` handlers for keyboard navigation. Added `role="alert"` and `aria-label` tags.
+- **Visuals:** Replaced hardcoded `rgba()` overrides with Fluent UI tokens (e.g., `var(--colorPaletteGreenBackground2)`). Fixed font weights to respect Fluent UI maximum limits.
+
+---
+
 ## [2026-06-23] "Netflix" Translation Pipeline & Spacy Integration
 ### 🎯 Current State & Hand-off
 - **Competitor Analysis:** Investigated `VideoLingo` to integrate their high-end 3-stage translation pipeline (Spacy NLP Splitter -> LLM Context -> LLM Netflix-style adaptation) and User Glossary features.

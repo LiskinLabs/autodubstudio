@@ -171,6 +171,7 @@ function AIChat() {
             <Textarea ref={textareaRef} value={input}
               onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
               placeholder={t("chat.placeholder")} disabled={isStreaming}
+              aria-label={t("chat.placeholder")}
               className="flex-1" style={{ minHeight: 44, maxHeight: 120, resize: "none", borderRadius: 12 }} />
             <Button appearance="primary" shape="circular" icon={<Send style={{ fontSize: 16 }} />}
               onClick={handleSend} disabled={isStreaming || !input.trim()} />

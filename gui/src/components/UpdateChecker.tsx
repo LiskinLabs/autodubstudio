@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Button } from "@fluentui/react-components";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import {
@@ -122,20 +123,20 @@ export default function UpdateChecker() {
     const tooltip = status === "ready" ? t("update.click_to_install") : status === "downloading" ? t("update.downloading_label") : t("update.available_label");
 
     return (
-      <div className="flex items-center gap-1.5 cursor-pointer font-medium"
-        style={{ height: "100%", padding: "0 8px", color: "var(--colorBrandForeground1)", fontSize: 11 }}
+      <Button appearance="transparent" className="flex items-center gap-1.5 font-medium"
+        style={{ height: "100%", padding: "0 8px", color: "var(--colorBrandForeground1)", fontSize: 11, minWidth: "auto" }}
         onClick={() => { if (status === "ready") installUpdate(); }}
         title={tooltip}>
         {statusIcon}
         <span>{label}</span>
-      </div>
+      </Button>
     );
   }
 
   if (status === "checking") {
     return (
       <div className="flex items-center gap-1.5 opacity-50" style={{ height: "100%", padding: "0 8px", fontSize: 11 }}>
-        <RefreshCw style={{ fontSize: 12, animation: "spin 1s linear infinite" }} className="animate-spin" />
+        <RefreshCw className="animate-spin" style={{ fontSize: 12 }} />
         <span>{t("update.checking")}</span>
       </div>
     );

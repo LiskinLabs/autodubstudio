@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type DragEvent } from "react";
-import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, Textarea, Text } from "@fluentui/react-components";
+import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, Textarea, Text, Checkbox, Popover, PopoverTrigger, PopoverSurface, Slider, Label, makeStyles, typographyStyles, tokens } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
@@ -21,6 +21,8 @@ import { useOllama } from "../hooks/useOllama";
 import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
 import { notifyToast } from "../lib/toast";
 import VirtualLogViewer from "../components/VirtualLogViewer";
+import TimelineEditor from "../components/TimelineEditor";
+import SpeakerManager from "../components/SpeakerManager";
 
 
 type PipelineState = "idle" | "running" | "review" | "done";
@@ -141,7 +143,19 @@ const SPEAKER_BADGE_COLORS: Record<string, BadgeColor> = {
   default:    "subtle",      // Light Gray
 };
 
+const usePipelineStyles = makeStyles({
+  stepIconDone: {
+    fontSize: "14px",
+  },
+  stepIconActive: {
+    width: "16px",
+    textAlign: "center",
+    ...typographyStyles.caption1,
+  }
+});
+
 function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) => string }) {
+  const s = usePipelineStyles();
   return (
     <div className="win11-steps">
       {PIPELINE_STEPS.map((key, i) => {
@@ -149,7 +163,7 @@ function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) =
         const state = num < activeStep ? "done" : num === activeStep ? "active" : "";
         return (
           <div key={key} className={`win11-step${state ? ` ${state}` : ""}`}>
-            {state === "done" ? <Check style={{ fontSize: 14 }} /> : <span style={{ width: 16, textAlign: "center", fontSize: 12 }}>{num}</span>}
+            {state === "done" ? <Check className={s.stepIconDone} /> : <span className={s.stepIconActive}>{num}</span>}
             {t(STEP_T_KEY[key] as any)}
           </div>
         );
@@ -158,8 +172,80 @@ function PipelineSteps({ activeStep, t }: { activeStep: number; t: (k: string) =
   );
 }
 
-export default function DubbingStudio() {
+const useStudioStyles = makeStyles({
+  card: { marginBottom: "24px", padding: "16px 20px" },
+  cardCol: { display: "flex", flexDirection: "column", gap: "16px" },
+  cardTitle: { margin: 0, fontSize: "16px", fontWeight: 600 },
+  dropzone: {
+    padding: "32px 20px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    border: `2px dashed ${tokens.colorNeutralStroke1}`,
+    borderRadius: "12px",
+    transitionProperty: "all",
+    transitionDuration: "0.2s",
+  },
+  dropzoneIcon: { fontSize: "48px", color: tokens.colorBrandForeground1, opacity: 0.8 },
+  dropzoneInputRow: { width: "100%", maxWidth: "600px", display: "flex", gap: "8px" },
+  fileSelectedText: { fontSize: "15px", marginTop: "8px" },
+  fileSelectedHighlight: { color: tokens.colorBrandForeground1 },
+  supportedText: { color: tokens.colorNeutralForeground3 },
+  youtubeControls: { display: "flex", flexDirection: "column", gap: "16px", marginTop: "8px" },
+  youtubeAuthBtnAuth: { backgroundColor: tokens.colorPaletteGreenBackground2, border: `1px solid ${tokens.colorPaletteGreenBorder1}` },
+  youtubeAuthBtnNoAuth: { backgroundColor: tokens.colorPaletteRedBackground2, border: `1px solid ${tokens.colorPaletteRedBorder1}` },
+  ytScanCard: { padding: "16px", backgroundColor: tokens.colorNeutralBackground2, borderRadius: "8px", border: `1px solid ${tokens.colorNeutralStroke1}` },
+  ytScanTitle: { fontSize: "16px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" },
+  ytScanGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" },
+  ytScanListTitle: { fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: tokens.colorNeutralForeground2 },
+  ytScanList: { display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto", paddingRight: "8px" },
+  ytScanEmpty: { fontSize: "12px" },
+  ytScanCheckbox: { fontSize: "13px" },
+  ytScanActions: { display: "flex", gap: "12px", marginTop: "16px", justifyContent: "flex-end", borderTop: `1px solid ${tokens.colorNeutralStroke2}`, paddingTop: "16px" },
+  configGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" },
+  fieldInput: { padding: "8px 0" },
+  flexRowGap8: { display: "flex", gap: "8px" },
+  flex1: { flexGrow: 1 },
+  modeDesc: { color: tokens.colorNeutralForeground3, lineHeight: 1.4 },
+  advSelect: { width: "180px" },
+  advFormRowStart: { alignItems: "flex-start" },
+  advLabelMargin: { marginTop: "4px" },
+  advTextarea: { width: "250px", minHeight: "80px" },
+  advColGap8: { display: "flex", flexDirection: "column", gap: "8px" },
+  startBtn: { width: "100%", height: "52px", fontSize: "16px", fontWeight: 600, marginTop: "8px" },
+  progressCard: { marginBottom: "24px" },
+  progressInner: { padding: "24px" },
+  progressStatus: { color: tokens.colorNeutralForeground2 },
+  progressPercent: { fontSize: "20px", color: tokens.colorBrandForeground1 },
+  statusActions: { minHeight: "32px" },
+  runningStatus: { color: tokens.colorNeutralForeground3 },
+  stopBtn: { color: tokens.colorPaletteRedForeground1 },
+  dialogContent: { display: "flex", flexDirection: "column", gap: "16px", paddingTop: "16px" },
+  infoBox: { padding: "16px", borderRadius: "8px", marginBottom: "24px", backgroundColor: tokens.colorPaletteYellowBackground2, border: `1px solid ${tokens.colorPaletteYellowBorder1}` },
+  infoIcon: { fontSize: "20px", flexShrink: 0, color: tokens.colorPaletteYellowForeground1, marginTop: "2px" },
+  reviewContainer: { display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "24px" },
+  reviewCard: { flexGrow: 1, minWidth: 0 },
+  reviewHeader: { display: "flex", gap: 0, fontSize: "12px", fontWeight: 600 },
+  reviewHeaderCellSpeaker: { width: "80px", flexShrink: 0 },
+  reviewHeaderCellTime: { width: "120px", flexShrink: 0 },
+  reviewHeaderCellTrans: { flexGrow: 1, color: tokens.colorBrandForeground1 },
+  reviewListContainer: { maxHeight: "420px", overflowY: "auto", overflowX: "hidden", borderTop: `1px solid ${tokens.colorNeutralStroke2}` },
+  reviewRow: { display: "flex", gap: 0, alignItems: "flex-start", padding: "8px 16px", borderBottom: `1px solid ${tokens.colorNeutralStroke2}`, fontSize: "12px", lineHeight: 1.55 },
+  reviewRowEven: { backgroundColor: tokens.colorNeutralBackground1 },
+  reviewRowOdd: { backgroundColor: tokens.colorNeutralBackground2 },
+  reviewCellSpeaker: { width: "80px", flexShrink: 0, paddingTop: "1px" },
+  reviewCellTime: { width: "120px", flexShrink: 0, fontFamily: "monospace", fontSize: "11px", color: tokens.colorNeutralForeground3, paddingTop: "3px" },
+  reviewCellOrig: { flexGrow: 1, paddingRight: "12px", paddingTop: "1px", color: tokens.colorNeutralForeground2, whiteSpace: "pre-wrap", flexBasis: "0%" },
+  reviewCellTransBox: { flexGrow: 1, display: "flex", gap: "8px", alignItems: "center", flexBasis: "0%" },
+  reviewInput: { flexGrow: 1, fontSize: "12px", fontFamily: "'Segoe UI Variable', 'Segoe UI', 'Inter', sans-serif" },
+  popoverSurface: { minWidth: "200px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" },
+  popoverRow: { display: "flex", justifyContent: "space-between", marginBottom: "4px" },
+  popoverLabelMono: { fontFamily: "monospace" },
+  segmentCount: { color: tokens.colorNeutralForeground3 },
+});
 
+export default function DubbingStudio() {
+  const styles = useStudioStyles();
   const { t, settings, lang, apiKeys, setApiKeys, userGlossary, setUserGlossary } = useSettings();
   const [pipelineState, setPipelineState] = useState<PipelineState>("idle");
   const [activeStep, setActiveStep] = useState(0);
@@ -169,6 +255,12 @@ export default function DubbingStudio() {
   const [fileName, setFileName] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [editedSegments, setEditedSegments] = useState<any[]>([]);
+
+  const handleRenameSpeaker = useCallback((oldSpeakerId: string, newSpeakerId: string) => {
+    setEditedSegments(prev => prev.map(seg => 
+      seg.speaker === oldSpeakerId ? { ...seg, speaker: newSpeakerId } : seg
+    ));
+  }, []);
 
   const onProgress = useCallback((val: number) => setProgress(val), []);
   const onLog = useCallback((text: string) => {
@@ -223,6 +315,49 @@ export default function DubbingStudio() {
   const [selectedYtAudios, setSelectedYtAudios] = useState<string[]>([]);
   const [isDownloadingYt, setIsDownloadingYt] = useState(false);
   const [hasCookies, setHasCookies] = useState(false);
+
+  const [playingSegment, setPlayingSegment] = useState<number | null>(null);
+
+  const handlePreviewTTS = async (index: number, text: string, speaker: string, speed: number = 1.0, pitch: number = 0) => {
+    if (playingSegment !== null) return;
+    setPlayingSegment(index);
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/preview_tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          language: config.targetLanguage,
+          tts_engine: config.voiceModel,
+          speaker: speaker || "SPEAKER_00",
+          speed,
+          pitch,
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || "Failed to generate preview");
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        setPlayingSegment(null);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        setPlayingSegment(null);
+      };
+      audio.play().catch(e => {
+        notifyToast.error("Playback Error", { description: e.message });
+        setPlayingSegment(null);
+      });
+    } catch (e: any) {
+      notifyToast.error("TTS Error", { description: e.message || String(e) });
+      setPlayingSegment(null);
+    }
+  };
 
   const checkCookies = useCallback(async () => {
     try {
@@ -390,19 +525,18 @@ export default function DubbingStudio() {
       {pipelineState === "idle" && (
         <>
           {/* Source Selection Card (Unified) */}
-          <Card className="win11-card" style={{ marginBottom: 24, padding: "16px 20px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("dubbing.source.title") || "Select Video Source"}</h3>
+          <Card className={`win11-card ${styles.card}`}>
+            <div className={styles.cardCol}>
+              <h3 className={styles.cardTitle}>{t("dubbing.source.title") || "Select Video Source"}</h3>
               
               {/* Unified Drop/Input Zone */}
               <div 
-                className={`$"win11-dropzone" flex-col gap-4 ${isDragging ? " drag-over" : ""}`}
-                style={{ padding: "32px 20px", display: "flex", justifyContent: "center", alignItems: "center", border: "2px dashed var(--colorNeutralStroke1)", borderRadius: 12, transition: "all 0.2s" }}
+                className={`win11-dropzone flex-col gap-4 ${styles.dropzone} ${isDragging ? " drag-over" : ""}`}
                 onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
               >
-                <CloudArrowDownRegular style={{ fontSize: 48, color: "var(--colorBrandForeground1)", opacity: 0.8 }} />
+                <CloudArrowDownRegular className={styles.dropzoneIcon} />
                 
-                <div style={{ width: "100%", maxWidth: 600, display: "flex", gap: 8 }}>
+                <div className={styles.dropzoneInputRow}>
                   <Input 
                     className="flex-1" 
                     placeholder={t("dubbing.youtube_placeholder") || "Paste YouTube/Web URL or Click Browse..."} 
@@ -414,15 +548,15 @@ export default function DubbingStudio() {
                   <Button icon={<Clipboard />} onClick={handlePaste} size="large" title={t("dubbing.btn.paste_title") as string} />
                 </div>
                 
-                <div className="font-semibold" style={{ fontSize: 15, marginTop: 8 }}>
-                  {fileName ? <>{t("dubbing.file.selected")} <span style={{ color: "var(--colorBrandForeground1)" }}>{fileName}</span></> : t("dubbing.dropzone") || "Drag & Drop video/audio here"}
+                <div className={`font-semibold ${styles.fileSelectedText}`}>
+                  {fileName ? <>{t("dubbing.file.selected")} <span className={styles.fileSelectedHighlight}>{fileName}</span></> : t("dubbing.dropzone") || "Drag & Drop video/audio here"}
                 </div>
-                <span className="text-xs" style={{ color: "var(--colorNeutralForeground3)" }}>{t("dubbing.supported")}</span>
+                <span className={`text-xs ${styles.supportedText}`}>{t("dubbing.supported")}</span>
               </div>
 
               {/* YouTube specific controls (appear only if URL is pasted) */}
               {youtubeUrl && !fileName && (
-                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 8 }}>
+                <div className={`animate-fade-in ${styles.youtubeControls}`}>
                   <div className="flex gap-3 items-center">
                     <Button onClick={handleScanYoutube} disabled={isScanning} appearance="primary">
                       {isScanning ? t("dubbing.yt.scanning") : t("dubbing.yt.scan")}
@@ -433,43 +567,39 @@ export default function DubbingStudio() {
                         const data = await resp.json();
                         notifyToast.success("Browser opened", { description: data.message });
                       } catch (e) { notifyToast.error("Failed to open browser"); }
-                    }} size="small" style={{ background: hasCookies ? "rgba(0,255,0,0.1)" : "rgba(255,0,0,0.2)", border: hasCookies ? "1px solid rgba(0,255,0,0.4)" : "1px solid rgba(255,0,0,0.4)" }}>
+                    }} size="small" className={hasCookies ? styles.youtubeAuthBtnAuth : styles.youtubeAuthBtnNoAuth}>
                       {hasCookies ? t("dubbing.yt.auth_btn_done") : t("dubbing.yt.auth_btn")}
                     </Button>
                   </div>
 
                   {ytScanResult && (
-                    <div style={{ padding: 16, background: "var(--colorNeutralBackground2)", borderRadius: 8, border: "1px solid var(--colorNeutralStroke1)" }}>
-                      <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className={styles.ytScanCard}>
+                      <h3 className={styles.ytScanTitle}>
                         <Film /> {ytScanResult.title}
                       </h3>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                      <div className={styles.ytScanGrid}>
                         <div>
-                          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--colorNeutralForeground2)" }}>{t("dubbing.yt.subs")}</h4>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", paddingRight: 8 }}>
-                            {ytScanResult.subtitles.length === 0 ? <span style={{ fontSize: 12 }}>{t("dubbing.yt.none")}</span> : ytScanResult.subtitles.map((sub: any) => (
-                              <label key={sub.lang} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                                <input type="checkbox" checked={selectedYtSubs.includes(sub.lang)}
-                                  onChange={(e) => setSelectedYtSubs(prev => e.target.checked ? [...prev, sub.lang] : prev.filter(l => l !== sub.lang))} />
-                                {sub.name}
-                              </label>
+                          <h4 className={styles.ytScanListTitle}>{t("dubbing.yt.subs")}</h4>
+                          <div className={styles.ytScanList}>
+                            {ytScanResult.subtitles.length === 0 ? <span className={styles.ytScanEmpty}>{t("dubbing.yt.none")}</span> : ytScanResult.subtitles.map((sub: any) => (
+                              <Checkbox key={sub.lang} label={sub.name} className={styles.ytScanCheckbox}
+                                checked={selectedYtSubs.includes(sub.lang)}
+                                onChange={(_, data) => setSelectedYtSubs(prev => data.checked ? [...prev, sub.lang] : prev.filter(l => l !== sub.lang))} />
                             ))}
                           </div>
                         </div>
                         <div>
-                          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "var(--colorNeutralForeground2)" }}>{t("dubbing.yt.audio")}</h4>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", paddingRight: 8 }}>
-                            {ytScanResult.audio_tracks.length === 0 ? <span style={{ fontSize: 12 }}>{t("dubbing.yt.none")}</span> : ytScanResult.audio_tracks.map((trk: any) => (
-                              <label key={trk.format_id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                                <input type="checkbox" checked={selectedYtAudios.includes(trk.format_id)}
-                                  onChange={(e) => setSelectedYtAudios(prev => e.target.checked ? [...prev, trk.format_id] : prev.filter(l => l !== trk.format_id))} />
-                                {trk.name}
-                              </label>
+                          <h4 className={styles.ytScanListTitle}>{t("dubbing.yt.audio")}</h4>
+                          <div className={styles.ytScanList}>
+                            {ytScanResult.audio_tracks.length === 0 ? <span className={styles.ytScanEmpty}>{t("dubbing.yt.none")}</span> : ytScanResult.audio_tracks.map((trk: any) => (
+                              <Checkbox key={trk.format_id} label={trk.name} className={styles.ytScanCheckbox}
+                                checked={selectedYtAudios.includes(trk.format_id)}
+                                onChange={(_, data) => setSelectedYtAudios(prev => data.checked ? [...prev, trk.format_id] : prev.filter(l => l !== trk.format_id))} />
                             ))}
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end", borderTop: "1px solid var(--colorNeutralStroke2)", paddingTop: 16 }}>
+                      <div className={styles.ytScanActions}>
                         <Button disabled={isDownloadingYt || (selectedYtSubs.length === 0 && selectedYtAudios.length === 0)}
                           onClick={() => handleDownloadYoutube(false)}>
                           {isDownloadingYt ? t("dubbing.yt.downloading") : t("dubbing.yt.download_only")}
@@ -490,21 +620,21 @@ export default function DubbingStudio() {
           <Card className="win11-card">
             <CardHeader header={<Text weight="semibold">{t("dubbing.config")}</Text>} />
             <div className="win11-card-body">
-              <div className="win11-config-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-                <Field label={t("dubbing.target_lang")} style={{ padding: "8px 0" }}>
+              <div className={`win11-config-grid ${styles.configGrid}`}>
+                <Field label={t("dubbing.target_lang")} className={styles.fieldInput}>
                   <Select value={config.targetLanguage} onChange={(e) => updateConfig("targetLanguage", e.target.value)} size="large">
                     {LANGS.map(c => (<option key={c} value={c}>{getLanguageDisplayName(c, t)}</option>))}
                   </Select>
                 </Field>
-                <Field label={t("dubbing.voice_model")} style={{ padding: "8px 0" }}>
-                  <div style={{ display: "flex", gap: 8 }}>
+                <Field label={t("dubbing.voice_model")} className={styles.fieldInput}>
+                  <div className={styles.flexRowGap8}>
                     <Select value={config.voiceModel} onChange={(e) => { 
                       updateConfig("voiceModel", e.target.value); 
                       if (["openai", "azure"].includes(e.target.value) && !apiKeys[e.target.value]) {
                         setTempKey("");
                         setShowConfigModal(e.target.value);
                       }
-                    }} size="large" style={{ flex: 1 }}>
+                    }} size="large" className={styles.flex1}>
                       <option value="none">{t("dubbing.voice.none") || "Subtitles Only (No TTS)"}</option>
                       {(TTS_BY_LANG[config.targetLanguage] || []).map(k => (<option key={k} value={k}>{t(TTS_T_KEY[k] as any) || k}</option>))}
                     </Select>
@@ -513,15 +643,15 @@ export default function DubbingStudio() {
                     )}
                   </div>
                 </Field>
-                <Field label={t("dubbing.translation_engine")} style={{ padding: "8px 0" }}>
-                  <div style={{ display: "flex", gap: 8 }}>
+                <Field label={t("dubbing.translation_engine")} className={styles.fieldInput}>
+                  <div className={styles.flexRowGap8}>
                     <Select value={config.translationEngine} onChange={(e) => { 
                       updateConfig("translationEngine", e.target.value); 
                       if (["openai", "azure", "deepseek", "gemini", "deepl"].includes(e.target.value) && !apiKeys[e.target.value]) {
                         setTempKey("");
                         setShowConfigModal(e.target.value);
                       }
-                    }} size="large" style={{ flex: 1 }}>
+                    }} size="large" className={styles.flex1}>
                       <option value="deepseek">{t("dubbing.engine.deepseek")}</option>
                       <option value="openai">OpenAI API</option>
                       <option value="gemini">{t("dubbing.engine.gemini")}</option>
@@ -531,7 +661,7 @@ export default function DubbingStudio() {
                     </Select>
                   </div>
                 </Field>
-                <Field label={t("dubbing.translator_model")} style={{ padding: "8px 0" }}>
+                <Field label={t("dubbing.translator_model")} className={styles.fieldInput}>
                   <Select value={config.translatorModel}
                     onChange={(e) => updateConfig("translatorModel", e.target.value)}
                     disabled={config.translationEngine === "google" || config.translationEngine === "gemini"} size="large">
@@ -563,11 +693,11 @@ export default function DubbingStudio() {
                     key={mode}
                     value={mode}
                     label={t(`dubbing.mode.${mode === "automatic" ? "auto" : "manual"}_label` as any)}
-                    style={{ flex: 1 }}
+                    className={styles.flex1}
                   />
                 ))}
               </RadioGroup>
-              <div className="text-xs mt-3" style={{ color: "var(--colorNeutralForeground3)", lineHeight: 1.4 }}>
+              <div className={`text-xs mt-3 ${styles.modeDesc}`}>
                 {t(`dubbing.mode.${config.pipelineMode === "automatic" ? "auto" : "manual"}_desc` as any)}
               </div>
             </div>
@@ -583,14 +713,14 @@ export default function DubbingStudio() {
                   <div className="win11-form-label-desc">{t("dubbing.adv.whisper_desc") || "Select the speech recognition backend"}</div>
                 </div>
                 <div className="win11-form-control">
-                  <Select value={config.whisperEngine} onChange={(e) => updateConfig("whisperEngine", e.target.value as any)} style={{ width: 180 }}>
+                  <Select value={config.whisperEngine} onChange={(e) => updateConfig("whisperEngine", e.target.value as any)} className={styles.advSelect}>
                     <option value="whisper">{t("dubbing.adv.whisper_std") || "Whisper (Standard)"}</option>
                     <option value="whisperX">{t("dubbing.adv.whisperx") || "WhisperX (Faster, Better Align)"}</option>
                   </Select>
                 </div>
               </div>
-              <div className="win11-form-row" style={{ alignItems: "flex-start" }}>
-                <div className="win11-form-label" style={{ marginTop: 4 }}>
+              <div className={`win11-form-row ${styles.advFormRowStart}`}>
+                <div className={`win11-form-label ${styles.advLabelMargin}`}>
                   <div className="win11-form-label-text">{t("dubbing.adv.user_glossary") || "User Glossary"}</div>
                   <div className="win11-form-label-desc">{t("dubbing.adv.user_glossary_desc") || "Specify terms, names, or brand rules for the LLM to follow during translation."}</div>
                 </div>
@@ -600,7 +730,7 @@ export default function DubbingStudio() {
                     onChange={(_, data) => setUserGlossary(data.value || "")} 
                     placeholder={t("dubbing.glossary.placeholder") || "e.g. Teknorob = Teknorob (do not translate)\nJohn = Джонатан"}
                     resize="vertical"
-                    style={{ width: 250, minHeight: 80 }}
+                    className={styles.advTextarea}
                   />
                 </div>
               </div>
@@ -654,11 +784,11 @@ export default function DubbingStudio() {
                   <div className="win11-form-label-text">{t("dubbing.adv.demucs")}</div>
                   <div className="win11-form-label-desc">{t("dubbing.adv.demucs_desc")}</div>
                 </div>
-                <div className="win11-form-control" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className={`win11-form-control ${styles.advColGap8}`}>
                   <Switch checked={config.audioSeparation} onChange={(_, data) => updateConfig("audioSeparation", data.checked)} />
                   {config.audioSeparation && (
                     <Select value={config.demucsModel} onChange={(e) => updateConfig("demucsModel", e.target.value)}
-                      style={{ width: 180 }}>
+                      className={styles.advSelect}>
                       <option value="htdemucs_ft">htdemucs_ft — {t("dubbing.adv.demucs_ft")}</option>
                       <option value="htdemucs">htdemucs — {t("dubbing.adv.demucs_bal")}</option>
                       <option value="htdemucs_6s">htdemucs_6s — {t("dubbing.adv.demucs_6s")}</option>
@@ -707,7 +837,7 @@ export default function DubbingStudio() {
 
           {/* Start Button */}
           <Button appearance="primary" size="large" icon={<Play />}
-            style={{ width: "100%", height: 52, fontSize: 16, fontWeight: 600, marginTop: 8 }}
+            className={styles.startBtn}
             onClick={handleStart} disabled={!fileName && !youtubeUrl}>
             {t("dubbing.start")}
           </Button>
@@ -720,23 +850,23 @@ export default function DubbingStudio() {
           <PipelineSteps activeStep={activeStep} t={t} />
 
           {/* Progress Card */}
-          <Card className="win11-card" style={{ marginBottom: 24 }}>
-            <div style={{ padding: 24 }}>
+          <Card className={`win11-card ${styles.progressCard}`}>
+            <div className={styles.progressInner}>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium" style={{ color: "var(--colorNeutralForeground2)" }}>
+                <span className={`text-sm font-medium ${styles.progressStatus}`}>
                   {pipelineState === "done" ? t("dubbing.status.done") : `${t("dubbing.status.processing")} ${activeStep}/${PIPELINE_STEPS.length}`}
                 </span>
-                <span className="font-mono font-semibold" style={{ fontSize: 20, color: "var(--colorBrandForeground1)" }}>{progress}%</span>
+                <span className={`font-mono font-semibold ${styles.progressPercent}`}>{progress}%</span>
               </div>
               <ProgressBar thickness="large" value={progress} max={100} color="brand" />
             </div>
           </Card>
 
           {/* Status + Actions */}
-          <div className="flex items-center justify-between mb-4" style={{ minHeight: 32 }}>
+          <div className={`flex items-center justify-between mb-4 ${styles.statusActions}`}>
             <div>
               {pipelineState === "running" && (
-                <span className="text-xs flex items-center gap-2" style={{ color: "var(--colorNeutralForeground3)" }}>
+                <span className={`text-xs flex items-center gap-2 ${styles.runningStatus}`}>
                   <Spinner size="extra-tiny" />
                   {activeStep}/{PIPELINE_STEPS.length} — {t(STEP_T_KEY[PIPELINE_STEPS[Math.max(0, activeStep - 1)] || "source"] as any)}
                 </span>
@@ -749,7 +879,7 @@ export default function DubbingStudio() {
             </div>
             {pipelineState === "running" && (
               <Button appearance="subtle" icon={<Square />}
-                style={{ color: "var(--colorPaletteRedForeground1)" }}
+                className={styles.stopBtn}
                 onClick={() => {
                   stopPipeline();
                   handleReset();
@@ -816,7 +946,7 @@ export default function DubbingStudio() {
         <DialogSurface>
           <DialogBody>
             <DialogTitle>{t("settings.keys") || "API Keys Configuration"}</DialogTitle>
-            <DialogContent style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 16 }}>
+            <DialogContent className={styles.dialogContent}>
               <div className="text-sm opacity-80 mb-2">
                 {t("dubbing.api_key_required_prefix") || "Provider"} <b>{showConfigModal}</b> {t("dubbing.api_key_required_suffix") || "requires an API key."}
               </div>
@@ -850,46 +980,42 @@ export default function DubbingStudio() {
         <div className="animate-fade-in">
           <PipelineSteps activeStep={4} t={t} />
 
-          <div className="flex items-start gap-4" style={{
-            padding: 16, borderRadius: 8, marginBottom: 24,
-            background: "var(--colorPaletteYellowBackground2)",
-            border: "1px solid var(--colorPaletteYellowBorder1)",
-          }}>
-            <Info style={{ fontSize: 20, flexShrink: 0, color: "var(--colorPaletteYellowForeground1)", marginTop: 2 }} />
+          <div className={`flex items-start gap-4 ${styles.infoBox}`}>
+            <Info className={styles.infoIcon} />
             <div>
               <div className="font-semibold text-sm">{t("dubbing.review.title")}</div>
               <div className="text-xs opacity-70 mt-1">{t("dubbing.review.desc")}</div>
             </div>
           </div>
 
-          {/* Row-Based Review Editor using Fluent UI Card + Badge */}
-          <Card appearance="filled" style={{ marginBottom: 24 }}>
-            <CardHeader
+          <TimelineEditor 
+            mediaPath={fileName} 
+            segments={editedSegments} 
+            onSegmentsChange={setEditedSegments}
+            playingSegmentIndex={playingSegment}
+          />
+
+          <div className={styles.reviewContainer}>
+            <SpeakerManager segments={editedSegments} onRenameSpeaker={handleRenameSpeaker} />
+            {/* Row-Based Review Editor using Fluent UI Card + Badge */}
+            <Card appearance="filled" className={styles.reviewCard}>
+              <CardHeader
               header={
-                <div className="win11-review-header" style={{ display: "flex", gap: 0, fontSize: 12, fontWeight: 600 }}>
-                  <span style={{ width: 80, flexShrink: 0 }}>{t("dubbing.review.speaker") || "Speaker"}</span>
-                  <span style={{ width: 120, flexShrink: 0 }}>{t("dubbing.review.time") || "Time"}</span>
-                  <span style={{ flex: 1 }}>{t("dubbing.review.original")}</span>
-                  <span style={{ flex: 1, color: "var(--colorBrandForeground1)" }}>{t("dubbing.review.translated")}</span>
+                <div className={`win11-review-header ${styles.reviewHeader}`}>
+                  <span className={styles.reviewHeaderCellSpeaker}>{t("dubbing.review.speaker") || "Speaker"}</span>
+                  <span className={styles.reviewHeaderCellTime}>{t("dubbing.review.time") || "Time"}</span>
+                  <span className={styles.flex1}>{t("dubbing.review.original")}</span>
+                  <span className={styles.reviewHeaderCellTrans}>{t("dubbing.review.translated")}</span>
                 </div>
               }
             />
             {/* Scrollable rows */}
-            <div style={{
-              maxHeight: 420, overflowY: "auto", overflowX: "hidden",
-              borderTop: "1px solid var(--colorNeutralStroke2)",
-            }}>
+            <div className={styles.reviewListContainer}>
               {editedSegments.map((seg, i) => {
                 return (
-                  <div key={i} className="win11-review-row" style={{
-                    display: "flex", gap: 0, alignItems: "flex-start",
-                    padding: "8px 16px",
-                    borderBottom: "1px solid var(--colorNeutralStroke2)",
-                    fontSize: 12, lineHeight: 1.55,
-                    background: i % 2 === 0 ? "var(--colorNeutralBackground1)" : "var(--colorNeutralBackground2)",
-                  }}>
+                  <div key={i} className={`win11-review-row ${styles.reviewRow} ${i % 2 === 0 ? styles.reviewRowEven : styles.reviewRowOdd}`}>
                     {/* Speaker — Fluent UI Badge */}
-                    <span className="win11-review-speaker" style={{ width: 80, flexShrink: 0, paddingTop: 1 }}>
+                    <span className={`win11-review-speaker ${styles.reviewCellSpeaker}`}>
                       <Badge
                         appearance="filled"
                         color={SPEAKER_BADGE_COLORS[seg.speaker as string] || SPEAKER_BADGE_COLORS["default"]}
@@ -899,39 +1025,75 @@ export default function DubbingStudio() {
                       </Badge>
                     </span>
                     {/* Timestamp */}
-                    <span className="win11-review-time" style={{
-                      width: 120, flexShrink: 0,
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                      color: "var(--colorNeutralForeground3)", paddingTop: 3,
-                    }}>{seg.time || ""}</span>
+                    <span className={`win11-review-time ${styles.reviewCellTime}`}>{seg.time || ""}</span>
                     {/* Original text (read-only) */}
-                    <span style={{
-                      flex: 1, paddingRight: 12, paddingTop: 1,
-                      color: "var(--colorNeutralForeground2)", whiteSpace: "pre-wrap",
-                    }}>{seg.orig}</span>
+                    <span className={styles.reviewCellOrig}>{seg.orig}</span>
                     {/* Editable translation */}
-                    <Input
-                      value={seg.trans}
-                      appearance="underline"
-                      onChange={(_, data) => {
-                        const updated = [...editedSegments];
-                        updated[i] = { ...updated[i], trans: data.value };
-                        setEditedSegments(updated);
-                      }}
-                      style={{
-                        flex: 1,
-                        fontFamily: "'Segoe UI Variable', 'Segoe UI', 'Inter', sans-serif",
-                        fontSize: 12,
-                      }}
-                    />
+                    <div className={styles.reviewCellTransBox}>
+                      <Input
+                        value={seg.trans}
+                        appearance="underline"
+                        onChange={(_, data) => {
+                          const updated = [...editedSegments];
+                          updated[i] = { ...updated[i], trans: data.value };
+                          setEditedSegments(updated);
+                        }}
+                        className={styles.reviewInput}
+                      />
+                      <Button
+                        appearance="transparent"
+                        icon={playingSegment === i ? <Spinner size="tiny" /> : <Play />}
+                        onClick={() => handlePreviewTTS(i, seg.trans, seg.speaker as string, seg.speed ?? 1.0, seg.pitch ?? 0)}
+                        title={t("dubbing.review.preview_tts") || "Live Preview"}
+                        disabled={playingSegment !== null}
+                      />
+                      <Popover withArrow positioning="below-end">
+                        <PopoverTrigger disableButtonEnhancement>
+                          <Button appearance="transparent" icon={<SettingsRegular />} title="Voice Tweaks" />
+                        </PopoverTrigger>
+                        <PopoverSurface className={styles.popoverSurface}>
+                          <div>
+                            <div className={styles.popoverRow}>
+                              <Label size="small">Speed</Label>
+                              <Label size="small" className={styles.popoverLabelMono}>{(seg.speed ?? 1.0).toFixed(1)}x</Label>
+                            </div>
+                            <Slider
+                              min={0.5} max={2.0} step={0.1}
+                              value={seg.speed ?? 1.0}
+                              onChange={(_, data) => {
+                                const updated = [...editedSegments];
+                                updated[i] = { ...updated[i], speed: data.value };
+                                setEditedSegments(updated);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <div className={styles.popoverRow}>
+                              <Label size="small">Pitch</Label>
+                              <Label size="small" className={styles.popoverLabelMono}>{(seg.pitch ?? 0) > 0 ? "+" : ""}{seg.pitch ?? 0}</Label>
+                            </div>
+                            <Slider
+                              min={-50} max={50} step={1}
+                              value={seg.pitch ?? 0}
+                              onChange={(_, data) => {
+                                const updated = [...editedSegments];
+                                updated[i] = { ...updated[i], pitch: data.value };
+                                setEditedSegments(updated);
+                              }}
+                            />
+                          </div>
+                        </PopoverSurface>
+                      </Popover>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </Card>
+          </div>
 
           {/* Segment count */}
-          <div className="text-xs mb-4" style={{ color: "var(--colorNeutralForeground3)" }}>
+          <div className={`text-xs mb-4 ${styles.segmentCount}`}>
             {editedSegments.length} {t("dubbing.review.segments") || "segments"} — {t("dubbing.review.edit_hint") || "Click any translation to edit it inline"}
           </div>
 

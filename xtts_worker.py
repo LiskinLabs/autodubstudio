@@ -50,6 +50,7 @@ def main():
         gen_text = task["gen_text"]
         out_path = task["out_path"]
         language = task.get("language", "tr")
+        speed = task.get("speed", 1.0)
 
         if (i + 1) % 5 == 0 or i == 0:
             print(f"[{i + 1}/{len(tasks)}] {gen_text[:60]}...")
@@ -60,6 +61,7 @@ def main():
                 speaker_wav=ref_audio,
                 language=language,
                 file_path=out_path,
+                speed=speed,
             )
             success += 1
         except Exception as e:

@@ -75,12 +75,10 @@ export function useModelStatus(hfToken?: string) {
   useEffect(() => {
     let mounted = true;
     const init = async () => {
-      let attempts = 0;
-      while (mounted && attempts < 10) {
+      while (mounted) {
         const res = await fetchStatus();
         if (res !== null) break;
-        attempts++;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
       }
     };
     init();

@@ -253,6 +253,7 @@ app.add_middleware(CSPMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost:1435",
         "http://localhost:5173",
         "http://localhost:1420",
         "tauri://localhost",
@@ -2147,6 +2148,90 @@ async def download_youtube(req: YouTubeDownloadRequest):
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
+
+class PreviewTTSRequest(BaseModel):
+    text: str
+    language: str
+    tts_engine: str
+    speaker: str = "SPEAKER_00"
+    speed: float = 1.0
+    pitch: int = 0
+
+@app.post("/api/preview_tts")
+async def preview_tts(req: PreviewTTSRequest):
+    global active_worker
+    from fastapi.responses import FileResponse
+    out_dir = getattr(active_worker, "out_dir", tempfile.gettempdir()) if active_worker else tempfile.gettempdir()
+    
+    import time
+    out_path = os.path.join(out_dir, f"preview_{int(time.time())}.wav")
+    
+    use_xtts = "xttsv2" in req.tts_engine.lower()
+    if use_xtts:
+        ref_audio = os.path.join(out_dir, f"ref_{req.speaker}.wav")
+        if not os.path.exists(ref_audio):
+            import glob
+            refs = glob.glob(os.path.join(out_dir, "ref_*.wav"))
+            if refs:
+                ref_audio = refs[0]
+            else:
+                raise HTTPException(status_code=400, detail="Reference audio not found. Please run dubbing pipeline first.")
+        
+        import json
+        tasks_file = os.path.join(out_dir, f"preview_tasks_{int(time.time())}.json")
+        with open(tasks_file, "w", encoding="utf-8") as f:
+            json.dump([{
+                "ref_audio": ref_audio,
+                "ref_text": "preview",
+                "gen_text": req.text,
+                "out_path": out_path,
+                "language": req.language,
+                "speed": req.speed
+            }], f)
+            
+        import subprocess
+        # Get path up to root folder
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        xtts_script = os.path.join(root, "xtts_worker.py")
+        env = _safe_subprocess_env()
+        
+        if os.name == "nt":
+            xtts_py = os.path.join(root, ".venv-xtts", "Scripts", "python.exe")
+        else:
+            xtts_py = os.path.join(root, ".venv-xtts", "bin", "python")
+        
+        proc = await asyncio.create_subprocess_exec(
+            xtts_py, xtts_script, tasks_file,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            env=env
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"XTTS Error: {stderr.decode('utf-8', 'replace')}")
+            
+    else:
+        # Edge-TTS fallback
+        import edge_tts
+        EDGE_VOICES = {
+            "ru": "ru-RU-DmitryNeural", "en": "en-US-ChristopherNeural",
+            "tr": "tr-TR-AhmetNeural", "es": "es-ES-AlvaroNeural",
+            "fr": "fr-FR-HenriNeural", "de": "de-DE-ConradNeural",
+            "zh": "zh-CN-YunxiNeural", "ja": "ja-JP-KeitaNeural",
+        }
+        voice = EDGE_VOICES.get(req.language, "en-US-ChristopherNeural")
+        
+        # Edge-TTS formatting
+        rate_str = f"+{int((req.speed - 1.0) * 100)}%" if req.speed > 1.0 else f"{int((req.speed - 1.0) * 100)}%"
+        pitch_str = f"+{req.pitch}Hz" if req.pitch > 0 else f"{req.pitch}Hz"
+        
+        out_path = out_path.replace(".wav", ".mp3")
+        await edge_tts.Communicate(req.text, voice, rate=rate_str, pitch=pitch_str).save(out_path)
+        
+    if not os.path.exists(out_path):
+        raise HTTPException(status_code=500, detail="Failed to generate audio")
+        
+    return FileResponse(out_path, media_type="audio/wav" if use_xtts else "audio/mpeg")
 
 
 async def background_self_test():

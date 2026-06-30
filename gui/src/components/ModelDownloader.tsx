@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Dialog, DialogSurface, DialogBody, Checkbox, ProgressBar } from "@fluentui/react-components";
+import { Button, Dialog, DialogSurface, DialogBody, Checkbox, ProgressBar, Badge, Spinner } from "@fluentui/react-components";
 import {
   ArrowDownloadRegular as Download,
   CheckmarkRegular as Check,
-  SpinnerIosRegular as LoaderCircle,
 } from "@fluentui/react-icons";
 import { useSettings } from "../store";
 import { ALL_MODELS } from "../hooks/useModelStatus";
@@ -110,13 +109,13 @@ export default function ModelDownloader() {
     const downloading = Object.values(modelStatus).filter(s => !s.done && s.progress > 0).length;
     if (downloading > 0) {
       return (
-        <div className="flex items-center gap-1.5 cursor-pointer" style={{
-          height: "100%", padding: "0 8px",
+        <Button appearance="transparent" className="flex items-center gap-1.5" style={{
+          height: "100%", padding: "0 8px", minWidth: "auto",
           color: "var(--colorBrandForeground1)",
         }} onClick={() => setIsOpen(true)}>
           <Download style={{ fontSize: 13 }} />
           <span style={{ fontSize: 11, fontWeight: 500 }}>{downloading} model(s)</span>
-        </div>
+        </Button>
       );
     }
     return null;
@@ -141,7 +140,14 @@ export default function ModelDownloader() {
         </div>
 
         <div className="flex flex-col gap-2 mb-6">
-          {MODELS.map(model => {
+          {Object.keys(modelStatus).length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center" style={{ border: cardBorder, borderRadius: 12, background: "var(--colorNeutralBackground2)" }}>
+              <Spinner size="medium" />
+              <div className="text-sm mt-4 font-medium">{t("settings.models.loading") || "Connecting to AI Backend..."}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--colorNeutralForeground3)" }}>{t("settings.models.loading_desc") || "Please wait..."}</div>
+            </div>
+          ) : (
+            MODELS.map(model => {
             const st = modelStatus[model.id];
             const isDone = st?.done;
             const isDownloading = !isDone && (st?.progress === -1 || (st?.progress !== undefined && st?.progress > 0));
@@ -173,21 +179,22 @@ export default function ModelDownloader() {
                   )}
                   {isDownloading && !hasRealProgress && (
                     <div className="text-xs mt-1 font-medium flex items-center gap-1.5" style={{ color: "var(--colorBrandForeground1)" }}>
-                      <LoaderCircle style={{ fontSize: 12, animation: "spin 1s linear infinite" }} />
+                      <Spinner size="extra-tiny" />
                       {t("dl.downloading")}
                     </div>
                   )}
                   {st?.error && <div className="text-xs mt-1" style={{ color: "var(--colorPaletteRedForeground1)" }}>{st.error}</div>}
                 </div>
                 {isDone && (
-                  <BadgeSmall color="green"><Check style={{ fontSize: 12 }} /></BadgeSmall>
+                  <Badge color="success" appearance="tint" icon={<Check style={{ fontSize: 12 }} />} />
                 )}
                 {isDownloading && hasRealProgress && (
                   <span className="text-xs font-semibold font-mono" style={{ color: "var(--colorBrandForeground1)" }}>{st.progress}%</span>
                 )}
               </label>
             );
-          })}
+            })
+          )}
         </div>
 
         <div className="flex gap-4 mt-4">
@@ -205,13 +212,3 @@ export default function ModelDownloader() {
   );
 }
 
-function BadgeSmall({ children, color = "green" }: { children: React.ReactNode; color?: "green" | "neutral" }) {
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 8px", fontSize: 12, fontWeight: 600, borderRadius: 8,
-      background: color === "green" ? "var(--colorPaletteGreenBackground2)" : "var(--colorNeutralBackground2)",
-      color: color === "green" ? "var(--colorPaletteGreenForeground1)" : "var(--colorNeutralForeground2)",
-    }}>{children}</span>
-  );
-}

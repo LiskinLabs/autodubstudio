@@ -9,7 +9,7 @@ export default defineConfig(async () => ({
 
   clearScreen: false,
   server: {
-    port: 1420,
+    port: 1435,
     strictPort: true,
     host: host || false,
     hmr: host

@@ -84,7 +84,8 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
     await checkAllDeps();
   };
 
-  const missingCount = deps.filter(d => !d.installed).length;
+  // Ollama is optional if the user wants to use Cloud APIs
+  const missingCount = deps.filter(d => !d.installed && d.id !== "ollama").length;
   const allInstalled = !checking && missingCount === 0;
 
   return (
@@ -96,7 +97,7 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
         <CardHeader
           header={
             <div style={{ textAlign: "center" }}>
-              <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
+              <h1 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>
                 {t("frun.title")}
               </h1>
               <p style={{ color: "var(--colorNeutralForeground3)", marginTop: 8, fontSize: 14 }}>
@@ -118,7 +119,14 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
               }}>
                 <span style={{ fontSize: 24 }}>{DEPS_EMOJI[dep.id]}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{t(labelKey)}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center" }}>
+                    {t(labelKey)}
+                    {dep.id === "ollama" && (
+                      <Badge size="small" appearance="tint" color="warning" style={{ marginLeft: 8 }}>
+                        {t("frun.optional_cloud") || "Optional (Cloud Fallback)"}
+                      </Badge>
+                    )}
+                  </div>
                   <div style={{ color: "var(--colorNeutralForeground3)", fontSize: 12 }}>{t(descKey)}</div>
                   {dep.error && (
                     <div style={{ color: "var(--colorStatusDangerForeground1)", fontSize: 11, marginTop: 4 }}>
@@ -183,6 +191,16 @@ export default function FirstRunWizard({ onComplete }: { onComplete: () => void 
               >
                 {t("frun.instructions")}
               </Button>
+              {!allInstalled && deps.some(d => !d.installed && d.id === "ollama") && missingCount === 0 && (
+                // Only Ollama is missing - they can safely skip
+                <Button
+                  size="large"
+                  appearance="secondary"
+                  onClick={onComplete}
+                >
+                  {t("frun.skip_optional") || "Skip Optional"}
+                </Button>
+              )}
             </>
           )}
         </div>

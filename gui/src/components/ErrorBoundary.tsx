@@ -46,7 +46,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       const t = this.props.t || settingsStore.t.bind(settingsStore);
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-5 p-8 text-center">
+        <div role="alert" className="flex flex-col items-center justify-center h-full gap-5 p-8 text-center">
           <div style={{
             padding: 20, borderRadius: 16,
             background: "var(--colorPaletteRedBackground1)",

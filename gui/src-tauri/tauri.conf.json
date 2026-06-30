@@ -5,7 +5,7 @@
   "identifier": "com.silvestrliskin.autodubstudio",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1435",
     "beforeBuildCommand": "npx vite build",
     "frontendDist": "../dist"
   },

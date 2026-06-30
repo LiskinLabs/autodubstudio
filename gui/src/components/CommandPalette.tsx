@@ -119,6 +119,8 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onStartPip
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => cmd.action()}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cmd.action(); } }}
                       onMouseEnter={() => setSelectedIndex(globalIdx)}
                       style={{
                         display: "flex", alignItems: "center", gap: 12,
