@@ -16,10 +16,12 @@ body {
 
 /* Text selection: enabled on content, disabled on window chrome */
 #main-content, #main-content * {
-  user-select: text;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 .titlebar, .titlebar *, .win11-sidebar, .win11-sidebar *, .statusbar, .statusbar * {
-  user-select: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* ─── Win11 Scrollbar (thin overlay) ─── */
