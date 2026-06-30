@@ -14,8 +14,11 @@ body {
   overflow: hidden;
 }
 
-/* Text selection: enabled everywhere except window chrome */
-.titlebar, .win11-sidebar, .statusbar {
+/* Text selection: enabled on content, disabled on window chrome */
+#main-content, #main-content * {
+  user-select: text;
+}
+.titlebar, .titlebar *, .win11-sidebar, .win11-sidebar *, .statusbar, .statusbar * {
   user-select: none;
 }
 
