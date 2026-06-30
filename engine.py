@@ -668,6 +668,10 @@ class AutoDubWorker(threading.Thread):
                 }
             ],
         }
+        
+        cookie_file = os.path.join(os.path.dirname(__file__), "backend", "youtube_cookies.txt")
+        if os.path.exists(cookie_file):
+            ydl_opts["cookiefile"] = cookie_file
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -1003,8 +1007,6 @@ class AutoDubWorker(threading.Thread):
                             "-d",
                             self.device,
                             "--two-stems=vocals",
-                            "--segment",
-                            "20",
                             "-o",
                             chunk_dir,
                             c_path,
@@ -1101,8 +1103,6 @@ class AutoDubWorker(threading.Thread):
                         "-d",
                         self.device,  # Force CUDA/CPU
                         "--two-stems=vocals",
-                        "--segment",
-                        "20",
                         "-o",
                         demucs_out_dir,
                         self.video_path,
@@ -1269,7 +1269,8 @@ class AutoDubWorker(threading.Thread):
                 )
                 if self.whisper_engine == "whisperX":
                     whisper_code = (
-                        "import sys,json; p=json.loads(sys.argv[1]);"
+                        "import sys,json,warnings,types; warnings.filterwarnings('ignore'); p=json.loads(sys.argv[1]);"
+                        "m=types.ModuleType('speechbrain.integrations.k2_fsa'); m.__file__='mock_k2_fsa'; m.__path__=[]; sys.modules['speechbrain.integrations.k2_fsa']=m;"
                         "import whisperx;"
                         "ct='float16' if p['device']=='cuda' else 'int8';"
                         "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct);"

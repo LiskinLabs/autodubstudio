@@ -20,6 +20,25 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+try:
+    import transformers.pytorch_utils
+    if not hasattr(transformers.pytorch_utils, 'isin_mps_friendly'):
+        transformers.pytorch_utils.isin_mps_friendly = lambda *args, **kwargs: False
+except Exception:
+    pass
+
+try:
+    import transformers.utils.import_utils
+    if not hasattr(transformers.utils.import_utils, 'is_torch_greater_or_equal'):
+        transformers.utils.import_utils.is_torch_greater_or_equal = lambda *args, **kwargs: True
+    if not hasattr(transformers.utils.import_utils, 'is_torchcodec_available'):
+        transformers.utils.import_utils.is_torchcodec_available = lambda *args, **kwargs: True
+except Exception:
+    pass
+
+
+
+
 
 # ── Logging to file (with fallback for installed app) ──
 def _resolve_log_path() -> str:
@@ -440,6 +459,36 @@ SAFE_TO_KILL = {
     "msrdc.exe",
     "mstsc.exe",
 }
+
+
+@app.get("/api/system/test-item")
+async def test_single_item(id: str):
+    import importlib
+    try:
+        if id == "faster_whisper": importlib.import_module("faster_whisper")
+        elif id == "whisperx": importlib.import_module("whisperx")
+        elif id == "f5_tts": importlib.import_module("f5_tts")
+        elif id == "coqui_tts": importlib.import_module("TTS")
+        elif id == "demucs": importlib.import_module("demucs")
+        elif id == "pyannote": importlib.import_module("pyannote.audio")
+        elif id == "torch": importlib.import_module("torch")
+        elif id == "torchaudio": importlib.import_module("torchaudio")
+        elif id == "google_translate":
+            from deep_translator import GoogleTranslator
+            GoogleTranslator(source="auto", target="en").translate("Привет")
+        elif id == "edge_tts":
+            import edge_tts  # noqa: F401
+        elif id == "ollama":
+            import httpx
+            async with httpx.AsyncClient() as client:
+                res = await client.get("http://localhost:11434/api/tags", timeout=3.0)
+                res.raise_for_status()
+        else:
+            return {"status": "error", "error": f"Unknown test ID: {id}"}
+        
+        return {"status": "ok", "error": None}
+    except Exception as e:
+        return {"status": "error", "error": f"{type(e).__name__}: {str(e)}"}
 
 
 @app.get("/api/system/processes")

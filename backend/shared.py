@@ -1,6 +1,7 @@
 """Shared state between main.py and engine.py — avoids circular imports."""
 
 import threading
+import copy
 
 _pipeline_lock = threading.Lock()
 
@@ -25,7 +26,7 @@ _INITIAL_PIPELINE_STATUS = {
     "gpu_name": "",
 }
 
-pipeline_status = dict(_INITIAL_PIPELINE_STATUS)
+pipeline_status = copy.deepcopy(_INITIAL_PIPELINE_STATUS)
 
 
 def reset_pipeline_status():
@@ -40,7 +41,7 @@ def reset_pipeline_status():
         }
         # Полный сброс к исходному состоянию
         pipeline_status.clear()
-        pipeline_status.update(_INITIAL_PIPELINE_STATUS)
+        pipeline_status.update(copy.deepcopy(_INITIAL_PIPELINE_STATUS))
         # Возвращаем GPU-инфу и все динамические ключи со значениями по умолчанию
         pipeline_status.update(gpu_info)
         pipeline_status.setdefault("pytorch_allocated_gb", 0.0)

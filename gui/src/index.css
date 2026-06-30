@@ -148,8 +148,9 @@ html, body, #root {
 .win11-sidebar.collapsed .win11-nav-button {
   justify-content: center !important;
   padding-left: 0 !important; padding-right: 0 !important;
-  width: 40px !important;
-  margin-left: auto !important; margin-right: auto !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  margin-left: 6px !important; margin-right: 6px !important;
 }
 .win11-sidebar.collapsed .active-indicator {
   position: absolute; left: 0;
@@ -291,7 +292,7 @@ html, body, #root {
   transition: width 200ms cubic-bezier(0.2, 0, 0, 1), transform 250ms cubic-bezier(0.2, 0, 0, 1);
 }
 .win11-sidebar.collapsed {
-  width: 68px !important;
+  width: 48px !important;
 }
 .win11-sidebar.collapsed .nav-label,
 .win11-sidebar.collapsed .sidebar-footer-text {
@@ -299,16 +300,7 @@ html, body, #root {
 }
 
 .win11-sidebar-backdrop {
-  position: fixed; inset: 0; z-index: 49;
-  background: rgba(0,0,0,0.3);
-  opacity: 0; pointer-events: none;
-  transition: opacity 250ms cubic-bezier(0.2, 0, 0, 1);
-}
-.win11-sidebar-backdrop.visible {
-  opacity: 1; pointer-events: auto;
-}
-@media (min-width: 769px) {
-  .win11-sidebar-backdrop { display: none !important; }
+  display: none !important;
 }
 
 @media (max-width: 1000px) {
@@ -319,21 +311,6 @@ html, body, #root {
 
 @media (max-width: 768px) {
   .win11-hamburger { display: block; }
-
-  .win11-sidebar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 50;
-    transform: translateX(-100%);
-    transition: transform 250ms cubic-bezier(0.2, 0, 0, 1);
-    box-shadow: 4px 0 12px rgba(0,0,0,0.15);
-  }
-
-  .win11-sidebar.open {
-    transform: translateX(0);
-  }
 
   .win11-page { padding: 16px 20px 48px; }
   .win11-page-title { font-size: 20px; }

@@ -28,6 +28,8 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
   const currentTab: SettingsTab = (activeTab.startsWith("settings-") ? activeTab.replace("settings-", "") : "general") as SettingsTab;
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [isEnvTesting, setIsEnvTesting] = useState(false);
+  const [envTestResult, setEnvTestResult] = useState<{name: string, status: string, error: string | null}[] | null>(null);
 
   const [general, setGeneral] = useState({ gpuMemory: "auto", autoUpdate: true });
   const [models, setModels] = useState({ whisperModel: "large-v3", ollamaUrl: "http://localhost:11434", ttsCacheDir: "" });
@@ -136,6 +138,38 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
     }
   };
 
+  const ENV_TESTS = [
+    { id: "torch", name: "PyTorch Core" },
+    { id: "torchaudio", name: "TorchAudio" },
+    { id: "faster_whisper", name: "Faster-Whisper" },
+    { id: "whisperx", name: "WhisperX" },
+    { id: "f5_tts", name: "F5-TTS" },
+    { id: "coqui_tts", name: "Coqui TTS" },
+    { id: "demucs", name: "Demucs (Audio Sep.)" },
+    { id: "pyannote", name: "Pyannote (Diarization)" },
+    { id: "google_translate", name: "Google Translate" },
+    { id: "edge_tts", name: "Microsoft Edge TTS" },
+    { id: "ollama", name: "Ollama API" },
+  ];
+
+  const testEnvironment = async () => {
+    if (isEnvTesting) return;
+    setIsEnvTesting(true);
+    setEnvTestResult(ENV_TESTS.map(t => ({ name: t.name, status: "pending", error: null })));
+    
+    for (let i = 0; i < ENV_TESTS.length; i++) {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/api/system/test-item?id=${ENV_TESTS[i].id}`);
+        const data = await res.json();
+        setEnvTestResult(prev => prev ? prev.map((item, idx) => idx === i ? { ...item, status: data.status, error: data.error } : item) : null);
+
+      } catch (e) {
+        setEnvTestResult(prev => prev ? prev.map((item, idx) => idx === i ? { ...item, status: "error", error: String(e) } : item) : null);
+      }
+    }
+    setIsEnvTesting(false);
+  };
+
   // ═══ General ═══
   const renderGeneral = () => (
     <>
@@ -144,9 +178,21 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
         <div className="win11-card-body">
           <div className="win11-form-row">
             <div className="win11-form-label">
+              <div className="win11-form-label-text">{t("settings.theme")}</div>
+              <div className="win11-form-label-desc">{t("settings.theme_desc")}</div>
+            </div>
+            <div className="win11-form-control">
+              <Select value={theme} onChange={(e) => setTheme(e.target.value as any)}>
+                {THEME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.label as any)}</option>)}
+              </Select>
+            </div>
+          </div>
+
+          <div className="win11-form-row">
+            <div className="win11-form-label">
               <div className="win11-form-label-text">{t("settings.language")}</div>
             </div>
-            <div className="win11-form-control" style={{ width: 200 }}>
+            <div className="win11-form-control">
               <Select value={lang} onChange={(e) => setLanguage(e.target.value as Language)}>
                 <option value="en">{t("settings.lang.en_label")}</option>
                 <option value="ru">{t("settings.lang.ru_label")}</option>
@@ -154,13 +200,22 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
               </Select>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.hardware")}</div>
+        <div className="win11-card-body">
           <div className="win11-form-row">
             <div className="win11-form-label">
-              <div className="win11-form-label-text">{t("settings.theme")}</div>
+              <div className="win11-form-label-text">{t("settings.gpu_memory")}</div>
+              <div className="win11-form-label-desc">{t("settings.gpu_memory_desc")}</div>
             </div>
-            <div className="win11-form-control" style={{ width: 200 }}>
-              <Select value={theme} onChange={(e) => setTheme(e.target.value)}>
-                {THEME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
+            <div className="win11-form-control">
+              <Select value={general.gpuMemory} onChange={(e) => setGeneral({ ...general, gpuMemory: e.target.value })}>
+                <option value="auto">{t("settings.gpu.auto")}</option>
+                <option value="aggressive">{t("settings.gpu.aggressive")}</option>
+                <option value="conservative">{t("settings.gpu.conservative")}</option>
               </Select>
             </div>
           </div>
@@ -168,25 +223,11 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
       </div>
 
       <div className="win11-card">
-        <div className="win11-card-header">{t("settings.performance")}</div>
+        <div className="win11-card-header">{t("settings.system")}</div>
         <div className="win11-card-body">
           <div className="win11-form-row">
             <div className="win11-form-label">
-              <div className="win11-form-label-text">{t("settings.gpu_limit")}</div>
-              <div className="win11-form-label-desc">{t("settings.gpu_desc")}</div>
-            </div>
-            <div className="win11-form-control" style={{ width: 200 }}>
-              <Select value={general.gpuMemory} onChange={(e) => setGeneral({ ...general, gpuMemory: e.target.value })}>
-                <option value="auto">{t("settings.gpu.auto")}</option>
-                <option value="4">{t("settings.gpu_4gb")}</option><option value="6">{t("settings.gpu_6gb")}</option>
-                <option value="8">{t("settings.gpu_8gb")}</option><option value="12">{t("settings.gpu_12gb")}</option>
-              </Select>
-            </div>
-          </div>
-          <div className="win11-form-row">
-            <div className="win11-form-label">
               <div className="win11-form-label-text">{t("settings.auto_update")}</div>
-              <div className="win11-form-label-desc">{t("settings.auto_update_desc")}</div>
             </div>
             <div className="win11-form-control">
               <Switch checked={general.autoUpdate} onChange={(_, data) => setGeneral({ ...general, autoUpdate: data.checked })} />
@@ -243,6 +284,35 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
               }}>{t("settings.browse")}</Button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="win11-card">
+        <div className="win11-card-header">{t("settings.env_diagnostics")}</div>
+        <div className="win11-card-body">
+          <p style={{ fontSize: 13, color: "var(--colorNeutralForeground2)", marginBottom: 12 }}>
+            {t("settings.env_desc")}
+          </p>
+          <Button onClick={testEnvironment} disabled={isEnvTesting} icon={isEnvTesting ? <Spinner size="tiny" /> : <LoaderCircle />}>
+            {isEnvTesting ? t("settings.env_testing") : t("settings.env_run")}
+          </Button>
+
+          {envTestResult && (
+            <div style={{ marginTop: 16, background: "var(--colorNeutralBackground1)", padding: 12, borderRadius: 6, border: "1px solid var(--colorNeutralStroke2)" }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{t("settings.env_results")}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {envTestResult.map((m, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                    {m.status === "ok" ? <Check style={{ color: "var(--colorPaletteGreenForeground1)" }} /> : 
+                     m.status === "pending" ? <Spinner size="tiny" /> :
+                     <X style={{ color: "var(--colorPaletteRedForeground1)" }} />}
+                    <span style={{ fontWeight: 500, width: 160 }}>{m.name}</span>
+                    {m.error && <span style={{ color: "var(--colorPaletteRedForeground1)", fontSize: 12 }}>{m.error}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
