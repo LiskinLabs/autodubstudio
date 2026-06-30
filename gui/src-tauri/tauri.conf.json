@@ -72,13 +72,9 @@
       "../../lip_sync_worker.py",
       "../../diarization_worker.py",
       "../../gender_worker.py",
-      "../../cli_run.py",
-      "../../*.bat",
       "../../teknorob.png",
       "../../pyproject.toml",
-      "../../uv.lock",
-      "../../config.json",
-      "../../github_token.txt"
+      "../../uv.lock"
     ]
   },
   "plugins": {
