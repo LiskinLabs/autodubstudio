@@ -1271,6 +1271,7 @@ class AutoDubWorker(threading.Thread):
                     whisper_code = (
                         "import sys,json,warnings,types; warnings.filterwarnings('ignore'); p=json.loads(sys.argv[1]);"
                         "m=types.ModuleType('speechbrain.integrations.k2_fsa'); m.__file__='mock_k2_fsa'; m.__path__=[]; sys.modules['speechbrain.integrations.k2_fsa']=m;"
+                        "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;"
                         "import whisperx;"
                         "ct='float16' if p['device']=='cuda' else 'int8';"
                         "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct);"
