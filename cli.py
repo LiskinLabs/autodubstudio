@@ -1,6 +1,7 @@
 import argparse
 import sys
-import threading
+import os
+import json
 from engine import AutoDubWorker
 
 def main():
@@ -14,31 +15,46 @@ def main():
     parser.add_argument("--dub_engine", type=str, default="xttsv2", help="TTS Dub Engine (xttsv2, gtts, edge)")
     parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator")
     
+    # API Keys
+    parser.add_argument("--gemini_key", type=str, default="", help="Google Gemini API Key")
+    parser.add_argument("--deepseek_key", type=str, default="", help="DeepSeek API Key")
+    parser.add_argument("--deepl_key", type=str, default="", help="DeepL API Key")
+    parser.add_argument("--hf_key", type=str, default="", help="Hugging Face API Key")
+    
+    # Advanced Options
+    parser.add_argument("--lip_sync", action="store_true", help="Enable Lip-Sync processing")
+    parser.add_argument("--manual_mode", action="store_true", help="Pause pipeline for manual subtitle editing")
+    parser.add_argument("--tag", type=str, default="", help="Custom tag for output filenames")
+    
     args = parser.parse_args()
 
     config = {
         "video_path": args.video_path,
         "out_dir": args.out_dir,
-        "langs": args.langs.split(',') if ',' in args.langs else [args.langs],
+        "langs": args.langs, # Handled as string, engine parses commas
         "model_size": args.model_size,
         "device": args.device,
         "translator_engine": args.translator_engine,
         "dub_engine": args.dub_engine,
         "translator_model": args.translator_model,
-        "manual_mode": False
+        "gemini_key": args.gemini_key,
+        "deepseek_key": args.deepseek_key,
+        "deepl_key": args.deepl_key,
+        "hf_key": args.hf_key,
+        "lip_sync": args.lip_sync,
+        "manual_mode": args.manual_mode,
+        "tag": args.tag
     }
 
-    # AutoDubWorker expect strings for langs in the dict currently (it parses inside engine), 
-    # wait, let's just pass what user provided directly.
-    config["langs"] = args.langs 
-
     print(f"==================================================")
-    print(f"🎬 AutoDub Studio CLI v1.0")
+    print(f"🎬 AutoDub Studio CLI v1.1 - Industrial Edition")
     print(f"==================================================")
-    print(f"Target Video: {config['video_path']}")
-    print(f"Languages:    {config['langs']}")
-    print(f"Device:       {config['device']}")
-    print(f"--------------------------------------------------")
+    for k, v in config.items():
+        if 'key' in k and v:
+            print(f"{k.ljust(20)}: {'*' * 8}")
+        else:
+            print(f"{k.ljust(20)}: {v}")
+    print(f"==================================================")
 
     worker = AutoDubWorker(config)
     
@@ -46,20 +62,52 @@ def main():
         print(f"[LOG] {msg}")
 
     def on_progress(p):
-        pass # print(f"[PROGRESS] {p}%") # Progress is often spammy, kept silent unless debugging
+        pass # To avoid console spam
 
     def on_finished(success, msg):
         print(f"\n[FINISHED] Success: {success}")
         print(f"[RESULT] {msg}")
         
+    def on_manual_edit(manual_subs):
+        print("\n" + "="*50)
+        print("⏸ MANUAL MODE PAUSED")
+        print("="*50)
+        edit_file = os.path.join(os.getcwd(), "manual_edit.json")
+        with open(edit_file, "w", encoding="utf-8") as f:
+            json.dump(manual_subs, f, ensure_ascii=False, indent=4)
+        
+        print(f"Subtitles dumped to: {edit_file}")
+        print("1. Open this file in your favorite text editor.")
+        print("2. Modify the 'trans' (translation) fields or 'speaker' assignments as needed.")
+        print("3. Save the file.")
+        
+        input("\nPress ENTER when you have finished editing to resume the pipeline...")
+        
+        try:
+            with open(edit_file, "r", encoding="utf-8") as f:
+                edited_subs = json.load(f)
+            
+            # Map back to the format engine expects (it expects 'text' instead of 'trans' sometimes,
+            # but in engine.py:1605 it assigns self.edited_segments directly to translated_segments,
+            # so we ensure 'text' is properly set)
+            for s in edited_subs:
+                s['text'] = s.get('trans', s.get('text', ''))
+                
+            worker.edited_segments = edited_subs
+            print("Changes loaded successfully. Resuming pipeline...")
+        except Exception as e:
+            print(f"Error loading edits ({e}). Resuming with original translations...")
+            
+        worker.pause_event.set()
+
     worker.log_signal.connect(on_log)
     worker.progress_signal.connect(on_progress)
     worker.finished_signal.connect(on_finished)
+    worker.manual_edit_signal.connect(on_manual_edit)
 
     worker.start()
     
     try:
-        # Wait for the thread to finish
         while worker.is_alive():
             worker.join(timeout=1.0)
     except KeyboardInterrupt:
