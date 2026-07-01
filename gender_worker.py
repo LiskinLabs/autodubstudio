@@ -29,16 +29,26 @@ def detect_gender(tasks_file, output_file):
         )
         sys.exit(1)
 
-    classifier = pipeline(
-        "audio-classification",
-        model="m3hrdadfi/hubert-base-persian-speech-gender-recognition",
-        device=0 if device == "cuda" else -1,
-    )
+    try:
+        classifier = pipeline(
+            "audio-classification",
+            model="m3hrdadfi/hubert-base-persian-speech-gender-recognition",
+            device=0 if device == "cuda" else -1,
+        )
+    except Exception as e:
+        print(f"Warning: Failed to load Gender AI model ({e}).")
+        print("Falling back to default gender 'male' for all speakers.")
+        classifier = None
 
     results = {}
     for task in tasks:
         speaker = task["speaker_id"]
         audio_path = task["audio_path"]
+
+        if classifier is None:
+            results[speaker] = "male"
+            print(f"Defaulted {speaker}: male")
+            continue
 
         try:
             # Load audio at 16kHz
@@ -52,7 +62,7 @@ def detect_gender(tasks_file, output_file):
             print(f"Detected {speaker}: {best_label}")
         except Exception as e:
             print(f"Error processing {speaker}: {e}")
-            results[speaker] = "unknown"
+            results[speaker] = "male"  # Default to male instead of unknown
 
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f)
