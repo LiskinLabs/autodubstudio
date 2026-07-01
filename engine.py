@@ -1402,11 +1402,33 @@ class AutoDubWorker(threading.Thread):
                         "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
                         "print(f'DONE:{len(out[\"segments\"])}')"
                     )
-                self._run_subprocess(
-                    [get_python_exe(), "-c", whisper_code, whisper_params],
-                    check=True,
-                    timeout=14400,
-                )
+                try:
+                    self._run_subprocess(
+                        [get_python_exe(), "-c", whisper_code, whisper_params],
+                        check=True,
+                        timeout=14400,
+                    )
+                except subprocess.CalledProcessError as e:
+                    if self.whisper_engine == "whisperX":
+                        self.log_signal.emit(f"⚠️ WhisperX failed (segfault or error {e.returncode}). Falling back to faster_whisper...")
+                        whisper_code_fallback = (
+                            "import sys,json; p=json.loads(sys.argv[1]);"
+                            "from faster_whisper import WhisperModel;"
+                            "ct='int8';"
+                            "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
+                            "segs,info=m.transcribe(p['audio_path'],beam_size=5,vad_filter=True,vad_parameters=dict(min_silence_duration_ms=500));"
+                            "print('LANG:'+info.language);"
+                            "out={'segments':[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs],'language':info.language};"
+                            "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
+                            "print(f'DONE:{len(out[\"segments\"])}')"
+                        )
+                        self._run_subprocess(
+                            [get_python_exe(), "-c", whisper_code_fallback, whisper_params],
+                            check=True,
+                            timeout=14400,
+                        )
+                    else:
+                        raise
                 with open(whisper_json_path, "r", encoding="utf-8") as f:
                     whisper_data = _json.load(f)
                 segments = whisper_data["segments"]
