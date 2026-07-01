@@ -1,7 +1,7 @@
 """Shared state between main.py and engine.py — avoids circular imports."""
 
-import threading
 import copy
+import threading
 
 _pipeline_lock = threading.Lock()
 

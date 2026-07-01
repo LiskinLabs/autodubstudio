@@ -32,14 +32,14 @@ _T = {
         "tr": "  -> Adım {start}-{end} / {total}...",
     },
     "smart_mismatch": {
-        "ru": "  ⚠️ Ошибка ИИ ответа ({parsed}/{batch}), частичное слияние",
-        "en": "  ⚠️ AI response mismatch ({parsed}/{batch}), partial merge",
-        "tr": "  ⚠️ YZ yanıt hatası ({parsed}/{batch}), kısmi birleştirme",
+        "ru": "  [!] Несовпадение в ответе ({parsed}/{batch}), частичное слияние",
+        "en": "  [!] AI response mismatch ({parsed}/{batch}), partial merge",
+        "tr": "  [!] YZ yanıt hatası ({parsed}/{batch}), kısmi birleştirme",
     },
     "smart_batch_failed": {
-        "ru": "  ❌ Сбой ИИ перевода: {e}. Работает базовая версия.",
-        "en": "  ❌ AI translation failed: {e}. Using base version.",
-        "tr": "  ❌ YZ çeviri hatası: {e}. Temel sürüm kullanılıyor.",
+        "ru": "  [!] Ошибка ИИ: {e}. Переход на запасной переводчик.",
+        "en": "  [!] AI failed: {e}. Falling back to default.",
+        "tr": "  [!] YZ hatası: {e}. Varsayılan çeviriye geçiliyor.",
     },
     "smart_engine_start": {
         "ru": "🧠 {engine} умный перевод (пачка по {batch}, {total} фрагментов)...",
@@ -47,29 +47,29 @@ _T = {
         "tr": "🧠 {engine} akıllı çeviri ({batch} parti, {total} parça)...",
     },
     "deepl_start": {
-        "ru": "🌐 DeepL API — профессиональный перевод...",
-        "en": "🌐 DeepL API — professional translation...",
-        "tr": "🌐 DeepL API — profesyonel çeviri...",
+        "ru": "▶ Перевод через DeepL API...",
+        "en": "▶ Translating via DeepL API...",
+        "tr": "▶ DeepL API ile çevriliyor...",
     },
     "deepl_segment_failed": {
-        "ru": "  ⚠ DeepL ошибка на сегменте: {e}. Переключаюсь на Google.",
-        "en": "  ⚠ DeepL failed for segment: {e}. Falling back to Google.",
-        "tr": "  ⚠ DeepL segment hatası: {e}. Google'a geçiliyor.",
+        "ru": "  [-] DeepL ошибка на сегменте: {e}. Используем резерв от Google.",
+        "en": "  [-] DeepL failed for segment: {e}. Falling back to Google.",
+        "tr": "  [-] DeepL segment hatası: {e}. Google'a geçiliyor.",
     },
     "google_start": {
-        "ru": "🌍 Google Translate — быстрый базовый перевод...",
-        "en": "🌍 Google Translate — fast basic translation...",
-        "tr": "🌍 Google Translate — hızlı temel çeviri...",
+        "ru": "▶ Перевод через Google Translate (бесплатный)...",
+        "en": "▶ Translating via Google Translate (free)...",
+        "tr": "▶ Google Translate (ücretsiz) ile çevriliyor...",
     },
     "google_error": {
-        "ru": "  ⚠ Ошибка Google Translate: {e}. Использую оригинал.",
-        "en": "  ⚠ Google Translate error: {e}. Using original.",
-        "tr": "  ⚠ Google Translate hatası: {e}. Orijinal kullanılıyor.",
+        "ru": "  [-] Ошибка Google Translate: {e}. Оставляем оригинал.",
+        "en": "  [-] Google Translate error: {e}. Using original.",
+        "tr": "  [-] Google Translate hatası: {e}. Orijinal kullanılıyor.",
     },
     "google_multi_errors": {
-        "ru": "  ⚠ Google Translate ошибка в {n}/{total} сегментах",
-        "en": "  ⚠ Google Translate failed for {n}/{total} segments",
-        "tr": "  ⚠ Google Translate {n}/{total} segmentte başarısız",
+        "ru": "  [-] Google Translate ошибка в {n}/{total} сегментах",
+        "en": "  [-] Google Translate failed for {n}/{total} segments",
+        "tr": "  [-] Google Translate {n}/{total} segmentte başarısız",
     },
     "translation_done": {
         "ru": "✅ Перевод завершен!",
@@ -92,14 +92,14 @@ _T = {
         "tr": "  ✅ Gemma4 yüklendi ve hazır",
     },
     "gemma4_not_responding": {
-        "ru": "  ⚠ Gemma4 не отвечает — оставляю базовый перевод",
-        "en": "  ⚠ Gemma4 not responding — keeping base translation",
-        "tr": "  ⚠ Gemma4 yanıt vermiyor — temel çeviri korunuyor",
+        "ru": "  [-] Gemma4 не отвечает — оставляю базовый перевод",
+        "en": "  [-] Gemma4 not responding — keeping base translation",
+        "tr": "  [-] Gemma4 yanıt vermiyor — temel çeviri korunuyor",
     },
     "gemma4_batch_failed": {
-        "ru": "  ⚠ Gemma4 batch ошибка ({n}/3): {e}.",
-        "en": "  ⚠ Gemma4 batch failed ({n}/3): {e}.",
-        "tr": "  ⚠ Gemma4 grup hatası ({n}/3): {e}.",
+        "ru": "  [-] Gemma4 batch ошибка ({n}/3): {e}.",
+        "en": "  [-] Gemma4 batch failed ({n}/3): {e}.",
+        "tr": "  [-] Gemma4 grup hatası ({n}/3): {e}.",
     },
     "gemma4_done": {
         "ru": "✅ Перевод завершен (DeepL + Gemma4)!",
@@ -107,15 +107,16 @@ _T = {
         "tr": "✅ Çeviri tamamlandı (DeepL + Gemma4)!",
     },
 }
-from deep_translator import GoogleTranslator
 import time as _time
+
+from deep_translator import GoogleTranslator
 
 
 def _google_translate_with_retry(text: str, target_lang: str, max_retries: int = 5) -> str:
     """Google Translate with exponential backoff for 429 rate limits."""
     for attempt in range(max_retries):
         try:
-            return GoogleTranslator(source="auto", target=target_lang).translate(text)
+            return GoogleTranslator(source="auto", target=target_lang.lower()).translate(text)
         except Exception as e:
             if "429" in str(e) or "Too Many" in str(e):
                 _time.sleep(2 ** (attempt + 1))
@@ -124,6 +125,7 @@ def _google_translate_with_retry(text: str, target_lang: str, max_retries: int =
                 _time.sleep(1)
                 continue
     return text  # fallback: return original text
+
 
 # LLM imports
 try:
@@ -199,7 +201,7 @@ class Translator:
                     api_key=self.deepseek_key, base_url="https://api.deepseek.com"
                 )
                 response = client.chat.completions.create(
-                    model="deepseek-chat",
+                    model=getattr(self, "translator_model", "deepseek-v4-flash") if getattr(self, "translator_model", "deepseek-v4-flash") not in ["deepseek-chat", "deepseek-reasoner", "default"] else "deepseek-v4-flash",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1024,
                 )
@@ -350,7 +352,7 @@ class Translator:
             if is_json:
                 kwargs["response_format"] = {"type": "json_object"}
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model=getattr(self, "translator_model", "gpt-4o") if getattr(self, "translator_model", "gpt-4o") not in ["deepseek-chat", "deepseek-reasoner", "default"] else "gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 **kwargs,
             )
@@ -364,7 +366,7 @@ class Translator:
             if is_json:
                 kwargs["response_format"] = {"type": "json_object"}
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model=getattr(self, "translator_model", "deepseek-v4-flash") if getattr(self, "translator_model", "deepseek-v4-flash") not in ["deepseek-chat", "deepseek-reasoner", "default"] else "deepseek-v4-flash",
                 messages=[{"role": "user", "content": prompt}],
                 **kwargs,
             )
@@ -389,8 +391,11 @@ class Translator:
             num_predict = (
                 2048 if vram_free_mb > 6000 else (1024 if vram_free_mb > 4000 else 512)
             )
+            num_ctx = (
+                4096 if vram_free_mb > 6000 else 2048
+            )
             # Limit GPU layers for low-VRAM cards (leaves room for KV cache + PyTorch residue)
-            num_gpu = 99 if vram_free_mb > 6000 else (30 if vram_free_mb > 4000 else 18)
+            num_gpu = 99 if vram_free_mb > 6000 else (30 if vram_free_mb > 4000 else 24)
 
             # Build system prompt for JSON output (no "format": "json" — breaks Cyrillic)
             system_msg = "You are a professional subtitle translator. Always output valid JSON exactly as requested. Never add explanations outside the JSON."
@@ -400,6 +405,11 @@ class Translator:
             ]
 
             models_to_try = [self.translator_model]
+            if "gemma4:e4b" not in models_to_try:
+                models_to_try.append("gemma4:e4b")
+            if "gemma2:2b" not in models_to_try:
+                models_to_try.append("gemma2:2b")
+
             for model_name in models_to_try:
                 payload = json.dumps(
                     {
@@ -410,11 +420,13 @@ class Translator:
                         "options": {
                             "temperature": 0.1,
                             "num_predict": num_predict,
+                            "num_ctx": num_ctx,
                             "num_gpu": num_gpu,
                         },
                     }
                 ).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
+                print("PAYLOAD:", payload.decode("utf-8"))
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
                     with urllib.request.urlopen(req, timeout=300) as resp:
@@ -427,7 +439,13 @@ class Translator:
                             if not is_json:
                                 return text.strip()
                 except Exception as e:
-                    print(f"Ollama _call_llm {model_name} error: {e}. Trying next...")
+                    err_body = ""
+                    if hasattr(e, 'read'):
+                        try:
+                            err_body = e.read().decode()
+                        except:
+                            pass
+                    print(f"Ollama _call_llm {model_name} error: {e}. Body: {err_body}. Trying next...")
                     continue
 
             raise RuntimeError("All Ollama models failed for smart JSON translation.")
@@ -505,7 +523,7 @@ class Translator:
             if is_json:
                 kwargs["response_format"] = {"type": "json_object"}
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model="deepseek-v4-flash",
                 messages=[{"role": "user", "content": prompt}],
                 **kwargs,
             )
@@ -524,7 +542,7 @@ class Translator:
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
                         "keep_alive": 300,
-                        "options": {"temperature": 0.1, "num_predict": 2048},
+                        "options": {"temperature": 0.1, "num_predict": 2048, "num_ctx": 2048},
                     }
                 ).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
@@ -755,7 +773,7 @@ JSON:"""
                         "Content-Type": "application/json",
                     }
                     req = urllib.request.Request(url, data=payload, headers=headers)
-                    with urllib.request.urlopen(req, timeout=30) as resp:
+                    with urllib.request.urlopen(req, timeout=300) as resp:
                         if resp.status == 200:
                             result = _json.loads(resp.read().decode())
                             seg["translated_base"] = result["translations"][0][
@@ -782,7 +800,10 @@ JSON:"""
                     seg["translated_base"] = ""
                     continue
                 try:
-                    seg["translated_base"] = _google_translate_with_retry(orig_text, target_lang)
+                    res = _google_translate_with_retry(orig_text, target_lang)
+                    seg["translated_base"] = res
+                    if log_callback:
+                        log_callback(f"  [DEBUG] Google translated '{orig_text[:20]}' -> '{res[:20]}' (lang: {target_lang})")
                 except Exception as e:
                     google_errors += 1
                     if log_callback and google_errors <= 2:
@@ -792,7 +813,6 @@ JSON:"""
                 log_callback(
                     _l("google_multi_errors", n=google_errors, total=len(segments))
                 )
-
 
         context_summary = ""
         if is_ai_refine:
@@ -804,7 +824,7 @@ JSON:"""
                 context_summary = self._call_llm(context_prompt, is_json=False).strip()
                 if log_callback:
                     log_callback(f"Context: {context_summary}")
-            except Exception as e:
+            except Exception:
                 context_summary = ""
 
         # ── Step 2: AI refinement (Gemma4/Gemini/DeepSeek) ──
@@ -854,7 +874,7 @@ JSON:"""
                 pass
             import time as _time  # noqa: PLC0415
 
-            _time.sleep(1.5)  # Let CUDA fully release
+            _time.sleep(3.0)  # Let CUDA fully release
 
             # ── Warmup: load Gemma4 into GPU once (60-120s), then stay via keep_alive ──
             if log_callback:
@@ -939,7 +959,7 @@ JSON:"""
                     elif parsed:
                         if log_callback:
                             log_callback(
-                                f"  ⚠ Gemma4 mismatch ({len(parsed)}/{len(batch)}), partial merge"
+                                f"  [!] Gemma4 mismatch ({len(parsed)}/{len(batch)}), partial merge"
                             )
                         for i in range(min(len(parsed), len(batch))):
                             new_text = parsed[i].get("text", "").strip()
@@ -952,6 +972,9 @@ JSON:"""
                         log_callback(
                             f"  ⚠ Gemma4 batch failed ({gemma4_failures}/3): {str(e)[:80]}. Using Google Translate."
                         )
+                    # Fall back to Google Translate base for THIS batch immediately upon failure
+                    for seg in batch:
+                        seg["text"] = seg.get("translated_base", seg["text"])
 
             if log_callback:
                 log_callback(_l("smart_done"))

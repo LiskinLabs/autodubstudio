@@ -23,6 +23,7 @@ context_logic = """
 """
 content = content.replace(step2_marker, context_logic + "\n" + step2_marker)
 
+
 # 2. Add CPS constraints to the batch loops
 def patch_batch_loop(text):
     # This applies to both the is_ollama loop and the is_ai_refine loop
@@ -50,7 +51,9 @@ def patch_batch_loop(text):
     )
     return text
 
+
 content = patch_batch_loop(content)
+
 
 # We also need to patch _gemma4_refine
 def patch_gemma4_refine(text):
@@ -68,6 +71,7 @@ def patch_gemma4_refine(text):
         'Video Context:\\n{context_summary}\\n\\nDialogue:\\n{full_text}'
     )
     return text
+
 
 content = patch_gemma4_refine(content)
 

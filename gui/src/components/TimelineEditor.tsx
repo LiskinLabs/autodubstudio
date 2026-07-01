@@ -124,7 +124,12 @@ export default function TimelineEditor({ mediaPath, segments, onSegmentsChange, 
           start: seg.start,
           end: seg.end,
           color: SPEAKER_COLORS[seg.speaker] || SPEAKER_COLORS.default,
-          content: `<div style="font-size:10px;font-weight:bold;padding:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${seg.speaker}</div>`,
+          content: (() => {
+            const el = document.createElement("div");
+            el.style.cssText = "font-size:10px;font-weight:bold;padding:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+            el.textContent = seg.speaker;
+            return el;
+          })(),
           id: `seg_${i}`,
           drag: true,
           resize: true,
@@ -144,10 +149,18 @@ export default function TimelineEditor({ mediaPath, segments, onSegmentsChange, 
       }
     });
 
-    ws.load(mediaUrl);
+    ws.load(mediaUrl).catch((e) => {
+      if (e.name !== "AbortError") {
+        console.error("WaveSurfer load error:", e);
+      }
+    });
 
     return () => {
-      ws.destroy();
+      try {
+        ws.destroy();
+      } catch (e) {
+        console.warn("WaveSurfer destroy error:", e);
+      }
     };
   }, [mediaPath]);
 

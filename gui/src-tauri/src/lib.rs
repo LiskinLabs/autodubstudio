@@ -8,7 +8,7 @@ struct BackendState(std::sync::Mutex<String>);
 
 #[tauri::command]
 fn get_backend_state(state: tauri::State<'_, BackendState>) -> String {
-    state.0.lock().unwrap().clone()
+    state.0.lock().expect("Failed to lock backend state").clone()
 }
 
 /// Check if backend is already alive on port 8000
@@ -122,7 +122,7 @@ pub fn run() {
                     .stderr(Stdio::null())
                     .status();
             }
-            let window = app.get_webview_window("main").unwrap();
+            let window = app.get_webview_window("main").expect("Main window not found");
 
             // Windows 11 Mica effect
             #[cfg(target_os = "windows")]
@@ -175,7 +175,7 @@ pub fn run() {
 
                     // Skip if already alive
                     if is_backend_alive() {
-                        *app_handle.state::<BackendState>().0.lock().unwrap() = "Online".to_string();
+                        *app_handle.state::<BackendState>().0.lock().expect("Failed to lock backend state") = "Online".to_string();
                         println!("[AutoDub] Backend already alive — waiting for it to exit");
                         loop {
                             std::thread::sleep(Duration::from_secs(10));
@@ -257,7 +257,7 @@ pub fn run() {
                         };
 
                         // uv run должен запускаться из КОРНЯ проекта (где pyproject.toml), не из backend/
-                        *app_handle.state::<BackendState>().0.lock().unwrap() = "Installing AI dependencies (this may take 5-10 minutes)...".to_string();
+                        *app_handle.state::<BackendState>().0.lock().expect("Failed to lock backend state") = "Installing AI dependencies (this may take 5-10 minutes)...".to_string();
                         (uv_cmd,
                          vec!["run".to_string(), "python".to_string(), "backend/main.py".to_string()])
                     };
@@ -277,7 +277,7 @@ pub fn run() {
                     cmd.env("UV_PROJECT_ENVIRONMENT", &uv_env_dir);
 
                     if let Some(f) = log_fd {
-                        let f2 = f.try_clone().unwrap();
+                        let f2 = f.try_clone().expect("Failed to clone file descriptor");
                         cmd.stdout(Stdio::from(f)).stderr(Stdio::from(f2));
                     }
 
@@ -314,9 +314,9 @@ pub fn run() {
                     match cmd.spawn() {
                         Ok(mut child) => {
                             if program.contains("uv") {
-                                *app_handle.state::<BackendState>().0.lock().unwrap() = "Downloading/Installing via uv...".to_string();
+                                *app_handle.state::<BackendState>().0.lock().expect("Failed to lock backend state") = "Downloading/Installing via uv...".to_string();
                             } else {
-                                *app_handle.state::<BackendState>().0.lock().unwrap() = "Starting Python...".to_string();
+                                *app_handle.state::<BackendState>().0.lock().expect("Failed to lock backend state") = "Starting Python...".to_string();
                             }
                             println!("[AutoDub] Backend started (PID: {}, restarts: {})", child.id(), restart_count);
                             let status = child.wait();

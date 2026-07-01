@@ -1,4 +1,5 @@
 import re
+
 with open(r"C:\Users\silvestr.liskin\Desktop\AutoDubStudio\backend\translator.py", "r", encoding="utf-8") as f:
     text = f.read()
 

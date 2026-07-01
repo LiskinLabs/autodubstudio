@@ -150,6 +150,9 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
     { id: "google_translate", name: "Google Translate" },
     { id: "edge_tts", name: "Microsoft Edge TTS" },
     { id: "ollama", name: "Ollama API" },
+    { id: "ytdlp", name: "yt-dlp Downloader" },
+    { id: "ffmpeg", name: "FFmpeg Core" },
+    { id: "db_engine", name: "Database Engine" },
   ];
 
   const testEnvironment = async () => {
@@ -183,7 +186,7 @@ function Settings({ activeTab = "settings-general" }: { activeTab?: string }) {
             </div>
             <div className="win11-form-control">
               <Select value={theme} onChange={(e) => setTheme(e.target.value as any)}>
-                {THEME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.label as any)}</option>)}
+                {THEME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey as any)}</option>)}
               </Select>
             </div>
           </div>

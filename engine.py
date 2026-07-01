@@ -1,9 +1,12 @@
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
-import re
+import warnings
+
+warnings.filterwarnings("ignore")
 
 import torch
 
@@ -29,16 +32,25 @@ if _dev_root:
     _POSSIBLE_ROOTS.insert(0, _dev_root)
 
 
-def _resolve_venv_python(venv_name: str) -> str:
-    """Return the python.exe inside venv_name, searching possible root dirs."""
+def get_python_exe():
+    """Returns the path to the current python executable (handles virtualenvs)"""
+    if "UV_PROJECT_ENVIRONMENT" in os.environ:
+        cand = os.path.join(os.environ["UV_PROJECT_ENVIRONMENT"], "Scripts", "python.exe")
+        if os.path.exists(cand):
+            return cand
+    for root in _POSSIBLE_ROOTS:
+        candidate = os.path.join(root, ".venv", "Scripts", "python.exe")
+        if os.path.exists(candidate):
+            return candidate
     import sys
+    return sys.executable
+
+def _resolve_venv_python(venv_name: str) -> str:
     for root in _POSSIBLE_ROOTS:
         candidate = os.path.join(root, venv_name, "Scripts", "python.exe")
         if os.path.exists(candidate):
             return candidate
-    # Fallback to current python executable if isolated venv is not found
-    return sys.executable
-
+    return get_python_exe()
 
 # WhisperX will be imported locally inside the worker
 
@@ -48,7 +60,7 @@ import psutil
 from pydub import AudioSegment
 
 from backend.translator import Translator
-from backend.vram_manager import free_up_vram, get_free_vram_mb, get_monitor
+from backend.vram_manager import get_monitor
 
 
 def kill_process_tree(pid):
@@ -96,20 +108,8 @@ _SUBPROCESS_SAFE_VARS = {
 
 
 def _safe_subprocess_env(**extra) -> dict:
-    """Return a minimal environment dict for subprocess calls — no API keys, no secrets."""
-    import os as _os  # noqa: PLC0415
-
-    env = {}
-    for key in _SUBPROCESS_SAFE_VARS:
-        val = _os.environ.get(key)
-        if val:
-            env[key] = val
-    for key, val in _os.environ.items():
-        if (
-            key.startswith(("CUDA_", "NVIDIA_", "TORCH_", "HF_", "OLLAMA_"))
-            and key not in env
-        ):
-            env[key] = val
+    import os
+    env = os.environ.copy()
     env.update(extra)
     return env
 
@@ -478,6 +478,7 @@ class AutoDubWorker(threading.Thread):
             self.use_gender_ai = cfg.get("use_gender_ai", True)
             self.use_youtube_subs = cfg.get("use_youtube_subs", True)
             self.use_nlp_splitter = cfg.get("use_nlp_splitter", True)
+            self.source_lang = cfg.get("source_lang", "en")
         else:
             self.video_path = video_path
             # ── Reject URL-like out_dir even in positional mode ──
@@ -491,6 +492,7 @@ class AutoDubWorker(threading.Thread):
             self.use_gender_ai = True
             self.use_youtube_subs = True
             self.ui_language = "ru"
+            self.source_lang = "en"
             self.langs = langs
             self.model_size = model_size
             self.device = device
@@ -658,7 +660,7 @@ class AutoDubWorker(threading.Thread):
             "merge_output_format": "mp4",
             "writesubtitles": True,
             "writeautomaticsub": True,
-            "subtitleslangs": ["en", "ru"],
+            "subtitleslangs": [getattr(self, "source_lang", "en"), "en"],
             "quiet": True,
             "no_warnings": True,
             "postprocessors": [
@@ -668,7 +670,7 @@ class AutoDubWorker(threading.Thread):
                 }
             ],
         }
-        
+
         cookie_file = os.path.join(os.path.dirname(__file__), "backend", "youtube_cookies.txt")
         if os.path.exists(cookie_file):
             ydl_opts["cookiefile"] = cookie_file
@@ -841,6 +843,55 @@ class AutoDubWorker(threading.Thread):
                     "pl",
                     "hi",
                 },
+                "openai": {
+                    "ru",
+                    "en",
+                    "tr",
+                    "ar",
+                    "es",
+                    "fr",
+                    "de",
+                    "zh",
+                    "ja",
+                    "ko",
+                    "it",
+                    "pt",
+                    "pl",
+                    "hi",
+                },
+                "gpt-sovits": {
+                    "ru",
+                    "en",
+                    "tr",
+                    "ar",
+                    "es",
+                    "fr",
+                    "de",
+                    "zh",
+                    "ja",
+                    "ko",
+                    "it",
+                    "pt",
+                    "pl",
+                    "hi",
+                },
+                "none": {
+                    "ru",
+                    "en",
+                    "tr",
+                    "ar",
+                    "es",
+                    "fr",
+                    "de",
+                    "zh",
+                    "ja",
+                    "ko",
+                    "it",
+                    "pt",
+                    "pl",
+                    "hi",
+                },
+
                 "xttsv2": {
                     "ru",
                     "en",
@@ -1009,7 +1060,7 @@ class AutoDubWorker(threading.Thread):
                         )
                         c_path = os.path.join(chunk_dir, chunk)
                         d_cmd = [
-                            sys.executable,
+                            get_python_exe(),
                             "-m",
                             "demucs.separate",
                             "-n",
@@ -1114,7 +1165,7 @@ class AutoDubWorker(threading.Thread):
                         use_cuda = False
 
                     demucs_cmd = [
-                        sys.executable,
+                        get_python_exe(),
                         "-m",
                         "demucs.separate",
                         "-n",
@@ -1222,19 +1273,26 @@ class AutoDubWorker(threading.Thread):
             self._check_cancelled()
             _set_pipeline_step("whisper", 2)
             _set_model_status("whisper", "running")
-            source_lang = "en"  # default, переопределяется из Whisper если запущен
+            source_lang = getattr(self, "source_lang", "en")  # default, переопределяется из Whisper если запущен
             segments = _load_checkpoint("segments")
             if not segments and self.use_youtube_subs:
                 import glob  # noqa: PLC0415
 
                 srt_files = glob.glob(os.path.join(self.out_dir, "*.srt"))
                 if srt_files:
-                    srt_files.sort(key=lambda x: ("ru" not in x, "en" not in x))
+                    pref = getattr(self, "source_lang", "en")
+                    srt_files.sort(key=lambda x: (f"{pref}.srt" not in x.lower(), "en.srt" not in x.lower()))
                     segments = []  # Initialize before parsing
                     try:
                         import pysrt  # noqa: PLC0415
 
-                        subs = pysrt.open(srt_files[0])
+                        chosen_srt = srt_files[0]
+                        # Попробуем достать язык из имени файла (напр. video.en.srt -> en)
+                        parts = os.path.basename(chosen_srt).split(".")
+                        if len(parts) >= 3 and len(parts[-2]) in (2, 3):
+                            source_lang = parts[-2]
+                            
+                        subs = pysrt.open(chosen_srt)
                         for sub in subs:
                             start_s = sub.start.ordinal / 1000.0
                             end_s = sub.end.ordinal / 1000.0
@@ -1259,7 +1317,7 @@ class AutoDubWorker(threading.Thread):
                                 if dur < 0.3:
                                     # Check if text is fully contained in adjacent segment
                                     prev_text = deduped[-1]["text"] if deduped else ""
-                                    next_text = segments[i+1]["text"] if i+1 < len(segments) else ""
+                                    next_text = segments[i + 1]["text"] if i + 1 < len(segments) else ""
                                     if (prev_text and seg["text"] in prev_text) or (next_text and seg["text"] in next_text):
                                         continue
                                 deduped.append(seg)
@@ -1307,17 +1365,22 @@ class AutoDubWorker(threading.Thread):
                     whisper_code = (
                         "import sys,json,warnings,types; warnings.filterwarnings('ignore'); p=json.loads(sys.argv[1]);"
                         "m=types.ModuleType('speechbrain.integrations.k2_fsa'); m.__file__='mock_k2_fsa'; m.__path__=[]; sys.modules['speechbrain.integrations.k2_fsa']=m;"
-                        "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;"
-                        "try:\n import nltk; nltk.download('punkt_tab',quiet=True); nltk.download('averaged_perceptron_tagger_eng',quiet=True)\n except: pass\n"
+                        "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;\n"
+                        "try:\n"
+                        "    import nltk\n"
+                        "    nltk.download('punkt_tab',quiet=True)\n"
+                        "    nltk.download('averaged_perceptron_tagger_eng',quiet=True)\n"
+                        "except:\n"
+                        "    pass\n"
                         "import whisperx;"
-                        "ct='float16' if p['device']=='cuda' else 'int8';"
+                        "ct='int8';"
                         "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct,vad_method='silero');"
                         "audio=whisperx.load_audio(p['audio_path']);"
                         "res=m.transcribe(audio,batch_size=4);"
                         "print('LANG:'+res['language']);"
-                        "model_a, metadata = whisperx.load_align_model(language_code=res['language'], device=p['device']);"
-                        "res=whisperx.align(res['segments'], model_a, metadata, audio, p['device'], return_char_alignments=False);"
-                        "out={'segments':[{'start':s['start'],'end':s['end'],'text':s['text'],'speaker':'SPEAKER_00'} for s in res['segments']],'language':res['language']};"
+                        "lang=res['language']; model_a, metadata = whisperx.load_align_model(language_code=lang, device='cpu');"
+                        "res=whisperx.align(res['segments'], model_a, metadata, audio, 'cpu', return_char_alignments=False);"
+                        "out={'segments':[{'start':s['start'],'end':s['end'],'text':s['text'],'speaker':'SPEAKER_00'} for s in res['segments']],'language':lang};"
                         "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
                         "print(f'DONE:{len(out[\"segments\"])}')"
                     )
@@ -1325,7 +1388,7 @@ class AutoDubWorker(threading.Thread):
                     whisper_code = (
                         "import sys,json; p=json.loads(sys.argv[1]);"
                         "from faster_whisper import WhisperModel;"
-                        "ct='float16' if p['device']=='cuda' else 'int8';"
+                        "ct='int8';"
                         "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
                         "segs,info=m.transcribe(p['audio_path'],beam_size=5,vad_filter=True,vad_parameters=dict(min_silence_duration_ms=500));"
                         "print('LANG:'+info.language);"
@@ -1334,7 +1397,7 @@ class AutoDubWorker(threading.Thread):
                         "print(f'DONE:{len(out[\"segments\"])}')"
                     )
                 self._run_subprocess(
-                    [sys.executable, "-c", whisper_code, whisper_params],
+                    [get_python_exe(), "-c", whisper_code, whisper_params],
                     check=True,
                     timeout=14400,
                 )
@@ -1406,34 +1469,14 @@ class AutoDubWorker(threading.Thread):
                             )
                         all_created_files.append(diar_audio)
                     self._run_subprocess(
-                        [sys.executable, diar_script, diar_audio, diar_json],
-                        check=True,
-                        timeout=14400,
-                        env={"HF_TOKEN": self.hf_key},
+                        [get_python_exe(), diar_script, diar_audio, diar_json],
+                        check=True
                     )
-                    if os.path.exists(diar_json):
-                        import json as _json  # noqa: PLC0415
-
-                        with open(diar_json, "r", encoding="utf-8") as f:
-                            diar_data = _json.load(f)
-                        # Map diarization speakers to whisper segments by time overlap
-                        for seg in segments:
-                            seg_mid = (seg["start"] + seg["end"]) / 2
-                            for d in diar_data:
-                                if d["start"] <= seg_mid <= d["end"]:
-                                    seg["speaker"] = d["speaker"]
-                                    break
-                        unique = len(set(s["speaker"] for s in segments))  # noqa: C401
-                        pyannote_count = len(set(d["speaker"] for d in diar_data))  # noqa: C401
-                        self.log_signal.emit(
-                            _pipeline_t("diarization_done", self.ui_language, pyannote=pyannote_count, n=unique)
-                        )
-                        all_created_files.append(diar_json)
                 except Exception as e:
                     self.log_signal.emit(
-                        _pipeline_t("diarization_failed", self.ui_language, e=str(e))
+                        f"  [!] Ошибка диаризации: {e}. Будет использован один спикер."
                     )
-
+                    
             _set_model_status("pyannote", "done")
             self.progress_signal.emit(35)
 
@@ -1449,20 +1492,12 @@ class AutoDubWorker(threading.Thread):
 
             # 4. Обработка языков
             ffmpeg_inputs = ["-i", self.video_path, "-i", orig_srt_path]
-            ffmpeg_maps = ["-map", "0:v:0", "-map", "0:a:0", "-map", "1:s:0"]
             src_display = source_lang.upper() if source_lang else "ORIG"
-            metadata = [
-                "-metadata:s:a:0",
-                "title=Original Audio",
-                "-metadata:s:a:0",
-                f"language={source_lang or 'und'}",
-                "-metadata:s:s:0",
-                f"title=Original ({src_display})",
-                "-metadata:s:s:0",
-                f"language={source_lang or 'und'}",
-            ]
-            audio_track_idx, subtitle_track_idx = 1, 1
-
+            
+            # We will collect tracks and build maps at the end to ensure correct ordering
+            dubbed_audio_tracks = [] # list of dict with file_idx, lang, label, clean_label
+            dubbed_subtitle_tracks = []
+            
             # Start tracking input files for ffmpeg map
             file_idx = 2  # 0=video, 1=original audio+subs
 
@@ -1573,6 +1608,10 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(clip_path)
                         audio_clips.append((tseg["start"], clip_path, False, tseg))
                     else:
+                        import re
+                        # Убираем кавычки, чтобы XTTSv2 и Edge-TTS не спотыкались на них
+                        if "text" in tseg and tseg["text"]:
+                            tseg["text"] = re.sub(r'["\'«»“”„]', '', tseg["text"])
                         tts_segments.append((idx, tseg, clip_path))
 
                 if use_xtts:
@@ -2099,59 +2138,16 @@ class AutoDubWorker(threading.Thread):
                     [ducked_path, clean_tts_path, dub_final_path, clean_final_path]
                 )
 
-                ffmpeg_maps.extend(
-                    [
-                        "-map",
-                        f"{file_idx}:a:0",
-                        "-map",
-                        f"{file_idx + 1}:a:0",
-                        "-map",
-                        f"{file_idx + 2}:s:0",
-                    ]
-                )
-                lang_names = {
-                    "ru": "Russian",
-                    "tr": "Turkish",
-                    "en": "English",
-                    "ar": "Arabic",
-                    "es": "Spanish",
-                    "fr": "French",
-                    "de": "German",
-                }
-                lang_display = lang_names.get(lang, lang.upper())
-                # Человеческие названия дорожек (видны в плеере: VLC, MPC, Media Player)
-                dub_label = {
-                    "ru": "Дубляж (голос + фон + оригинал)",
-                    "tr": "Dublaj (ses + fon + orijinal)",
-                    "en": "Dub (voice + bg + original)",
-                }.get(lang, f"{lang_display} Dub")
-                clean_label = {
-                    "ru": "Дубляж чистовой (голос + фон)",
-                    "tr": "Dublaj temiz (ses + fon)",
-                    "en": "Dub Clean (voice + bg)",
-                }.get(lang, f"{lang_display} Clean")
-                sub_label = {"ru": "Субтитры", "tr": "Altyazı", "en": "Subtitles"}.get(
-                    lang, f"{lang_display} Subtitles"
-                )
-
-                metadata.extend(
-                    [
-                        f"-metadata:s:a:{audio_track_idx}",
-                        f"title={dub_label}",
-                        f"-metadata:s:a:{audio_track_idx}",
-                        f"language={lang}",
-                        f"-metadata:s:a:{audio_track_idx + 1}",
-                        f"title={clean_label}",
-                        f"-metadata:s:a:{audio_track_idx + 1}",
-                        f"language={lang}",
-                        f"-metadata:s:s:{subtitle_track_idx}",
-                        f"title={sub_label}",
-                        f"-metadata:s:s:{subtitle_track_idx}",
-                        f"language={lang}",
-                    ]
-                )
-                audio_track_idx += 2
-                subtitle_track_idx += 1
+                dubbed_audio_tracks.append({
+                    "lang": lang,
+                    "dub_file_idx": file_idx,
+                    "clean_file_idx": file_idx + 1,
+                })
+                dubbed_subtitle_tracks.append({
+                    "lang": lang,
+                    "sub_file_idx": file_idx + 2,
+                })
+                
                 file_idx += 3
 
                 # Progress: TTS done for this language
@@ -2167,6 +2163,74 @@ class AutoDubWorker(threading.Thread):
             final_mkv = os.path.join(
                 self.out_dir, f"{base_name}{tag_str}_{lang_codes.upper()}.mkv"
             )
+            
+            ffmpeg_maps = ["-map", "0:v:0"]
+            metadata = []
+            audio_idx = 0
+            sub_idx = 0
+            
+            lang_names = {
+                "ru": "Russian", "tr": "Turkish", "en": "English", 
+                "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German"
+            }
+            
+            # 1. Map Dubbed Audio First!
+            for track in dubbed_audio_tracks:
+                lang = track["lang"]
+                lang_display = lang_names.get(lang, lang.upper())
+                
+                ffmpeg_maps.extend(["-map", f"{track['dub_file_idx']}:a:0", "-map", f"{track['clean_file_idx']}:a:0"])
+                
+                is_default = "1" if audio_idx == 0 else "0"
+                
+                dub_label = {"ru": "Дубляж (голос+фон+ориг)", "tr": "Dublaj (ses+fon+orj)", "en": "Dub (voice+bg+orig)"}.get(lang, f"{lang_display} Dub")
+                clean_label = {"ru": "Дубляж чистовой", "tr": "Dublaj temiz", "en": "Dub Clean"}.get(lang, f"{lang_display} Clean")
+                
+                metadata.extend([
+                    f"-metadata:s:a:{audio_idx}", f"title={dub_label}",
+                    f"-metadata:s:a:{audio_idx}", f"language={lang}",
+                    f"-disposition:a:{audio_idx}", is_default,
+                    
+                    f"-metadata:s:a:{audio_idx+1}", f"title={clean_label}",
+                    f"-metadata:s:a:{audio_idx+1}", f"language={lang}",
+                    f"-disposition:a:{audio_idx+1}", "0"
+                ])
+                audio_idx += 2
+                
+            # 2. Map Original Audio Next
+            ffmpeg_maps.extend(["-map", "0:a:0"])
+            metadata.extend([
+                f"-metadata:s:a:{audio_idx}", "title=Original Audio",
+                f"-metadata:s:a:{audio_idx}", f"language={source_lang or 'und'}",
+                f"-disposition:a:{audio_idx}", "0"
+            ])
+            audio_idx += 1
+            
+            # 3. Map Dubbed Subs First
+            for track in dubbed_subtitle_tracks:
+                lang = track["lang"]
+                lang_display = lang_names.get(lang, lang.upper())
+                sub_label = {"ru": "Субтитры", "tr": "Altyazı", "en": "Subtitles"}.get(lang, f"{lang_display} Subtitles")
+                
+                ffmpeg_maps.extend(["-map", f"{track['sub_file_idx']}:s:0"])
+                
+                is_default = "1" if sub_idx == 0 else "0"
+                metadata.extend([
+                    f"-metadata:s:s:{sub_idx}", f"title={sub_label}",
+                    f"-metadata:s:s:{sub_idx}", f"language={lang}",
+                    f"-disposition:s:{sub_idx}", is_default
+                ])
+                sub_idx += 1
+                
+            # 4. Map Original Sub
+            ffmpeg_maps.extend(["-map", "1:s:0"])
+            metadata.extend([
+                f"-metadata:s:s:{sub_idx}", f"title=Original ({src_display})",
+                f"-metadata:s:s:{sub_idx}", f"language={source_lang or 'und'}",
+                f"-disposition:s:{sub_idx}", "0"
+            ])
+            sub_idx += 1
+
             self._run_subprocess(
                 ["ffmpeg", "-y"]
                 + ffmpeg_inputs
@@ -2256,7 +2320,7 @@ class AutoDubWorker(threading.Thread):
                 # 1. Demucs output directory (large, always remove)
                 if 'demucs_out_dir' in locals() and demucs_out_dir and os.path.exists(demucs_out_dir):
                     shutil.rmtree(demucs_out_dir, ignore_errors=True)
-                    
+
                 # 2. Tracked intermediate files (checkpoints, SRT, temp audio)
                 for f in all_created_files:
                     try:
@@ -2264,7 +2328,7 @@ class AutoDubWorker(threading.Thread):
                             os.remove(f)
                     except Exception:
                         pass
-                
+
                 # 3. Source video (downloaded from URL — don't keep raw video)
                 if _was_url_source and self.video_path:
                     if os.path.exists(self.video_path):
@@ -2272,7 +2336,7 @@ class AutoDubWorker(threading.Thread):
                             os.remove(self.video_path)
                         except Exception:
                             pass
-                
+
                 # 4. Final sweep: remove any leftover temp_* files in out_dir
                 try:
                     for entry in os.listdir(self.out_dir):
@@ -2287,7 +2351,7 @@ class AutoDubWorker(threading.Thread):
                                 pass
                 except Exception:
                     pass
-                
+
                 # 5. If pipeline failed, remove out_dir (nothing to keep)
                 #    (success path keeps only final_mkv, everything else already removed above)
                 try:

@@ -2,6 +2,9 @@ import json
 import os
 import sys
 import traceback
+import warnings
+
+warnings.filterwarnings("ignore")
 
 import huggingface_hub
 import torch

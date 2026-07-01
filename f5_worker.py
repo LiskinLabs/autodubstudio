@@ -5,14 +5,16 @@ F5TTS_Base model + fp16 + checkpoint_activations = fits 4GB VRAM.
 Key: NO Whisper ASR — ref_text must be provided manually.
 """
 
-import gc
 import json
 import sys
 import traceback
+import gc
+
 
 def _d(msg):
     with open("debug.txt", "a") as f:
         f.write(msg + "\n")
+
 
 def main():
     _d("main started")
@@ -32,6 +34,7 @@ def main():
     _d("importing f5-tts models")
     # ── Load F5-TTS with proper checkpoint ──
     from importlib.resources import files  # noqa: PLC0415
+
     from f5_tts.infer.utils_infer import load_model, load_vocoder  # noqa: PLC0415
     from hydra.utils import get_class  # noqa: PLC0415
     from omegaconf import OmegaConf  # noqa: PLC0415
@@ -49,7 +52,7 @@ def main():
         print(f"GPU: {torch.cuda.get_device_properties(0).name} ({gb:.1f} GB)")
         torch.cuda.empty_cache()
         _d("gc import")
-        import gc; gc.collect()
+        gc.collect()
         _d("gc collected")
 
     cfg = OmegaConf.load(str(files("f5_tts").joinpath("configs/F5TTS_Base.yaml")))
@@ -152,11 +155,10 @@ def main():
                 success += 1
             except Exception:
                 failed += 1
-                
+
         # GC to prevent VRAM leak
         if i % 5 == 0:
-            import gc
-            import gc; gc.collect()
+            gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 

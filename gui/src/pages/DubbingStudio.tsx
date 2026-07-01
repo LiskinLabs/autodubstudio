@@ -4,6 +4,7 @@ import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
   PlayRegular as Play,
+  Speaker2Regular as Speaker,
   CheckmarkRegular as Check,
   InfoRegular as Info,
   SquareRegular as Square,
@@ -359,6 +360,40 @@ export default function DubbingStudio() {
     }
   };
 
+  const handlePreviewOriginal = async (index: number, start: number, end: number) => {
+    if (playingSegment !== null) return;
+    setPlayingSegment(index);
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/preview_original", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start, end })
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || "Failed to generate preview");
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        setPlayingSegment(null);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        setPlayingSegment(null);
+      };
+      audio.play().catch(e => {
+        notifyToast.error("Playback Error", { description: e.message });
+        setPlayingSegment(null);
+      });
+    } catch (e: any) {
+      notifyToast.error("Original Preview Error", { description: e.message || String(e) });
+      setPlayingSegment(null);
+    }
+  };
+
   const checkCookies = useCallback(async () => {
     try {
       const resp = await fetch("http://127.0.0.1:8000/api/youtube/has_cookies");
@@ -377,16 +412,23 @@ export default function DubbingStudio() {
     return () => clearInterval(interval);
   }, [hasCookies, checkCookies]);
 
-  useEffect(() => {
-    if (config.translationEngine === "ollama" && ollamaModels.length > 0) {
-      if (!ollamaModels.includes(config.translatorModel)) updateConfig("translatorModel", ollamaModels[0]);
-    } else if (config.translationEngine === "deepseek") updateConfig("translatorModel", "deepseek-chat");
-    else if (config.translationEngine === "google" || config.translationEngine === "gemini") updateConfig("translatorModel", "default");
-  }, [config.translationEngine, ollamaModels, config.translatorModel]);
-
   const updateConfig = useCallback(<K extends keyof Config>(key: K, value: Config[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   }, []);
+
+  useEffect(() => {
+    if (config.translationEngine === "ollama") {
+      if (ollamaModels.length > 0 && !ollamaModels.includes(config.translatorModel)) {
+        updateConfig("translatorModel", ollamaModels[0]);
+      } else if (ollamaModels.length === 0 && (config.translatorModel === "deepseek-v4-flash" || config.translatorModel === "deepseek-v4-pro" || config.translatorModel === "default" || config.translatorModel === "deepl-api" || config.translatorModel === "deepseek-chat")) {
+        updateConfig("translatorModel", "gemma4:e4b");
+      }
+    } else if (config.translationEngine === "deepseek") {
+      updateConfig("translatorModel", "deepseek-v4-flash");
+    } else if (config.translationEngine === "google" || config.translationEngine === "gemini") {
+      updateConfig("translatorModel", "default");
+    }
+  }, [config.translationEngine, ollamaModels, config.translatorModel, updateConfig]);
 
   const handleDragOver = useCallback((e: DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
   const handleDragLeave = useCallback(() => setIsDragging(false), []);
@@ -668,7 +710,7 @@ export default function DubbingStudio() {
                     {config.translationEngine === "ollama"
                       ? (ollamaModels.length > 0 ? ollamaModels.map(m => <option key={m} value={m}>{m}</option>) : <option value="">{t("dubbing.no_models")}</option>)
                       : config.translationEngine === "deepseek"
-                        ? <><option value="deepseek-chat">deepseek-chat</option><option value="deepseek-reasoner">deepseek-reasoner</option></>
+                        ? <><option value="deepseek-v4-flash">deepseek-v4-flash</option><option value="deepseek-v4-pro">deepseek-v4-pro</option></>
                         : config.translationEngine === "deepl"
                           ? <option value="deepl-api">{t("dubbing.translator.deepl_api")}</option>
                           : <option value="default">{t("dubbing.translator.default")}</option>
@@ -989,7 +1031,7 @@ export default function DubbingStudio() {
           </div>
 
           <TimelineEditor 
-            mediaPath={fileName} 
+            mediaPath={fileName || youtubeUrl ? (fileName || "http://127.0.0.1:8000/api/media/current") : ""} 
             segments={editedSegments} 
             onSegmentsChange={setEditedSegments}
             playingSegmentIndex={playingSegment}
@@ -1044,7 +1086,14 @@ export default function DubbingStudio() {
                         appearance="transparent"
                         icon={playingSegment === i ? <Spinner size="tiny" /> : <Play />}
                         onClick={() => handlePreviewTTS(i, seg.trans, seg.speaker as string, seg.speed ?? 1.0, seg.pitch ?? 0)}
-                        title={t("dubbing.review.preview_tts") || "Live Preview"}
+                        title={t("dubbing.review.preview_tts") || "Listen to TTS"}
+                        disabled={playingSegment !== null}
+                      />
+                      <Button
+                        appearance="transparent"
+                        icon={playingSegment === i ? <Spinner size="tiny" /> : <Play />}
+                        onClick={() => handlePreviewOriginal(i, seg.start, seg.end)}
+                        title="Listen to Original"
                         disabled={playingSegment !== null}
                       />
                       <Popover withArrow positioning="below-end">

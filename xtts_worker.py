@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import traceback
+import gc
 
 # Automatically accept Coqui TTS license to prevent hanging on input
 os.environ["COQUI_TOS_AGREED"] = "1"
@@ -24,6 +25,14 @@ def main():
     print(f"XTTS Worker: {len(tasks)} segments")
 
     import torch  # noqa: PLC0415
+
+    # Patch for transformers >= 4.40.0 and Coqui TTS incompatibility
+    try:
+        import transformers.pytorch_utils
+        if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
+            transformers.pytorch_utils.isin_mps_friendly = getattr(torch, "isin", lambda *args, **kwargs: None)
+    except Exception:
+        pass
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -67,11 +76,10 @@ def main():
         except Exception as e:
             print(f"! [{i + 1}]: {e}")
             failed += 1
-            
+
         # GC to prevent VRAM leak
         if i % 3 == 0:
-            import gc
-            import gc; gc.collect()
+            gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 

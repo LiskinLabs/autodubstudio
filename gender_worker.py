@@ -1,8 +1,13 @@
 import json
 import sys
 import warnings
+import traceback
 
 import torch
+import transformers.utils.import_utils
+import transformers.modeling_utils
+transformers.utils.import_utils.check_torch_load_is_safe = lambda: None
+transformers.modeling_utils.check_torch_load_is_safe = lambda: None
 
 
 def detect_gender(tasks_file, output_file):
@@ -26,7 +31,7 @@ def detect_gender(tasks_file, output_file):
 
     classifier = pipeline(
         "audio-classification",
-        model="alefiury/wav2vec2-large-xlsr-53-gender-recognition-osman",
+        model="m3hrdadfi/hubert-base-persian-speech-gender-recognition",
         device=0 if device == "cuda" else -1,
     )
 

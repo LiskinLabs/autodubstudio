@@ -6,6 +6,8 @@ export type Language = 'en' | 'ru' | 'tr';
 
 const translations: Record<Language, Record<string, string>> = {
   en: {
+    'frun.opened_url': 'Opened in browser for manual installation.',
+    'frun.optional_cloud': 'Optional (Cloud Fallback)',
     'dubbing.nlp_spacy_title': 'Smart NLP Splitter (Spacy)',
     'dubbing.nlp_spacy_desc': 'Perfect slicing by meaning and punctuation, instead of breaking mid-word.',
     'dubbing.api_key_required_prefix': 'Provider',
@@ -73,6 +75,9 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Local, Fast)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Cloud)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Cloud)',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS (Cloud)',
+    'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Local)',
+    'success': 'Success',
 
     // Dubbing general
     'dubbing.title': 'Dubbing Studio',
@@ -261,6 +266,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.translator.default': 'Default API Model',
     'dubbing.status.waiting_backend': 'Waiting for Python engine...',
     'chat.placeholder': 'Type a message...',
+    'chat.title': 'AI Assistant',
     'chat.empty.title': 'Start a conversation',
     'chat.empty.subtitle': 'Chat with your local AI models. These are the same models used for translation in the dubbing pipeline.',
     'chat.ollama_error': 'Cannot connect to Ollama. Make sure it is running on localhost:11434',
@@ -431,6 +437,17 @@ const translations: Record<Language, Record<string, string>> = {
     'update.available_label': 'Update available',
     'update.checking': 'Checking...',
 
+    // Additional settings
+    'settings.hardware': 'Hardware',
+    'settings.system': 'System',
+    'settings.theme_desc': 'Application visual appearance.',
+    'settings.gpu_memory': 'GPU Memory Limit',
+    'settings.gpu_memory_desc': 'Limits VRAM usage for local AI models.',
+    'settings.gpu.aggressive': 'Aggressive',
+    'settings.gpu.conservative': 'Conservative',
+    'dubbing.review.preview_tts': 'Preview TTS',
+    'frun.skip_optional': 'Skip Optional',
+
     // GPU options
     'settings.gpu_4gb': '4 GB',
     'settings.gpu_6gb': '6 GB',
@@ -479,6 +496,8 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.all_done': 'All set — continue',
     'frun.install_all': 'Install All ({count})',
     'frun.installing_all': 'Installing...',
+    'frun.opened_url': 'Opened in browser for manual installation.',
+    'frun.optional_cloud': 'Optional (Cloud Fallback)',
     'frun.instructions': 'Instructions',
     'frun.skip': 'Skip — I\'ll install manually later',
     'frun.footer': 'All components are free and installed from official websites.',
@@ -507,6 +526,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.yt.description': 'Select your preferred media or subtitle tracks to import into the dubbing studio.',
   },
   ru: {
+    'frun.opened_url': 'Открыто в браузере для ручной установки.',
+    'frun.optional_cloud': 'Необязательно (Для резервного API облака)',
     'dubbing.nlp_spacy_title': 'Умное NLP-разделение фраз (Spacy)',
     'dubbing.nlp_spacy_desc': 'Идеальная нарезка по смыслу, запятым и точкам, вместо разрывов на полуслове.',
     'dubbing.api_key_required_prefix': 'Для работы с провайдером',
@@ -625,6 +646,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Chat
     'chat.placeholder': 'Напишите сообщение...',
+    'chat.title': 'AI Ассистент',
     'chat.empty.title': 'Начните диалог',
     'chat.empty.subtitle': 'Общайтесь с вашими локальными ИИ-моделями. Это те же модели, что используются для перевода.',
     'chat.ollama_error': 'Не удалось подключиться к Ollama. Убедитесь, что она запущена на localhost:11434',
@@ -744,6 +766,9 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Локально, Быстро)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Облако)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Облако)',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS (Облако)',
+    'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Локально)',
+    'success': 'Успех',
 
     // Translation engines
     'dubbing.engine.deepseek': 'DeepSeek API [интернет, $]',
@@ -939,6 +964,17 @@ const translations: Record<Language, Record<string, string>> = {
     'update.downloading_label': 'Загрузка обновления...',
     'update.available_label': 'Доступно обновление',
     'update.checking': 'Проверка...',
+
+    // Additional settings
+    'settings.hardware': 'Оборудование',
+    'settings.system': 'Система',
+    'settings.theme_desc': 'Внешний вид приложения.',
+    'settings.gpu_memory': 'Лимит видеопамяти (GPU)',
+    'settings.gpu_memory_desc': 'Ограничивает использование VRAM для локальных нейросетей.',
+    'settings.gpu.aggressive': 'Агрессивный',
+    'settings.gpu.conservative': 'Консервативный',
+    'dubbing.review.preview_tts': 'Предпрослушать',
+    'frun.skip_optional': 'Пропустить необязательные',
 
     // GPU options
     'settings.gpu_4gb': '4 ГБ',
@@ -1256,6 +1292,9 @@ const translations: Record<Language, Record<string, string>> = {
     'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Yerel, Hızlı)',
     'dubbing.voice.azure_cloud': 'Azure Speech (Bulut)',
     'dubbing.voice.edge_cloud': 'Edge TTS (Bulut)',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS (Bulut)',
+    'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Yerel)',
+    'success': 'Başarılı',
 
     // Translation engines
     'dubbing.engine.deepseek': 'DeepSeek API [internet, $]',
@@ -1454,6 +1493,17 @@ const translations: Record<Language, Record<string, string>> = {
     'update.available_label': 'Güncelleme mevcut',
     'update.checking': 'Kontrol ediliyor...',
 
+    // Additional settings
+    'settings.hardware': 'Donanım',
+    'settings.system': 'Sistem',
+    'settings.theme_desc': 'Uygulama görsel görünümü.',
+    'settings.gpu_memory': 'GPU Bellek Sınırı',
+    'settings.gpu_memory_desc': 'Yerel YZ modelleri için VRAM kullanımını sınırlar.',
+    'settings.gpu.aggressive': 'Agresif',
+    'settings.gpu.conservative': 'Tutucu',
+    'dubbing.review.preview_tts': 'Sesi Önizle',
+    'frun.skip_optional': 'İsteğe Bağlı Olanları Atla',
+
     // GPU options
     'settings.gpu_4gb': '4 GB',
     'settings.gpu_6gb': '6 GB',
@@ -1551,7 +1601,7 @@ class SettingsStore {
       } else {
         this.language = 'en';
       }
-    } catch (e) {
+    } catch {
       this.language = 'en';
     }
     this._storeReady = this._initStore();
@@ -1593,7 +1643,7 @@ class SettingsStore {
       }
       // Notify subscribers that keys have been loaded
       this.notify();
-    } catch (_err) {
+    } catch {
       // Fallback: Tauri Store not available (e.g., running in browser dev mode)
       const saved = localStorage.getItem('autodub_api_keys');
       if (saved) {
@@ -1688,7 +1738,7 @@ export function useSettings() {
     return () => { unsub(); };
   }, []);
 
-  return useMemo(() => ({
+  return {
     lang: settingsStore.language,
     theme: settingsStore.theme,
     setLanguage: (l: Language) => settingsStore.setLanguage(l),
@@ -1710,5 +1760,5 @@ export function useSettings() {
     },
     apiKeys: settingsStore.apiKeys,
     t: (key: string): string => settingsStore.t(key) as string
-  }), [settingsStore.language, settingsStore.theme, settingsStore.apiKeys, settingsStore.userGlossary]);
+  };
 }

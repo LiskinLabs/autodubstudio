@@ -1,7 +1,8 @@
 """Glossary CRUD API — manage custom translation term dictionaries."""
 import json
-import os
 import logging
+import os
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 

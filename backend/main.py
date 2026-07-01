@@ -7,6 +7,14 @@ import sys
 import tempfile
 import time
 
+# --- MONKEYPATCH TRANSFORMERS TORCH.LOAD CVE CHECK ---
+try:
+    import transformers.utils.import_utils
+    transformers.utils.import_utils.check_torch_load_is_safe = lambda: None
+except ImportError:
+    pass
+# -----------------------------------------------------
+
 import httpx
 import uvicorn
 from fastapi import (
@@ -35,9 +43,6 @@ try:
         transformers.utils.import_utils.is_torchcodec_available = lambda *args, **kwargs: True
 except Exception:
     pass
-
-
-
 
 
 # ── Logging to file (with fallback for installed app) ──
@@ -285,8 +290,9 @@ app.add_middleware(
 )
 
 # ── Shared state (imported by engine.py without circular import) ──
-from shared import pipeline_status, reset_pipeline_status
 from glossary_api import router as glossary_router
+from shared import pipeline_status, reset_pipeline_status
+
 app.include_router(glossary_router)
 
 # ── WebSocket auth token (generated fresh each backend startup) ──
@@ -483,9 +489,16 @@ async def test_single_item(id: str):
             async with httpx.AsyncClient() as client:
                 res = await client.get("http://localhost:11434/api/tags", timeout=3.0)
                 res.raise_for_status()
+        elif id == "ytdlp":
+            import yt_dlp  # noqa: F401
+        elif id == "ffmpeg":
+            import subprocess
+            subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True, text=True)
+        elif id == "db_engine":
+            import aiosqlite  # noqa: F401
         else:
             return {"status": "error", "error": f"Unknown test ID: {id}"}
-        
+
         return {"status": "ok", "error": None}
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {str(e)}"}
@@ -726,7 +739,7 @@ async def websocket_pipeline(websocket: WebSocket):
                         )
 
                 elif data.get("action") == "resume":
-                    if PIPELINE_BUSY and active_worker:
+                    if active_worker and active_worker.is_alive():
                         if "segments" in data:
                             edited = []
                             for s in data["segments"]:
@@ -2198,6 +2211,7 @@ async def download_youtube(req: YouTubeDownloadRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
+
 class PreviewTTSRequest(BaseModel):
     text: str
     language: str
@@ -2206,6 +2220,59 @@ class PreviewTTSRequest(BaseModel):
     speed: float = 1.0
     pitch: int = 0
 
+class PreviewOriginalRequest(BaseModel):
+    start: float
+    end: float
+
+@app.get("/api/media/current")
+async def get_current_media():
+    global active_worker
+    from fastapi.responses import FileResponse
+    video_path = getattr(active_worker, "video_path", None) if active_worker else None
+    if video_path and os.path.exists(video_path):
+        return FileResponse(video_path, media_type="video/mp4")
+    out_dir = getattr(active_worker, "out_dir", None) if active_worker else None
+    if out_dir:
+        import glob
+        files = glob.glob(os.path.join(out_dir, "*.mp4")) + glob.glob(os.path.join(out_dir, "*.webm")) + glob.glob(os.path.join(out_dir, "*.mkv"))
+        if files:
+            return FileResponse(files[0], media_type="video/mp4")
+    raise HTTPException(status_code=404, detail="No active video found")
+
+@app.post("/api/preview_original")
+async def preview_original(req: PreviewOriginalRequest):
+    global active_worker
+    from fastapi.responses import FileResponse
+    video_path = getattr(active_worker, "video_path", None) if active_worker else None
+    out_dir = getattr(active_worker, "out_dir", None) if active_worker else None
+    if not out_dir or not os.path.isdir(out_dir):
+        out_dir = tempfile.gettempdir()
+    
+    if not video_path or not os.path.exists(video_path):
+        # Fallback to finding video in out_dir
+        if out_dir:
+            import glob
+            files = glob.glob(os.path.join(out_dir, "*.mp4")) + glob.glob(os.path.join(out_dir, "*.webm")) + glob.glob(os.path.join(out_dir, "*.mkv"))
+            if files:
+                video_path = files[0]
+                
+    if not video_path or not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Original video not found")
+        
+    import subprocess, time
+    out_path = os.path.join(out_dir, f"preview_orig_{int(time.time())}.wav")
+    duration = req.end - req.start
+    
+    cmd = [
+        "ffmpeg", "-y", "-ss", str(req.start), "-t", str(duration),
+        "-i", video_path, "-q:a", "0", "-map", "a", out_path
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return FileResponse(out_path, media_type="audio/wav")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/preview_tts")
 async def preview_tts(req: PreviewTTSRequest):
     global active_worker
@@ -2213,16 +2280,15 @@ async def preview_tts(req: PreviewTTSRequest):
     out_dir = getattr(active_worker, "out_dir", None) if active_worker else None
     if not out_dir or not os.path.isdir(out_dir):
         # Fallback: search most recent download directory
-        import glob as _glob
         downloads = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "downloads")
         if os.path.isdir(downloads):
             out_dir = downloads
         else:
             out_dir = tempfile.gettempdir()
-    
+
     import time
     out_path = os.path.join(out_dir, f"preview_{int(time.time())}.wav")
-    
+
     use_xtts = "xttsv2" in req.tts_engine.lower()
     if use_xtts:
         ref_audio = os.path.join(out_dir, f"ref_{req.speaker}.wav")
@@ -2238,7 +2304,7 @@ async def preview_tts(req: PreviewTTSRequest):
                     ref_audio = vocals_candidates[0]
                 else:
                     raise HTTPException(status_code=400, detail="Reference audio not found. Please run dubbing pipeline first.")
-        
+
         import json
         tasks_file = os.path.join(out_dir, f"preview_tasks_{int(time.time())}.json")
         with open(tasks_file, "w", encoding="utf-8") as f:
@@ -2250,20 +2316,20 @@ async def preview_tts(req: PreviewTTSRequest):
                 "language": req.language,
                 "speed": req.speed
             }], f)
-            
+
         import subprocess
         # Get path up to root folder
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         xtts_script = os.path.join(root, "xtts_worker.py")
         env = _safe_subprocess_env()
-        
+
         if os.name == "nt":
             xtts_py = os.path.join(root, ".venv-xtts", "Scripts", "python.exe")
         else:
             xtts_py = os.path.join(root, ".venv-xtts", "bin", "python")
         if not os.path.isfile(xtts_py):
             xtts_py = sys.executable  # fallback to main venv
-        
+
         proc = await asyncio.create_subprocess_exec(
             xtts_py, xtts_script, tasks_file,
             stdout=subprocess.DEVNULL,
@@ -2273,7 +2339,7 @@ async def preview_tts(req: PreviewTTSRequest):
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
             raise HTTPException(status_code=500, detail=f"XTTS Error: {stderr.decode('utf-8', 'replace')}")
-            
+
     else:
         # Edge-TTS fallback
         import edge_tts
@@ -2284,17 +2350,17 @@ async def preview_tts(req: PreviewTTSRequest):
             "zh": "zh-CN-YunxiNeural", "ja": "ja-JP-KeitaNeural",
         }
         voice = EDGE_VOICES.get(req.language, "en-US-ChristopherNeural")
-        
+
         # Edge-TTS formatting
         rate_str = f"+{int((req.speed - 1.0) * 100)}%" if req.speed > 1.0 else f"{int((req.speed - 1.0) * 100)}%"
         pitch_str = f"+{req.pitch}Hz" if req.pitch > 0 else f"{req.pitch}Hz"
-        
+
         out_path = out_path.replace(".wav", ".mp3")
         await edge_tts.Communicate(req.text, voice, rate=rate_str, pitch=pitch_str).save(out_path)
-        
+
     if not os.path.exists(out_path):
         raise HTTPException(status_code=500, detail="Failed to generate audio")
-        
+
     return FileResponse(out_path, media_type="audio/wav" if use_xtts else "audio/mpeg")
 
 

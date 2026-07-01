@@ -39,6 +39,6 @@ timeout /t 3 >nul
 :: Start frontend
 cd gui
 echo Opening browser...
-start "" "http://localhost:5173"
+start "" "http://localhost:1435"
 echo Starting Frontend...
 call npm run dev

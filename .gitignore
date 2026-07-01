@@ -1,80 +1,23 @@
-# ==========================================
-# Python
-# ==========================================
-__pycache__/
 .venv/
-.venv-*/
-*.pyc
-*.pyo
-*.egg-info/
-dist/
-*.egg
-
-# ==========================================
-# Node / Frontend
-# ==========================================
-gui/node_modules/
-gui/dist/
-gui/storybook-static/
-
-# ==========================================
-# Tauri / Rust
-# ==========================================
-gui/src-tauri/target/
-
-# ==========================================
-# Models (HUGE — DO NOT COMMIT)
-# ==========================================
-models/
-*.pth
-*.bin
-*.onnx
-*.gguf
-*.safetensors
-
-# ==========================================
-# Downloads / Media
-# ==========================================
+.venv-xtts/
+__pycache__/
 downloads/
+models/
+*.log
 *.mp4
-*.mkv
 *.mp3
 *.wav
-!test_download.mp4
-
-# ==========================================
-# IDE
-# ==========================================
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# ==========================================
-# OS
-# ==========================================
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# ==========================================
-# Secrets / Tokens
-# ==========================================
+*.mkv
+*.srt
+*.json
+gui/src-tauri/config.json
+*.bat
+!Start_AutoDubStudio.bat
+!download_models.bat
+!validate_build.bat
+scratch/
+gui/node_modules/
+gui/src-tauri/target/
 .env
-.env.local
 github_token.txt
-config.json
-youtube_cookies.txt
-!gui/src-tauri/config.json
-
-# ==========================================
-# Logs / Debug
-# ==========================================
-*.log
-debug.txt
-
-# ==========================================
-# Tools / Archives
-# ==========================================
-CodeSignTool.zip
-config.json
+*.ps1

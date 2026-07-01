@@ -11,10 +11,9 @@ References:
 import ctypes
 import ctypes.wintypes
 import gc
-import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Windows API bindings
@@ -199,9 +198,9 @@ def flush_file_caches() -> int:
 # Priority classes
 PROCESS_PRIORITY_CLASSES = {
     "idle": 0x00000040,        # IDLE_PRIORITY_CLASS
-    "below_normal": 0x00004000, # BELOW_NORMAL_PRIORITY_CLASS
+    "below_normal": 0x00004000,  # BELOW_NORMAL_PRIORITY_CLASS
     "normal": 0x00000020,       # NORMAL_PRIORITY_CLASS
-    "above_normal": 0x00008000, # ABOVE_NORMAL_PRIORITY_CLASS
+    "above_normal": 0x00008000,  # ABOVE_NORMAL_PRIORITY_CLASS
     "high": 0x00000080,         # HIGH_PRIORITY_CLASS
     "realtime": 0x00000100,     # REALTIME_PRIORITY_CLASS
 }

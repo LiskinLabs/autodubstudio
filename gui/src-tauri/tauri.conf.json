@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://api.deepseek.com https://generativelanguage.googleapis.com https://api-free.deepl.com https://api.deepl.com https://api.openai.com https://huggingface.co https://github.com https://api.github.com https://objects.githubusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://asset.localhost; font-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://api.deepseek.com https://generativelanguage.googleapis.com https://api-free.deepl.com https://api.deepl.com https://api.openai.com https://huggingface.co https://github.com https://api.github.com https://objects.githubusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://asset.localhost; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
@@ -40,7 +40,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {
         "installMode": "currentUser",
@@ -72,6 +72,12 @@
       "../../lip_sync_worker.py",
       "../../diarization_worker.py",
       "../../gender_worker.py",
+      "../../f5_worker.py",
+      "../../chunk_demucs.py",
+      "../../run_demucs_chunked.py",
+      "../../cli_run.py",
+      "../../patch_edge.py",
+      "../../patch_engine.py",
       "../../teknorob.png",
       "../../pyproject.toml",
       "../../uv.lock"
