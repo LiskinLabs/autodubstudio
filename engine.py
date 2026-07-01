@@ -1608,7 +1608,6 @@ class AutoDubWorker(threading.Thread):
                         all_created_files.append(clip_path)
                         audio_clips.append((tseg["start"], clip_path, False, tseg))
                     else:
-                        import re
                         # Убираем кавычки, чтобы XTTSv2 и Edge-TTS не спотыкались на них
                         if "text" in tseg and tseg["text"]:
                             tseg["text"] = re.sub(r'["\'«»“”„]', '', tseg["text"])

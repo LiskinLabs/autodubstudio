@@ -1,4 +1,4 @@
-# 🎬 AutoDub Studio v1.0.0
+# 🎬 AutoDub Studio v0.0.1 Beta
 
 **Yapay Zeka Destekli Video Dublaj Sistemi** / **Система ИИ-Дубляжа Видео**
 Локальное десктоп-приложение для Windows 11 для профессионального перевода и дубляжа видео с использованием ИИ.
