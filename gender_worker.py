@@ -2,6 +2,16 @@ import json
 import sys
 import warnings
 import traceback
+import os
+import shutil
+
+if os.name == 'nt':
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path:
+        try:
+            os.add_dll_directory(os.path.dirname(ffmpeg_path))
+        except Exception:
+            pass
 
 import torch
 import transformers.utils.import_utils

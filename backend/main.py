@@ -1216,16 +1216,16 @@ async def delete_model(model_id: str):
                 ):
                     try_remove_file(fp)
 
-    elif model_id == "gemma4":
+    elif model_id.startswith("gemma4:"):
         try:
             import subprocess  # noqa: PLC0415
 
             subprocess.run(
-                ["ollama", "rm", "gemma4:e4b"],
+                ["ollama", "rm", model_id],
                 capture_output=True,
                 env=_safe_subprocess_env(),
             )
-            deleted_paths.append("ollama: gemma4:e4b")
+            deleted_paths.append(f"ollama: {model_id}")
         except Exception as e:
             errors.append(str(e))
 
@@ -1518,14 +1518,14 @@ print('PYANNOTE_OK')
                         or "Demucs download failed"
                     )
 
-            elif model_id == "gemma4":
+            elif model_id.startswith("gemma4:"):
                 import re  # noqa: PLC0415
 
                 with _model_download_lock:
                     _model_download_status[model_id]["progress"] = 5
 
                 process = subprocess.Popen(
-                    ["ollama", "pull", "gemma4:e4b"],
+                    ["ollama", "pull", model_id],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,

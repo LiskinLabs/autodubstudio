@@ -300,6 +300,9 @@ class Translator:
         if not text:
             return ""
         text = text.strip()
+        # Remove Gemma 4 reasoning blocks
+        import re  # noqa: PLC0415
+        text = re.sub(r"<\|?think\|?>.*?</\|?think\|?>", "", text, flags=re.DOTALL)
         # Remove markdown code fences
         text = re.sub(r"```(?:json)?\s*\n?", "", text)
         text = re.sub(r"\n?```", "", text)
@@ -405,10 +408,9 @@ class Translator:
             ]
 
             models_to_try = [self.translator_model]
-            if "gemma4:e4b" not in models_to_try:
-                models_to_try.append("gemma4:e4b")
-            if "gemma2:2b" not in models_to_try:
-                models_to_try.append("gemma2:2b")
+            for fallback in ["gemma4:e4b", "gemma4:e2b", "gemma2:2b"]:
+                if fallback not in models_to_try:
+                    models_to_try.append(fallback)
 
             for model_name in models_to_try:
                 payload = json.dumps(
@@ -416,7 +418,7 @@ class Translator:
                         "model": model_name,
                         "messages": messages,
                         "stream": False,
-                        "keep_alive": 300,
+                        "keep_alive": 1200,
                         "options": {
                             "temperature": 0.1,
                             "num_predict": num_predict,
@@ -429,7 +431,7 @@ class Translator:
                 print("PAYLOAD:", payload.decode("utf-8"))
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=300) as resp:
+                    with urllib.request.urlopen(req, timeout=1200) as resp:
                         if resp.status == 200:
                             result = json.loads(resp.read().decode())
                             text = result.get("message", {}).get("content", "")
@@ -535,7 +537,7 @@ class Translator:
             import urllib.request  # noqa: PLC0415
 
             url = "http://localhost:11434/api/chat"
-            for model_name in ["gemma4:e4b"]:
+            for model_name in [self.translator_model]:
                 payload = json.dumps(
                     {
                         "model": model_name,
@@ -584,7 +586,7 @@ class Translator:
         try:
             import subprocess as _sp  # noqa: PLC0415
 
-            _sp.run(["ollama", "stop", "gemma4:e4b"], capture_output=True, timeout=10)
+            _sp.run(["ollama", "stop", self.translator_model], capture_output=True, timeout=10)
         except Exception:
             pass
         import time as _time  # noqa: PLC0415
@@ -680,8 +682,8 @@ JSON:"""
             import urllib.request  # noqa: PLC0415
 
             url = "http://localhost:11434/api/generate"
-            # Release the actual models used: gemma4:e4b (primary) + gemma2 fallbacks
-            for model_name in ["gemma4:e4b", "gemma2:2b", "gemma2"]:
+            # Release the actual models used
+            for model_name in set([self.translator_model, "gemma4:12b", "gemma4:e4b", "gemma4:e2b", "gemma2:2b", "gemma2"]):
                 try:
                     payload = json.dumps(
                         {"model": model_name, "prompt": "", "keep_alive": 0}

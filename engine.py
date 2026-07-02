@@ -478,6 +478,7 @@ class AutoDubWorker(threading.Thread):
             self.use_gender_ai = cfg.get("use_gender_ai", True)
             self.use_youtube_subs = cfg.get("use_youtube_subs", True)
             self.use_nlp_splitter = cfg.get("use_nlp_splitter", True)
+            self.max_duration = cfg.get("max_duration", 0)
             self.source_lang = cfg.get("source_lang", "en")
         else:
             self.video_path = video_path
@@ -489,9 +490,11 @@ class AutoDubWorker(threading.Thread):
             self.lip_sync = False
             self.tag = ""
             self.demucs_model = "htdemucs_ft"
+            self.ui_language = "ru"
             self.use_gender_ai = True
             self.use_youtube_subs = True
-            self.ui_language = "ru"
+            self.use_nlp_splitter = True
+            self.max_duration = 0
             self.source_lang = "en"
             self.langs = langs
             self.model_size = model_size
@@ -807,6 +810,18 @@ class AutoDubWorker(threading.Thread):
                 self.finished_signal.emit(False, "Invalid video file path")
                 return
             self.video_path = os.path.realpath(self.video_path)
+            
+            # Trim video if max_duration is set
+            max_duration = self.max_duration
+            if max_duration > 0:
+                self.log_signal.emit(f"✂️ Trimming video to {max_duration} seconds...")
+                base, ext = os.path.splitext(self.video_path)
+                trimmed_path = f"{base}_trimmed{ext}"
+                cmd = f'ffmpeg -y -i "{self.video_path}" -t {max_duration} -c copy "{trimmed_path}"'
+                self._run_subprocess(cmd)
+                if os.path.exists(trimmed_path):
+                    self.video_path = trimmed_path
+                self.log_signal.emit(f"✅ Video trimmed successfully: {self.video_path}")
 
             # Language-TTS compatibility check
             # Use IDs for internal logic to match frontend config
@@ -1384,8 +1399,8 @@ class AutoDubWorker(threading.Thread):
                         "audio=whisperx.load_audio(p['audio_path']);"
                         "res=m.transcribe(audio,batch_size=4);"
                         "print('LANG:'+res['language']);"
-                        "lang=res['language']; model_a, metadata = whisperx.load_align_model(language_code=lang, device='cpu');"
-                        "res=whisperx.align(res['segments'], model_a, metadata, audio, 'cpu', return_char_alignments=False);"
+                        "lang=res['language']; model_a, metadata = whisperx.load_align_model(language_code=lang, device=p['device']);"
+                        "res=whisperx.align(res['segments'], model_a, metadata, audio, p['device'], return_char_alignments=False);"
                         "out={'segments':[{'start':s['start'],'end':s['end'],'text':s['text'],'speaker':'SPEAKER_00'} for s in res['segments']],'language':lang};"
                         "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
                         "print(f'DONE:{len(out[\"segments\"])}')"

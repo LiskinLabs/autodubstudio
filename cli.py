@@ -1,7 +1,21 @@
 import argparse
 import sys
 import os
+import shutil
 import json
+
+# Fix for Windows PyTorch Audio / FFmpeg TorchCodec DLL issue
+if os.name == 'nt':
+    shared_ffmpeg_path = r"C:\Projects\AutoDubStudio\downloads\ffmpeg7\ffmpeg-7.1-full_build-shared\bin"
+    if os.path.exists(shared_ffmpeg_path):
+        os.environ["PATH"] = shared_ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
+        os.add_dll_directory(shared_ffmpeg_path)
+    else:
+        ffmpeg_path = shutil.which("ffmpeg")
+        if ffmpeg_path:
+            os.environ["PATH"] = os.path.dirname(ffmpeg_path) + os.pathsep + os.environ.get("PATH", "")
+            os.add_dll_directory(os.path.dirname(ffmpeg_path))
+
 from engine import AutoDubWorker
 
 def main():
@@ -13,7 +27,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda", help="Device to use (cuda/cpu)")
     parser.add_argument("--translator_engine", type=str, default="google", help="Translator engine (google, deepl, ollama, deepseek)")
     parser.add_argument("--dub_engine", type=str, default="xttsv2", help="TTS Dub Engine (xttsv2, gtts, edge)")
-    parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator")
+    parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator: gemma4:12b (High-end), gemma4:e4b (Medium), gemma4:e2b (Weak)")
     
     # API Keys
     parser.add_argument("--gemini_key", type=str, default="", help="Google Gemini API Key")
@@ -25,16 +39,17 @@ def main():
     parser.add_argument("--lip_sync", action="store_true", help="Enable Lip-Sync processing")
     parser.add_argument("--manual_mode", action="store_true", help="Pause pipeline for manual subtitle editing")
     parser.add_argument("--tag", type=str, default="", help="Custom tag for output filenames")
+    parser.add_argument("--max_duration", type=int, default=0, help="Maximum video duration in seconds (trims the beginning of the video)")
     
     args = parser.parse_args()
 
     config = {
         "video_path": args.video_path,
         "out_dir": args.out_dir,
-        "langs": args.langs, # Handled as string, engine parses commas
+        "langs": [l.strip() for l in args.langs.split(",") if l.strip()],
         "model_size": args.model_size,
         "device": args.device,
-        "translator_engine": args.translator_engine,
+        "translation_engine": args.translator_engine,
         "dub_engine": args.dub_engine,
         "translator_model": args.translator_model,
         "gemini_key": args.gemini_key,
@@ -43,11 +58,12 @@ def main():
         "hf_key": args.hf_key,
         "lip_sync": args.lip_sync,
         "manual_mode": args.manual_mode,
-        "tag": args.tag
+        "tag": args.tag,
+        "max_duration": args.max_duration
     }
 
     print(f"==================================================")
-    print(f"🎬 AutoDub Studio CLI v1.1 - Industrial Edition")
+    print(f"AutoDub Studio CLI v1.1 - Industrial Edition")
     print(f"==================================================")
     for k, v in config.items():
         if 'key' in k and v:
@@ -70,7 +86,7 @@ def main():
         
     def on_manual_edit(manual_subs):
         print("\n" + "="*50)
-        print("⏸ MANUAL MODE PAUSED")
+        print("MANUAL MODE PAUSED")
         print("="*50)
         edit_file = os.path.join(os.getcwd(), "manual_edit.json")
         with open(edit_file, "w", encoding="utf-8") as f:

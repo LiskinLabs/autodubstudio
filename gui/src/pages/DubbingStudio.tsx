@@ -37,6 +37,7 @@ interface Config {
   demucsModel: string; useGenderAI: boolean; useYoutubeSubs: boolean; useLipSync: boolean;
   whisperEngine: "whisper" | "whisperX";
   useNlpSplitter: boolean;
+  maxDuration: number;
 }
 
 const PIPELINE_STEPS = ["source", "demucs", "whisper", "translate", "tts", "mux"] as const;
@@ -297,7 +298,7 @@ export default function DubbingStudio() {
     autoMux: true, voiceCloning: false, audioSeparation: false,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
     demucsModel: "htdemucs_ft", useGenderAI: true, useYoutubeSubs: true, useLipSync: true,
-    whisperEngine: "whisperX", useNlpSplitter: true,
+    whisperEngine: "whisperX", useNlpSplitter: true, maxDuration: 0,
   });
   const [showConfigModal, setShowConfigModal] = useState<string | null>(null);
   const [tempKey, setTempKey] = useState<string>("");
@@ -536,6 +537,7 @@ export default function DubbingStudio() {
       translator_model: config.translatorModel,
       lip_sync: config.useLipSync,
       use_nlp_splitter: config.useNlpSplitter,
+      max_duration: config.maxDuration,
       user_glossary: userGlossary,
     });
   }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog, lang, userGlossary]);
@@ -845,6 +847,21 @@ export default function DubbingStudio() {
                 </div>
                 <div className="win11-form-control">
                   <Switch checked={config.useLipSync} onChange={(_, data) => updateConfig("useLipSync", data.checked)} />
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
+                  <div className="win11-form-label-text">{t("dubbing.adv.max_duration") || "Test Trim (Seconds)"}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.max_duration_desc") || "Set to 0 for full video. Useful for quick tests."}</div>
+                </div>
+                <div className="win11-form-control">
+                  <Input 
+                    type="number" 
+                    min={0}
+                    value={config.maxDuration.toString()} 
+                    onChange={(_, data) => updateConfig("maxDuration", parseInt(data.value, 10) || 0)} 
+                    style={{ width: "80px" }}
+                  />
                 </div>
               </div>
               <div className="win11-form-row">

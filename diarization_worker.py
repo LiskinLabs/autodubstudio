@@ -57,6 +57,10 @@ def main():
     print(f"Device: {device}")
 
     try:
+        hf_token = hf_token.strip()
+        if not hf_token:
+            print("Error: HF_TOKEN is empty! Pyannote 3.1 requires a valid Hugging Face token. Set it in the settings.")
+            sys.exit(3)
         # Use use_auth_token= (compatible with pyannote 3.1 depending on hf_hub version)
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
