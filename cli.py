@@ -40,6 +40,7 @@ def main():
     parser.add_argument("--manual_mode", action="store_true", help="Pause pipeline for manual subtitle editing")
     parser.add_argument("--tag", type=str, default="", help="Custom tag for output filenames")
     parser.add_argument("--max_duration", type=int, default=0, help="Maximum video duration in seconds (trims the beginning of the video)")
+    parser.add_argument("--local_only", action="store_true", help="Force local AI models only (disables cloud APIs)")
     
     args = parser.parse_args()
 
@@ -59,7 +60,8 @@ def main():
         "lip_sync": args.lip_sync,
         "manual_mode": args.manual_mode,
         "tag": args.tag,
-        "max_duration": args.max_duration
+        "max_duration": args.max_duration,
+        "local_only": args.local_only
     }
 
     print(f"==================================================")

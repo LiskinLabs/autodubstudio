@@ -479,7 +479,17 @@ class AutoDubWorker(threading.Thread):
             self.use_youtube_subs = cfg.get("use_youtube_subs", True)
             self.use_nlp_splitter = cfg.get("use_nlp_splitter", True)
             self.max_duration = cfg.get("max_duration", 0)
+            self.local_only = cfg.get("local_only", False)
             self.source_lang = cfg.get("source_lang", "en")
+            
+            # Enforce local_only restrictions
+            if self.local_only:
+                if "ollama" not in self.translator_engine.lower() and "llamacpp" not in self.translator_engine.lower() and "qwen" not in self.translator_engine.lower():
+                    self.translator_engine = "Ollama / Gemma 4 (Local AI, Slow)"
+                if "xtts" not in self.dub_engine.lower() and "f5" not in self.dub_engine.lower():
+                    self.dub_engine = "XTTS v2 (Local, Voice Clone)"
+                # Disable YouTube subs download as it hits external API
+                self.use_youtube_subs = False
         else:
             self.video_path = video_path
             # ── Reject URL-like out_dir even in positional mode ──
@@ -495,6 +505,7 @@ class AutoDubWorker(threading.Thread):
             self.use_youtube_subs = True
             self.use_nlp_splitter = True
             self.max_duration = 0
+            self.local_only = False
             self.source_lang = "en"
             self.langs = langs
             self.model_size = model_size

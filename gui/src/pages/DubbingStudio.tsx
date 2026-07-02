@@ -38,6 +38,7 @@ interface Config {
   whisperEngine: "whisper" | "whisperX";
   useNlpSplitter: boolean;
   maxDuration: number;
+  localOnly: boolean;
 }
 
 const PIPELINE_STEPS = ["source", "demucs", "whisper", "translate", "tts", "mux"] as const;
@@ -298,7 +299,7 @@ export default function DubbingStudio() {
     autoMux: true, voiceCloning: false, audioSeparation: false,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
     demucsModel: "htdemucs_ft", useGenderAI: true, useYoutubeSubs: true, useLipSync: true,
-    whisperEngine: "whisperX", useNlpSplitter: true, maxDuration: 0,
+    whisperEngine: "whisperX", useNlpSplitter: true, maxDuration: 0, localOnly: false,
   });
   const [showConfigModal, setShowConfigModal] = useState<string | null>(null);
   const [tempKey, setTempKey] = useState<string>("");
@@ -538,6 +539,7 @@ export default function DubbingStudio() {
       lip_sync: config.useLipSync,
       use_nlp_splitter: config.useNlpSplitter,
       max_duration: config.maxDuration,
+      local_only: config.localOnly,
       user_glossary: userGlossary,
     });
   }, [fileName, youtubeUrl, config, startPipeline, settings, isConnected, t, onLog, lang, userGlossary]);
@@ -851,8 +853,8 @@ export default function DubbingStudio() {
               </div>
               <div className="win11-form-row">
                 <div className="win11-form-label">
-                  <div className="win11-form-label-text">{t("dubbing.adv.max_duration") || "Test Trim (Seconds)"}</div>
-                  <div className="win11-form-label-desc">{t("dubbing.adv.max_duration_desc") || "Set to 0 for full video. Useful for quick tests."}</div>
+                  <div className="win11-form-label-text">{t("dubbing.adv.max_duration") || "Тестовый дубляж (сек)"}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.max_duration_desc") || "0 = полное видео. Укажите секунды для быстрого теста пайплайна."}</div>
                 </div>
                 <div className="win11-form-control">
                   <Input 
@@ -862,6 +864,15 @@ export default function DubbingStudio() {
                     onChange={(_, data) => updateConfig("maxDuration", parseInt(data.value, 10) || 0)} 
                     style={{ width: "80px" }}
                   />
+                </div>
+              </div>
+              <div className="win11-form-row">
+                <div className="win11-form-label">
+                  <div className="win11-form-label-text">{t("dubbing.adv.local_only") || "Локальный дубляж (Без облаков)"}</div>
+                  <div className="win11-form-label-desc">{t("dubbing.adv.local_only_desc") || "Строго запрещает отправку текста и аудио в облачные API (DeepL, Google). Работают только локальные ИИ."}</div>
+                </div>
+                <div className="win11-form-control">
+                  <Switch checked={config.localOnly} onChange={(_, data) => updateConfig("localOnly", data.checked)} />
                 </div>
               </div>
               <div className="win11-form-row">

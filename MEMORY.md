@@ -1,5 +1,18 @@
 # AutoDubStudio - Project Journal & Memory
 
+## [2026-07-02] Gemma 4 Integration, Video Trimming & Core Bug Fixes
+### 🎯 Current State & Hand-off
+- **Model Versatility:** Replaced hardcoded `gemma4:e4b` with dynamic model loading. Added `gemma4:12b` (High-end) and `gemma4:e2b` (Low-end) variants to UI and backend.
+- **Anti-Hallucination Regex:** Added `<think>` block stripping in `translator.py` to prevent Gemma 4 reasoning steps from breaking JSON outputs.
+- **Video Trimming (`max_duration`):** Added capability to trim videos via `ffmpeg` before processing for faster testing and debugging.
+- **Critical Fixes:** 
+  - Fixed WhisperX alignment to use GPU (`p['device']`) instead of CPU.
+  - Added strict Hugging Face token validation for Pyannote 3.1.
+  - Resolved PyTorch Audio / FFmpeg TorchCodec DLL loading issues on Windows.
+- **All changes committed** to master branch.
+
+---
+
 ## [2026-06-30] UI/UX Audit & Accessibility Fixes (Fluent UI strict compliance)
 ### 🎯 Current State & Hand-off
 - **UI/UX Crash Recovery:** Subagents hit API quota limits (`RESOURCE_EXHAUSTED`). Manually intervened to apply all critical UI/UX fixes.

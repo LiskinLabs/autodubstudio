@@ -401,7 +401,7 @@ class Translator:
             num_gpu = 99 if vram_free_mb > 6000 else (30 if vram_free_mb > 4000 else 24)
 
             # Build system prompt for JSON output (no "format": "json" — breaks Cyrillic)
-            system_msg = "You are a professional subtitle translator. Always output valid JSON exactly as requested. Never add explanations outside the JSON."
+            system_msg = "You are a professional subtitle translator. Always output valid JSON exactly as requested. Never add explanations outside the JSON. ANTI-HALLUCINATION: If a phrase is untranslatable, meaningless, or lacks context, return the original text or 'null'. Do NOT invent or hallucinate information."
             messages = [
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt},
@@ -639,6 +639,7 @@ Rules:
 - Each segment: {{"text": "improved translation", "skip_dub": false}}
 - Keep names/brands/tech terms unchanged{glossary_text}\n- CRITICAL: "text" MUST NOT exceed the "Max length" character limit! Shorten the translation if needed.
 - If the Draft is already perfect, copy it as-is
+- ANTI-HALLUCINATION: If a phrase is meaningless, untranslatable, or lacks context, return the Draft as-is or "null". DO NOT invent text, do not add commentary, do not explain jokes.
 
 Video Context:\n{context_summary}\n\nDialogue:\n{full_text}
 
