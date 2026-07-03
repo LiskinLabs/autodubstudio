@@ -1,5 +1,6 @@
 .venv/
 .venv-xtts/
+.venv-whisperx/
 __pycache__/
 downloads/
 models/
@@ -21,3 +22,8 @@ gui/src-tauri/target/
 .env
 github_token.txt
 *.ps1
+# IDE / OS
+.vscode/
+.idea/
+*.zip
+Thumbs.db

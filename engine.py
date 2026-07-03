@@ -3,6 +3,113 @@ import re
 import shutil
 import subprocess
 import sys
+
+# ── Language detection for bilingual subtitle processing ──
+# Uses langdetect library (55 languages) with fallback to character-based heuristics
+try:
+    import langdetect as _langdetect
+    # Seed the detector for deterministic results
+    from langdetect import DetectorFactory
+    DetectorFactory.seed = 0
+    _HAS_LANGDETECT = True
+except ImportError:
+    _HAS_LANGDETECT = False
+
+# Characters unique to specific scripts (fallback when langdetect is unavailable)
+_SCRIPT_CHARS = {
+    "es": set("áéíóúüñ¿¡"),
+    "ru": set("абвгдеёжзийклмнопрстуфхцчшщъыьэюя"),
+    "tr": set("ğışçöüİĞŞÇÖÜ"),
+    "ar": set("ابتثجحخدذرزسشصضطظعغفقكلمنهوي"),
+    "zh": set("的一是不了在有人我他这为之来以个们到说"),  # Common CJK
+    "ja": set("のはがでをにたてとしすいるまな"),  # Hiragana
+    "ko": set("이것은그리고그래서때문에에서의"),  # Common Hangul
+    "hi": set("अआइईउऊएऐओऔकखगघचछजझटठडढणतथदधनपफबभमयरलवशषसह"),
+    "th": set("กขคงจฉชซฎฐณดตถทธนบปผฝพฟภมยรลวศษสหอ"),
+}
+
+
+def detect_language(text: str) -> str:
+    """Detect language of a short text segment.
+    Uses langdetect (55 languages) when available, falls back to character heuristics.
+    Returns ISO 639-1 language code or 'unknown'."""
+    if not text or not text.strip():
+        return "unknown"
+
+    text_clean = text.strip()
+
+    # Try langdetect first (most accurate)
+    if _HAS_LANGDETECT:
+        try:
+            # langdetect needs at least a few characters to be reliable
+            if len(text_clean) > 5:
+                result = _langdetect.detect(text_clean)[:2].lower()
+                # langdetect can misidentify short phrases as rare languages.
+                # Verify with common English words; fall back to "unknown" otherwise
+                # (the engine will use Whisper's base language for unknown segments).
+                _RARE_CONFUSIONS = {"af", "fy", "cy", "sw", "fr", "ga", "gd", "la", "so"}
+                if result in _RARE_CONFUSIONS:
+                    _COMMON_EN = {"the", "is", "are", "was", "this", "that", "with",
+                                  "what", "when", "who", "how", "you", "your", "for",
+                                  "and", "but", "not", "have", "has", "good", "work",
+                                  "job", "time", "years", "interview", "company",
+                                  "team", "thank", "welcome", "please", "morning",
+                                  "practice", "questions", "experience", "engineer",
+                                  "salary", "video", "subscribe", "channel", "like"}
+                    text_words = set(re.findall(r"\w+", text_clean.lower()))
+                    if text_words & _COMMON_EN:
+                        return "en"
+                    return "unknown"  # Don't trust rare language codes
+                return result
+        except Exception:
+            pass  # Fall through to heuristics
+
+    # Fallback: character-based detection
+    for lang, chars in _SCRIPT_CHARS.items():
+        if any(c in text_clean for c in chars):
+            return lang
+
+    return "unknown"
+
+
+def split_bilingual_text(text: str) -> list[tuple[str, str]]:
+    """Split mixed-language text into (text, language) chunks.
+    E.g. 'Hola, ¿cómo estás? Good morning, welcome.' →
+    [('Hola, ¿cómo estás?', 'es'), ('Good morning, welcome.', 'en')]
+    """
+    if not text or not text.strip():
+        return [(text, "unknown")]
+
+    # Split into sentences
+    sentences = re.split(r"(?<=[.!?¡¿])\s+", text.strip())
+    if len(sentences) <= 1:
+        lang = detect_language(text)
+        return [(text, lang)]
+
+    # Detect language per sentence, then group consecutive same-language sentences
+    chunks = []
+    current_chunk = []
+    current_lang = None
+
+    for sent in sentences:
+        sent = sent.strip()
+        if not sent:
+            continue
+        lang = detect_language(sent)
+
+        if lang == current_lang or current_lang is None:
+            current_chunk.append(sent)
+            current_lang = lang
+        else:
+            if current_chunk:
+                chunks.append((" ".join(current_chunk), current_lang or "unknown"))
+            current_chunk = [sent]
+            current_lang = lang
+
+    if current_chunk:
+        chunks.append((" ".join(current_chunk), current_lang or "unknown"))
+
+    return chunks if chunks else [(text, "unknown")]
 import threading
 import warnings
 
@@ -458,7 +565,7 @@ class AutoDubWorker(threading.Thread):
             target_langs = cfg.get("target_langs", cfg.get("langs", ["en"]))
             self.langs = {lang: f"{lang}-default" for lang in target_langs}
             self.model_size = cfg.get("whisper_model", "large-v3")
-            self.whisper_engine = cfg.get("whisper_engine", "whisper")
+            self.whisper_engine = cfg.get("whisper_engine", "whisperX")
             self.device = cfg.get("device", "cpu")
             self.translator_engine = cfg.get(
                 "translation_engine", "Google Translate (Free)"
@@ -472,6 +579,7 @@ class AutoDubWorker(threading.Thread):
             self.hf_key = cfg.get("hf_key", "")
             self.manual_mode = cfg.get("manual_mode", False)
             self.lip_sync = cfg.get("lip_sync", False)
+            self.lip_sync_engine = cfg.get("lip_sync_engine", "off")
             self.tag = cfg.get("tag", "")
             self.demucs_model = cfg.get("demucs_model", "htdemucs_ft")
             self.ui_language = cfg.get("ui_language", "ru")
@@ -519,6 +627,7 @@ class AutoDubWorker(threading.Thread):
             self.manual_mode = manual_mode
             self.translator_model = translator_model
             self.lip_sync = False
+            self.lip_sync_engine = "off"
 
         self.translator = Translator(
             self.translator_engine,
@@ -677,6 +786,8 @@ class AutoDubWorker(threading.Thread):
             "subtitleslangs": [getattr(self, "source_lang", "en"), "en"],
             "quiet": True,
             "no_warnings": True,
+            "retries": 10,
+            "fragment_retries": 10,
             "postprocessors": [
                 {
                     "key": "FFmpegSubtitlesConvertor",
@@ -1322,6 +1433,13 @@ class AutoDubWorker(threading.Thread):
                         for sub in subs:
                             start_s = sub.start.ordinal / 1000.0
                             end_s = sub.end.ordinal / 1000.0
+                            
+                            if getattr(self, "max_duration", 0) > 0:
+                                if start_s >= self.max_duration:
+                                    continue
+                                if end_s > self.max_duration:
+                                    end_s = float(self.max_duration)
+                                    
                             text = re.sub(  # noqa: F821
                                 r"<[^>]+>", "", sub.text.replace("\n", " ")
                             ).strip()
@@ -1348,6 +1466,36 @@ class AutoDubWorker(threading.Thread):
                                         continue
                                 deduped.append(seg)
                             segments = deduped
+                            # ── Bilingual split: detect and separate mixed-language segments ──
+                            bilingual_splits = 0
+                            bilingual_segments = []
+                            for seg in segments:
+                                chunks = split_bilingual_text(seg["text"])
+                                if len(chunks) > 1:
+                                    bilingual_splits += 1
+                                    seg_dur = seg["end"] - seg["start"]
+                                    total_chars = sum(len(c[0]) for c in chunks)
+                                    current_start = seg["start"]
+                                    for chunk_text, chunk_lang in chunks:
+                                        ratio = len(chunk_text) / max(1, total_chars)
+                                        chunk_dur = seg_dur * ratio
+                                        bilingual_segments.append({
+                                            "start": current_start,
+                                            "end": current_start + chunk_dur,
+                                            "text": chunk_text.strip(),
+                                            "speaker": seg.get("speaker", "SPEAKER_00"),
+                                            "language": chunk_lang,
+                                        })
+                                        current_start += chunk_dur
+                                else:
+                                    lang = detect_language(seg["text"])
+                                    seg["language"] = lang
+                                    bilingual_segments.append(seg)
+                            if bilingual_splits > 0:
+                                segments = bilingual_segments
+                                self.log_signal.emit(
+                                    f"  [BILINGUAL] Split {bilingual_splits} mixed-language segments into {len(segments)} total."
+                                )
                             self.log_signal.emit(
                                 f"  > Loaded {len(segments)} segments from YouTube Subtitles ({os.path.basename(srt_files[0])})."
                             )
@@ -1374,91 +1522,52 @@ class AutoDubWorker(threading.Thread):
                 )
                 # ── Run Whisper in subprocess for guaranteed VRAM cleanup ──
                 import json as _json  # noqa: PLC0415
+                import tempfile
 
                 whisper_json_path = os.path.join(
                     self.out_dir, f".autodub_{base_name}_whisper_out.json"
                 )
-                # Write params as JSON to avoid escaping issues with paths
-                whisper_params = _json.dumps(
-                    {
-                        "model_size": self.model_size,
-                        "device": self.device,
-                        "audio_path": transcribe_path,
-                        "output_path": whisper_json_path,
-                    }
-                )
+                
+                param_dict = {
+                    "model_size": self.model_size,
+                    "device": self.device,
+                    "audio_path": transcribe_path,
+                    "output_path": whisper_json_path,
+                    "engine_type": self.whisper_engine,
+                    "use_multi_lang": True,
+                    "hf_token": getattr(self, "hf_key", "") or "",
+                }
+                
+                fd, params_file = tempfile.mkstemp(suffix=".json")
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    _json.dump(param_dict, f, ensure_ascii=False)
+
+                # Use WhisperX venv for word-level alignment; main venv for standard Whisper
                 if self.whisper_engine == "whisperX":
-                    whisper_code = (
-                        "import sys,json,warnings,types; warnings.filterwarnings('ignore'); p=json.loads(sys.argv[1]);"
-                        "m=types.ModuleType('speechbrain.integrations.k2_fsa'); m.__file__='mock_k2_fsa'; m.__path__=[]; sys.modules['speechbrain.integrations.k2_fsa']=m;"
-                        "m=types.ModuleType('speechbrain.integrations.nlp'); m.__file__='mock_nlp'; m.__path__=[]; sys.modules['speechbrain.integrations.nlp']=m;\n"
-                        "try:\n"
-                        "    import transformers.utils.import_utils; import transformers.modeling_utils;\n"
-                        "    transformers.utils.import_utils.check_torch_load_is_safe = lambda: None;\n"
-                        "    transformers.modeling_utils.check_torch_load_is_safe = lambda: None;\n"
-                        "except:\n"
-                        "    pass\n"
-                        "try:\n"
-                        "    import nltk\n"
-                        "    nltk.download('punkt_tab',quiet=True)\n"
-                        "    nltk.download('averaged_perceptron_tagger_eng',quiet=True)\n"
-                        "except:\n"
-                        "    pass\n"
-                        "import whisperx;"
-                        "ct='int8';"
-                        "m=whisperx.load_model(p['model_size'],p['device'],compute_type=ct,vad_method='silero');"
-                        "audio=whisperx.load_audio(p['audio_path']);"
-                        "res=m.transcribe(audio,batch_size=4);"
-                        "print('LANG:'+res['language']);"
-                        "lang=res['language']; model_a, metadata = whisperx.load_align_model(language_code=lang, device=p['device']);"
-                        "res=whisperx.align(res['segments'], model_a, metadata, audio, p['device'], return_char_alignments=False);"
-                        "out={'segments':[{'start':s['start'],'end':s['end'],'text':s['text'],'speaker':'SPEAKER_00'} for s in res['segments']],'language':lang};"
-                        "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
-                        "print(f'DONE:{len(out[\"segments\"])}')"
-                    )
+                    whisper_python = _resolve_venv_python(".venv-whisperx")
                 else:
-                    whisper_code = (
-                        "import sys,json; p=json.loads(sys.argv[1]);"
-                        "from faster_whisper import WhisperModel;"
-                        "ct='int8';"
-                        "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
-                        "segs,info=m.transcribe(p['audio_path'],beam_size=5,vad_filter=True,vad_parameters=dict(min_silence_duration_ms=500));"
-                        "print('LANG:'+info.language);"
-                        "out={'segments':[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs],'language':info.language};"
-                        "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
-                        "print(f'DONE:{len(out[\"segments\"])}')"
-                    )
+                    whisper_python = get_python_exe()
+
                 try:
                     self._run_subprocess(
-                        [get_python_exe(), "-c", whisper_code, whisper_params],
+                        [whisper_python, "backend/whisper_multi_worker.py", params_file],
                         check=True,
                         timeout=14400,
                     )
                 except subprocess.CalledProcessError as e:
-                    if self.whisper_engine == "whisperX":
-                        self.log_signal.emit(f"⚠️ WhisperX failed (segfault or error {e.returncode}). Falling back to faster_whisper...")
-                        whisper_code_fallback = (
-                            "import sys,json; p=json.loads(sys.argv[1]);"
-                            "from faster_whisper import WhisperModel;"
-                            "ct='int8';"
-                            "m=WhisperModel(p['model_size'],device=p['device'],compute_type=ct);"
-                            "segs,info=m.transcribe(p['audio_path'],beam_size=5,vad_filter=True,vad_parameters=dict(min_silence_duration_ms=500));"
-                            "print('LANG:'+info.language);"
-                            "out={'segments':[{'start':s.start,'end':s.end,'text':s.text,'speaker':'SPEAKER_00'} for s in segs],'language':info.language};"
-                            "json.dump(out,open(p['output_path'],'w',encoding='utf-8'),ensure_ascii=False);"
-                            "print(f'DONE:{len(out[\"segments\"])}')"
-                        )
-                        self._run_subprocess(
-                            [get_python_exe(), "-c", whisper_code_fallback, whisper_params],
-                            check=True,
-                            timeout=14400,
-                        )
-                    else:
-                        raise
+                    self.log_signal.emit(f"⚠️ Whisper failed (error {e.returncode}). Check logs.")
+                finally:
+                    if os.path.exists(params_file):
+                        os.remove(params_file)
+
                 with open(whisper_json_path, "r", encoding="utf-8") as f:
                     whisper_data = _json.load(f)
                 segments = whisper_data["segments"]
                 source_lang = whisper_data.get("language", "en")
+                # ── Ensure every segment has a language field (SpeechBrain may have failed) ──
+                for seg in segments:
+                    if not seg.get("language"):
+                        seg["language"] = source_lang
                 all_created_files.append(whisper_json_path)
 
                 # --- NLP Splitting ---
@@ -1476,6 +1585,23 @@ class AutoDubWorker(threading.Thread):
                         self.log_signal.emit(
                             f"✂️ Фразы были умнее разделены: {old_count} -> {len(segments)} сегментов."
                         )
+
+                # ── Text-based language re-detection AFTER NLP splitting ──
+                # Must run AFTER splitting so English sentences are separated from Russian
+                # segments and can be correctly identified by langdetect.
+                lang_corrections = 0
+                for seg in segments:
+                    text_lang = detect_language(seg.get("text", ""))
+                    audio_lang = seg.get("language", "")
+                    if text_lang != "unknown" and text_lang != audio_lang:
+                        seg["language"] = text_lang
+                        lang_corrections += 1
+                    elif not seg.get("language"):
+                        seg["language"] = text_lang if text_lang != "unknown" else source_lang
+                if lang_corrections > 0:
+                    self.log_signal.emit(
+                        f"  [BILINGUAL] Language tags corrected for {lang_corrections}/{len(segments)} segments using text-based detection"
+                    )
 
                 self.log_signal.emit(
                     _pipeline_t("segments_found", self.ui_language, n=len(segments))
@@ -1526,6 +1652,32 @@ class AutoDubWorker(threading.Thread):
                         [get_python_exe(), diar_script, diar_audio, diar_json],
                         check=True
                     )
+                    
+                    if os.path.exists(diar_json):
+                        import json as _json  # noqa: PLC0415
+                        with open(diar_json, "r", encoding="utf-8") as f:
+                            diar_data = _json.load(f)
+                        
+                        for seg in segments:
+                            seg_start = seg["start"]
+                            seg_end = seg["end"]
+                            best_speaker = seg.get("speaker", "SPEAKER_00")
+                            max_overlap = 0
+                            
+                            for turn in diar_data:
+                                overlap = max(0, min(seg_end, turn["end"]) - max(seg_start, turn["start"]))
+                                if overlap > max_overlap:
+                                    max_overlap = overlap
+                                    best_speaker = turn["speaker"]
+                                    
+                            seg["speaker"] = best_speaker
+                            
+                        _save_checkpoint("trimmed_segments", segments)
+                        unique_spks = len(set(s.get("speaker", "SPEAKER_00") for s in segments))
+                        self.log_signal.emit(
+                            _pipeline_t("diarization_done", self.ui_language, pyannote=len(set(t["speaker"] for t in diar_data)), n=unique_spks)
+                        )
+
                 except Exception as e:
                     self.log_signal.emit(
                         f"  [!] Ошибка диаризации: {e}. Будет использован один спикер."
@@ -1534,13 +1686,15 @@ class AutoDubWorker(threading.Thread):
             _set_model_status("pyannote", "done")
             self.progress_signal.emit(35)
 
-            # 3.5 — Save original English subtitles
+            # 3.5 — Save original subtitles with language tags
             orig_srt_path = os.path.join(self.out_dir, f"{base_name}_original.srt")
             all_created_files.append(orig_srt_path)
             with open(orig_srt_path, "w", encoding="utf-8") as f:
                 for idx, s in enumerate(segments):
+                    seg_lang = s.get("language", source_lang or "en")
+                    lang_tag = f"[{seg_lang[:2].upper()}] " if seg_lang else ""
                     f.write(
-                        f"{idx + 1}\n{self.format_timestamp(s['start'])} --> {self.format_timestamp(s['end'])}\n{s['text'].strip()}\n\n"
+                        f"{idx + 1}\n{self.format_timestamp(s['start'])} --> {self.format_timestamp(s['end'])}\n{lang_tag}{s['text'].strip()}\n\n"
                     )
             self.log_signal.emit(_pipeline_t("subtitles_saved", self.ui_language))
 
@@ -1599,6 +1753,14 @@ class AutoDubWorker(threading.Thread):
                         self._check_cancelled,
                         ui_language=self.ui_language,
                     )
+                    
+                    # Post-processing: restore original text and skip dubbing if segment language matches target language
+                    for seg, orig_seg in zip(translated_segments, segments):
+                        seg_lang = orig_seg.get("language", "")
+                        if seg_lang and seg_lang[:2].lower() == lang[:2].lower():
+                            seg["skip_dub"] = True
+                            seg["text"] = orig_seg["text"]
+                            
                     _save_checkpoint(f"translated_{lang}", translated_segments)
 
                 # Progress: 35% + translation portion (15% of total range per lang)
@@ -1630,6 +1792,7 @@ class AutoDubWorker(threading.Thread):
                     if self.edited_segments:
                         translated_segments = self.edited_segments
 
+                # ── Save translated SRT (single-language output) ──
                 with open(srt_path, "w", encoding="utf-8") as f:
                     for idx, tseg in enumerate(translated_segments):
                         text_val = tseg.get('text') or ""
@@ -1637,9 +1800,54 @@ class AutoDubWorker(threading.Thread):
                             f"{idx + 1}\n{self.format_timestamp(tseg['start'])} --> {self.format_timestamp(tseg['end'])}\n{text_val.strip()}\n\n"
                         )
 
+                # ── Save bilingual SRT (original + translation) ──
+                bilingual_srt_path = os.path.join(self.out_dir, f"{base_name}_{lang}_bilingual.srt")
+                all_created_files.append(bilingual_srt_path)
+                with open(bilingual_srt_path, "w", encoding="utf-8") as f:
+                    for idx, (tseg, oseg) in enumerate(zip(translated_segments, segments)):
+                        orig_text = oseg.get('text', '').strip()
+                        trans_text = tseg.get('text', '').strip()
+                        orig_lang = oseg.get('language', source_lang or 'en')
+                        orig_tag = orig_lang[:2].upper() if orig_lang else "??"
+                        target_tag = lang[:2].upper()
+
+                        if tseg.get("skip_dub"):
+                            # Segment already in target language — show original only
+                            subtitle_text = f"[{orig_tag}] {orig_text}"
+                        elif orig_text == trans_text:
+                            # No translation needed or same text
+                            subtitle_text = f"[{orig_tag}] {orig_text}"
+                        else:
+                            # Bilingual output: original + translation
+                            subtitle_text = f"[{orig_tag}] {orig_text}\n[{target_tag}] {trans_text}"
+
+                        f.write(
+                            f"{idx + 1}\n{self.format_timestamp(tseg['start'])} --> {self.format_timestamp(tseg['end'])}\n{subtitle_text}\n\n"
+                        )
+                self.log_signal.emit(
+                    f"  📝 Bilingual subtitles saved: {os.path.basename(bilingual_srt_path)}"
+                    f" ({sum(1 for t in translated_segments if t.get('skip_dub'))} segments kept in original language)"
+                )
+
                 # --- TTS Logic ---
                 _set_model_status("translate", "done")
                 _set_pipeline_step("tts", 4)
+
+                # Subtitles-only mode: skip TTS entirely but still add subtitle tracks to ffmpeg
+                if engine_id == "none":
+                    _set_model_status("tts", "done")
+                    self.log_signal.emit(
+                        f"  [SUB] Subtitles-only mode — skipping TTS for {lang}"
+                    )
+                    # Add SRT file as ffmpeg input (same pattern as normal TTS path)
+                    ffmpeg_inputs.extend(["-i", srt_path])
+                    dubbed_subtitle_tracks.append({
+                        "lang": lang,
+                        "sub_file_idx": file_idx,
+                    })
+                    file_idx += 1
+                    continue  # Skip to next language
+
                 _set_model_status("tts", "running")
                 _set_engine_info("tts", engine_id)
 
@@ -1649,6 +1857,76 @@ class AutoDubWorker(threading.Thread):
                 # Pre-extract skip_dub segments
                 vocals_full = AudioSegment.from_file(transcribe_path)
                 tts_segments = []
+
+                # ── Shared: Select best reference audio per speaker + gender detection ──
+                # Runs for all TTS engines (XTTSv2, Edge-TTS) — not just XTTSv2
+                speaker_refs = {}
+                for s in segments:
+                    spk = s.get("speaker", "SPEAKER_00")
+                    dur = s["end"] - s["start"]
+                    text = s.get("text", "").strip()
+                    word_count = len(text.split())
+                    if dur > 0.5 and word_count > 0:
+                        wps = word_count / dur
+                        if 3.0 <= dur <= 8.0:
+                            dur_bonus = 1.0
+                        elif dur < 3.0:
+                            dur_bonus = dur / 3.0
+                        else:
+                            dur_bonus = max(0.3, 8.0 / dur)
+                        score = wps * dur_bonus
+                        if spk not in speaker_refs or score > speaker_refs[spk]["score"]:
+                            speaker_refs[spk] = {
+                                "dur": dur, "start": s["start"], "end": s["end"],
+                                "text": text, "score": score, "wps": wps,
+                            }
+
+                # Extract reference audio files and run gender detection (all TTS engines)
+                for spk, ref in speaker_refs.items():
+                    ref_path = os.path.join(self.out_dir, f"ref_{spk}.wav")
+                    if not os.path.exists(ref_path):
+                        ref_audio_segment = vocals_full[int(ref["start"] * 1000) : int(ref["end"] * 1000)]
+                        ref_audio_segment.set_frame_rate(22050).set_channels(1).set_sample_width(2).export(ref_path, format="wav")
+                    ref["path"] = ref_path
+                    all_created_files.append(ref_path)
+
+                if self.use_gender_ai and speaker_refs:
+                    try:
+                        gender_tasks = [
+                            {"speaker_id": spk, "audio_path": ref["path"]}
+                            for spk, ref in speaker_refs.items()
+                        ]
+                        if gender_tasks:
+                            gender_tasks_file = os.path.join(self.out_dir, "gender_tasks.json")
+                            gender_out_file = os.path.join(self.out_dir, "gender_out.json")
+                            import json as _json_gender
+                            with open(gender_tasks_file, "w", encoding="utf-8") as f:
+                                _json_gender.dump(gender_tasks, f)
+                            gender_py = _resolve_venv_python(".venv")
+                            gender_script = os.path.join(os.path.dirname(__file__), "gender_worker.py")
+                            self._run_subprocess(
+                                [gender_py, gender_script, gender_tasks_file, gender_out_file],
+                                check=True, timeout=120,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            )
+                            with open(gender_out_file, "r", encoding="utf-8") as f:
+                                gender_results = _json_gender.load(f)
+                            for spk, gen in gender_results.items():
+                                speaker_refs[spk]["gender"] = gen
+                            # Update all segments with detected gender
+                            for seg in segments:
+                                spk = seg.get("speaker", "SPEAKER_00")
+                                if spk in gender_results:
+                                    seg["gender"] = gender_results[spk]
+                            for tseg in translated_segments:
+                                spk = tseg.get("speaker", "SPEAKER_00")
+                                if spk in gender_results:
+                                    tseg["gender"] = gender_results[spk]
+                            self.log_signal.emit(
+                                f"  [GENDER] Detected: {', '.join(f'{s}={g}' for s, g in gender_results.items())}"
+                            )
+                    except Exception as e:
+                        self.log_signal.emit(f"  [GENDER] Detection skipped: {e}")
 
                 for idx, tseg in enumerate(translated_segments):
                     ext = "wav" if use_xtts else "mp3"
@@ -1703,9 +1981,8 @@ class AutoDubWorker(threading.Thread):
 
                     for spk, ref in speaker_refs.items():
                         ref_path = os.path.join(self.out_dir, f"ref_{spk}.wav")
-                        vocals_full[
-                            int(ref["start"] * 1000) : int(ref["end"] * 1000)
-                        ].export(ref_path, format="wav")
+                        ref_audio_segment = vocals_full[int(ref["start"] * 1000) : int(ref["end"] * 1000)]
+                        ref_audio_segment.set_frame_rate(22050).set_channels(1).set_sample_width(2).export(ref_path, format="wav")
                         ref["path"] = ref_path
                         all_created_files.append(ref_path)
                         self.log_signal.emit(
@@ -2048,6 +2325,35 @@ class AutoDubWorker(threading.Thread):
                                 )
                                 clip = AudioSegment.from_file(stretched_cp)
                                 all_created_files.append(stretched_cp)
+                                
+                        # Apply Acoustic Reverb to synthesized TTS audio
+                        if not tseg.get("skip_dub", False):
+                            try:
+                                from pedalboard import Pedalboard, Reverb
+                                import numpy as np
+                                
+                                board = Pedalboard([Reverb(room_size=0.4, damping=0.6, wet_level=0.15, dry_level=0.9, width=1.0)])
+                                samples = np.array(clip.get_array_of_samples(), dtype=np.float32) / 32768.0
+                                
+                                if clip.channels == 2:
+                                    samples = samples.reshape((-1, 2)).T
+                                else:
+                                    samples = samples.reshape((1, -1))
+                                    
+                                effected = board(samples, clip.frame_rate)
+                                effected = (effected * 32768.0).clip(-32768, 32767).astype(np.int16)
+                                
+                                if clip.channels == 2:
+                                    effected = effected.T.flatten()
+                                else:
+                                    effected = effected.flatten()
+                                    
+                                clip = clip._spawn(effected.tobytes())
+                            except ImportError:
+                                pass # Pedalboard not installed
+                            except Exception as e:
+                                self.log_signal.emit(f"  ⚠ Reverb error: {e}")
+
                         # Смягчаем границы: fade-in/out по 50ms — плавные переходы без обрывов
                         clip = clip.fade_in(50).fade_out(50)
                         tts_only = tts_only.overlay(clip, position=int(start_t * 1000))

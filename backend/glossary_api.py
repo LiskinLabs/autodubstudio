@@ -94,39 +94,66 @@ def generate_glossary(body: GlossaryGenerate):
     if not body.transcript:
         raise HTTPException(status_code=400, detail="Transcript is required")
 
-    # Try to use Gemini
+    # Try to use Gemma4 via Translator class
     try:
-        import google.genai as genai  # noqa: PLC0415
-
+        from .translator import Translator
+        
         config_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "config.json"
         )
         gemini_key = ""
+        engine = "ollama"
+        model = "gemma4:e4b"
+        
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
                 gemini_key = cfg.get("gemini_key", "")
+                engine = cfg.get("translator_engine", "ollama")
+                model = cfg.get("translator_model", "gemma4:e4b")
 
-        if not gemini_key:
-            raise HTTPException(status_code=400, detail="Gemini API key not configured")
-
-        client = genai.Client(api_key=gemini_key)
-        prompt = (
-            f"You are a professional translator. Read the following transcript excerpt and "
-            f"identify key terms, names, and specialized vocabulary that should be kept "
-            f"consistent across translations from {body.source_lang} to {body.target_lang}.\n\n"
-            f"Transcript:\n{body.transcript[:3000]}\n\n"
-            f"Return a JSON object with an 'items' array. Each item has 'source' (original term) "
-            f"and 'target' (recommended translation). Return ONLY valid JSON, no markdown."
+        # Create dummy segments from transcript for the Translator
+        segments = [{"text": body.transcript[:10000]}]
+        
+        translator = Translator(
+            engine_name=engine,
+            gemini_key=gemini_key,
+            translator_model=model,
+            device="cuda" # assume cuda
         )
-        response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
-        )
-        text = response.text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-        data = json.loads(text)
-        return {"items": data.get("items", [])}
+        
+        # Use our new generate_glossary method inside Translator
+        raw_text = translator.generate_glossary(segments, target_lang=body.target_lang, max_terms=15)
+        
+        items = []
+        if raw_text:
+            for line in raw_text.split("\n"):
+                if "=" in line:
+                    parts = line.split("=", 1)
+                    items.append({"source": parts[0].strip(), "target": parts[1].strip()})
+                    
+        # Provide fallback if Gemma4 failed
+        if not items and gemini_key:
+            import google.genai as genai
+            client = genai.Client(api_key=gemini_key)
+            prompt = (
+                f"You are a professional translator. Read the following transcript excerpt and "
+                f"identify key terms, names, and specialized vocabulary that should be kept "
+                f"consistent across translations from {body.source_lang} to {body.target_lang}.\n\n"
+                f"Transcript:\n{body.transcript[:3000]}\n\n"
+                f"Return a JSON object with an 'items' array. Each item has 'source' (original term) "
+                f"and 'target' (recommended translation). Return ONLY valid JSON, no markdown."
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=prompt
+            )
+            text = response.text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+            data = json.loads(text)
+            items = data.get("items", [])
+            
+        return {"items": items}
     except HTTPException:
         raise
     except Exception as e:

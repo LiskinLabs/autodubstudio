@@ -1,10 +1,10 @@
-# 🎬 AutoDub Studio v0.0.1 Beta
+# 🎬 AutoDub Studio v0.0.2 Beta
 
-**Yapay Zeka Destekli Video Dublaj Sistemi** / **Система ИИ-Дубляжа Видео**
-Локальное десктоп-приложение для Windows 11 для профессионального перевода и дубляжа видео с использованием ИИ.
+**AI-Powered Video Dubbing Pipeline** / **Система ИИ-Дубляжа Видео**
+Desktop app (Windows 11) for professional AI video translation and dubbing.
 
-> Транскрибация → Перевод → Озвучка (14 языков) → MKV
-> Всё локально. Всё бесплатно. Интерфейс: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
+> Transcription → Translation → Voice-over (14+ languages) → MKV
+> Fully local. Free. UI: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
 
 <p align="center">
   <img src="gui/public/logo-icon.png" alt="AutoDub Studio" width="128"/>
@@ -12,69 +12,126 @@
 
 ---
 
-## 🪟 Нативный интерфейс Windows 11
+## 🆕 v0.0.2 — What's New
 
-- **Fluent UI v9** — Официальная библиотека компонентов Microsoft.
-- **Mica-эффект** — Нативная прозрачность окон Windows 11.
-- **3 Темы** — Светлая, Темная, Тусклая (Teams Dark).
-- **Мультиязычность** — Полная поддержка русского, английского и турецкого языков.
+- **Bilingual Video Support** — Auto-detect multiple languages in a single video (ES+EN, RU+EN, etc.). Each segment tagged with correct language.
+- **Smart Skip** — When dubbing to language X, segments already in language X are kept as original (not re-dubbed).
+- **WhisperX (Default)** — Word-level alignment for higher quality transcription. Falls back to standard Faster-Whisper.
+- **NLP Sentence Splitter** — Spacy-based smart segmentation (EN/RU/ES + multi-lang fallback). Splits long Whisper segments into natural sentences.
+- **Gender Detection v2** — Cross-lingual XLSR-53 model + pitch-based fallback. Works for ALL TTS engines (XTTSv2 AND Edge-TTS).
+- **Dual-Language Subtitles** — Output includes `_original.srt` (with language tags), `_LANG.srt` (translation), and `_LANG_bilingual.srt` (original + translation side-by-side).
+- **Subtitles-Only Mode** — `dub_engine=none` now truly skips TTS generation.
+- **Quality Fallback Chain** — Translation: DeepL → Gemini/DeepSeek → Google Translate → Ollama. TTS: XTTSv2 → Edge-TTS → Subtitles-only.
+- **langdetect Integration** — 55-language text-based detection for accurate per-segment language tagging.
 
 ---
 
-## 🚀 Возможности
+## 🪟 Windows 11 Native Interface
 
-### Пайплайн (Process Flow)
+- **Fluent UI v9** — Microsoft's official component library.
+- **Mica effect** — Native Windows 11 window transparency.
+- **3 Themes** — Light, Dark, Dim (Teams Dark).
+- **3 Languages** — Full RU, EN, TR localization.
 
-| Шаг | Технология | Статус | Описание |
-|------|-----------|-------|----------|
-| 📥 **Загрузка** | yt-dlp | ✅ | Поддержка любых ссылок (YouTube, X, TikTok) или локальных файлов |
-| 🎵 **Разделение голоса** | Demucs (htdemucs_ft) | ✅ | Извлечение вокала студийного качества (4 модели на выбор) |
-| 📝 **Транскрибация** | Faster-Whisper / WhisperX | ✅ | Выбор движка распознавания (Standard / Better Align) с поддержкой CUDA |
-| 👥 **Диаризация** | Pyannote 3.1 | ✅ | Разделение спикеров по голосам (требует токен HF) |
-| 🧠 **ИИ Перевод** | DeepSeek + Google | ✅ | Гибридный перевод с автокоррекцией ошибок |
-| 🎙️ **Озвучка (TTS)** | XTTS v2 / F5-TTS / Edge-TTS | ✅ | Клонирование голоса спикера с сохранением интонаций. **Улучшено:** авто-очистка текста от спецсимволов и кавычек. |
-| 🎬 **Сборка** | FFmpeg MKV | ✅ | Оригинальная дорожка + Дубляж + Чистый дубляж + Субтитры SRT. **Улучшено:** дорожка дубляжа ставится по умолчанию. |
+---
 
-### 14 Поддерживаемых Языков Озвучки
+## 🚀 Pipeline
+
+| Step | Technology | Description |
+|------|-----------|-------------|
+| 📥 **Download** | yt-dlp | YouTube, X, TikTok, local files |
+| 🎵 **Voice Isolation** | Demucs (htdemucs_ft) | Studio-quality vocal extraction (4 models) |
+| 📝 **Transcription** | WhisperX / Faster-Whisper | Word-level alignment, 99 languages, CUDA |
+| 👥 **Diarization** | Pyannote 3.1 | Speaker separation (requires HF token) |
+| 🧠 **Translation** | DeepL / Gemini / DeepSeek / Google / Ollama | Hybrid with auto-error-correction |
+| 🎙️ **TTS** | XTTS v2 / Edge-TTS | Voice cloning + neural voices, gender-matched |
+| 🎬 **Assembly** | FFmpeg MKV | Original + Dub + Clean Dub + SRT Subtitles |
+
+### 14+ Supported TTS Languages
 🇷🇺 🇹🇷 🇬🇧 🇸🇦 🇪🇸 🇫🇷 🇩🇪 🇨🇳 🇯🇵 🇰🇷 🇮🇹 🇵🇹 🇵🇱 🇮🇳
 
-### Умные функции
-- **Универсальная загрузка**: Сканируйте ссылки с любых сайтов и качайте видео напрямую.
-- **Выбор субтитров**: Использование нативных субтитров YouTube или автоматическая транскрибация Whisper.
-- **ИИ-Подбор пола**: Автоматическое определение гендера спикера для генерации корректного голоса.
-- **Монитор ресурсов**: Отслеживание нагрузки на GPU/VRAM/RAM в реальном времени.
-- **VRAM Cleaner**: Автоматическая и ручная очистка видеопамяти от тяжелых ИИ моделей.
-- **Умная обработка предложений (Edge-TTS)**: Группировка коротких реплик по смыслу для более естественного звучания.
+### Smart Features
+- **Bilingual Detection** — Multi-language video support with per-segment language tagging
+- **Smart Skip** — Native-language segments preserved during dubbing
+- **Gender-Matched Voices** — Cross-lingual AI gender detection for natural voice selection
+- **Dual-Language Subtitles** — Original + Translation in a single SRT file
+- **VRAM Manager** — Real-time GPU/VRAM/RAM monitoring and cleanup
+- **Smart Sentence Grouping** — NLP-based segmentation for natural-sounding speech
 
 ---
 
-## 🏗️ Архитектура
+## 🏗️ Architecture
 
 ```
 AutoDubStudio/
-├── backend/                 # FastAPI + WebSocket
-│   ├── main.py              # Основной сервер и роутеры
-│   ├── translator.py        # ИИ-перевод (DeepL + Gemma4/DeepSeek)
-│   ├── engine.py            # Основной пайплайн дубляжа (AutoDubWorker)
-│   └── *_worker.py          # Изолированные воркеры для TTS и VRAM
+├── backend/                  # FastAPI + WebSocket
+│   ├── main.py               # Server, API routes, WebSocket
+│   ├── translator.py         # Multi-engine translation (DeepL/Gemini/DeepSeek/Google/Ollama)
+│   ├── whisper_multi_worker.py  # WhisperX/Faster-Whisper with bilingual detection
+│   ├── nlp_splitter.py       # Spacy-based sentence segmentation (per-segment language)
+│   └── *_worker.py           # Isolated workers (TTS, diarization, gender, VRAM)
 ├── gui/
-│   ├── src/                 # React + Fluent UI v9 + TypeScript
-│   │   ├── pages/           # Страницы (DubbingStudio, AIChat и т.д.)
-│   │   └── store.ts         # Глобальный стейт и система i18n
-│   └── src-tauri/           # Rust-бэкенд для нативных окон и автоапдейтов
-└── config.json              # Конфиги и токены
+│   ├── src/                  # React + Fluent UI v9 + TypeScript
+│   │   ├── pages/            # DubbingStudio, LiveSubtitles, AIChat, Settings
+│   │   └── store.ts          # Global state + i18n (RU/EN/TR)
+│   └── src-tauri/            # Rust backend (native windows, auto-updates)
+├── engine.py                 # Main dubbing pipeline (AutoDubWorker)
+├── gender_worker.py          # Cross-lingual gender detection (XLSR-53 + pitch)
+├── cli.py                    # CLI interface for batch processing
+└── config.json               # API keys and settings
 ```
 
 ---
 
-## 📦 Установка и Сборка
+## 📦 CLI Usage
 
-### Требования
+```bash
+# Subtitles only, fully local
+python cli.py "video.mp4" --langs ru,tr --dub_engine none
+
+# Full dub with WhisperX + XTTSv2 voice cloning
+python cli.py "video.mp4" --langs ru --dub_engine xttsv2 --whisper_engine whisperX
+
+# YouTube video, Google Translate, Edge-TTS
+python cli.py "https://youtube.com/watch?v=..." --langs ru,tr --dub_engine edge-tts --translator_engine google
+
+# Quick test (first 60 seconds)
+python cli.py "video.mp4" --langs ru --max_duration 60 --dub_engine none
+
+# With HuggingFace token (for SpeechBrain + Pyannote)
+python cli.py "video.mp4" --langs ru --hf_key "hf_..."
+```
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--langs` | `ru` | Target languages (comma-separated) |
+| `--dub_engine` | `edge-tts` | `none` / `edge-tts` / `xttsv2` |
+| `--translator_engine` | `google` | `google` / `ollama` / `deepl` / `gemini` / `deepseek` |
+| `--whisper_engine` | `whisperX` | `whisper` (fast) / `whisperX` (word-level) |
+| `--local_only` | — | Force local AI only (Ollama + XTTSv2) |
+| `--max_duration` | `0` | Trim to N seconds (0 = full video) |
+| `--hf_key` | — | HuggingFace token for gated models |
+| `--no_youtube_subs` | — | Force Whisper instead of YouTube subtitles |
+
+### Output Files
+
+| File | Content |
+|------|---------|
+| `*_original.srt` | Original transcription with `[EN]`/`[ES]` language tags |
+| `*_LANG.srt` | Translated subtitles (smart skip applied) |
+| `*_LANG_bilingual.srt` | Original + Translation side-by-side |
+| `*_LANG.mkv` | Final video with embedded audio + subtitles |
+
+---
+
+## 📦 Build
+
+### Requirements
 - Windows 10/11
 - Python 3.12 · Node.js 20+ · Rust · FFmpeg
-- NVIDIA GPU 4+ GB VRAM (настоятельно рекомендуется)
-
-### Сборка приложения (.exe)
+- NVIDIA GPU 4+ GB VRAM (strongly recommended)
 
 ```bash
 git clone https://github.com/LiskinLabs/autodubstudio.git
@@ -82,15 +139,15 @@ cd AutoDubStudio/gui
 
 npm install
 npm run tauri build
-# Готовые инсталляторы будут в папке: gui/src-tauri/target/release/bundle/nsis/
+# Installers: gui/src-tauri/target/release/bundle/nsis/
 ```
 
 ---
 
-## 🤝 Автор
+## 🤝 Author
 
-**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer  
-Teknorob Robot ve Otomasyon — Bursa, TR  
+**Silvestr Liskin** — Senior Automation Engineer / Industrial Robot Programmer
+Teknorob Robot ve Otomasyon — Bursa, TR
 [GitHub](https://github.com/LiskinLabs) · [LinkedIn](https://www.linkedin.com/in/silvestr-liskin-ab712920b)
 
 ---

@@ -112,11 +112,16 @@ import time as _time
 from deep_translator import GoogleTranslator
 
 
-def _google_translate_with_retry(text: str, target_lang: str, max_retries: int = 5) -> str:
-    """Google Translate with exponential backoff for 429 rate limits."""
+def _google_translate_with_retry(text: str, target_lang: str, source_lang: str = "auto", max_retries: int = 5) -> str:
+    """Google Translate with exponential backoff for 429 rate limits.
+    When source_lang equals target_lang, returns text unchanged (no translation needed).
+    When source_lang is provided (not 'auto'), uses it for more accurate translation."""
+    # If source and target are the same language, no translation needed
+    if source_lang != "auto" and source_lang[:2].lower() == target_lang[:2].lower():
+        return text
     for attempt in range(max_retries):
         try:
-            return GoogleTranslator(source="auto", target=target_lang.lower()).translate(text)
+            return GoogleTranslator(source=source_lang, target=target_lang.lower()).translate(text)
         except Exception as e:
             if "429" in str(e) or "Too Many" in str(e):
                 _time.sleep(2 ** (attempt + 1))
@@ -163,9 +168,12 @@ class Translator:
         self.qwen_tokenizer = None
         self.llama_cpp_model = None
 
-    def translate_text(self, text, target_lang):
+    def translate_text(self, text, target_lang, source_lang="auto"):
         if not text.strip():
             return ""
+        # If source == target, no translation needed
+        if source_lang != "auto" and source_lang[:2].lower() == target_lang[:2].lower():
+            return text
         try:
             lang_names = {
                 "ru": "Russian",
@@ -271,7 +279,7 @@ class Translator:
             elif "ollama" in self.engine_name.lower():
                 # Base translation: always use Google Translate (fast, reliable).
                 # Gemma4 refinement happens in smart_translate_segments batches.
-                return _google_translate_with_retry(text, target_lang)
+                return _google_translate_with_retry(text, target_lang, source_lang)
 
             elif "llamacpp" in self.engine_name.lower() and self.gguf_model_path:
                 from llama_cpp import Llama  # noqa: PLC0415
@@ -290,7 +298,7 @@ class Translator:
                 return response["choices"][0]["message"]["content"].strip()
 
             else:
-                return _google_translate_with_retry(text, target_lang)
+                return _google_translate_with_retry(text, target_lang, source_lang)
         except Exception as e:
             print(f"Translation error: {e}")
             return text
@@ -408,7 +416,7 @@ class Translator:
             ]
 
             models_to_try = [self.translator_model]
-            for fallback in ["gemma4:e4b", "gemma4:e2b", "gemma2:2b"]:
+            for fallback in ["gemma4:e4b", "gemma4:e2b"]:
                 if fallback not in models_to_try:
                     models_to_try.append(fallback)
 
@@ -431,8 +439,9 @@ class Translator:
                 print("PAYLOAD:", payload.decode("utf-8"))
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=1200) as resp:
+                    with urllib.request.urlopen(req, timeout=180) as resp:
                         if resp.status == 200:
+                            self.translator_model = model_name # Save successful fallback
                             result = json.loads(resp.read().decode())
                             text = result.get("message", {}).get("content", "")
                             json_text = self._extract_json(text)
@@ -537,7 +546,12 @@ class Translator:
             import urllib.request  # noqa: PLC0415
 
             url = "http://localhost:11434/api/chat"
-            for model_name in [self.translator_model]:
+            models_to_try = [self.translator_model]
+            for fallback in ["gemma4:e4b", "gemma4:e2b"]:
+                if fallback not in models_to_try:
+                    models_to_try.append(fallback)
+                    
+            for model_name in models_to_try:
                 payload = json.dumps(
                     {
                         "model": model_name,
@@ -552,6 +566,7 @@ class Translator:
                 try:
                     with urllib.request.urlopen(req, timeout=60) as response:
                         if response.status == 200:
+                            self.translator_model = model_name # Save successful fallback
                             result = json.loads(response.read().decode())
                             return result.get("message", {}).get("content", "")
                 except Exception:
@@ -649,17 +664,32 @@ JSON:"""
                 import json as _json  # noqa: PLC0415
 
                 data = _json.loads(response)
+                
+                # --- Anti-Hallucination: JSON Schema & Structural Validation ---
+                if not isinstance(data, dict):
+                    raise ValueError("Root JSON must be an object.")
                 parsed = data.get("segments", [])
+                if not isinstance(parsed, list):
+                    raise ValueError("'segments' must be a JSON array.")
+                for item in parsed:
+                    if not isinstance(item, dict):
+                        raise ValueError("Each segment must be a JSON object.")
+                    if "text" not in item:
+                        raise ValueError("Segment missing 'text' field.")
+                    if "skip_dub" not in item:
+                        item["skip_dub"] = False
+                # --------------------------------------------------------------
+                
                 gemma4_failures = 0
                 if parsed and len(parsed) == len(batch):
                     for j, p_seg in enumerate(parsed):
                         new_text = p_seg.get("text", "").strip()
-                        if new_text:
+                        if new_text and new_text != "null":
                             batch[j]["text"] = new_text
                 elif parsed:
                     for j in range(min(len(parsed), len(batch))):
                         new_text = parsed[j].get("text", "").strip()
-                        if new_text:
+                        if new_text and new_text != "null":
                             batch[j]["text"] = new_text
             except Exception as e:
                 gemma4_failures += 1
@@ -707,9 +737,58 @@ JSON:"""
         if self.llama_cpp_model:
             del self.llama_cpp_model
             self.llama_cpp_model = None
-        gc.collect()
         if self.device == "cuda":
             torch.cuda.empty_cache()
+
+    def generate_glossary(self, segments, target_lang, max_terms=15):
+        """Analyze transcription segments and generate an AI Glossary (dictionary of names/terms)."""
+        lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic"}
+        lang_name = lang_names.get(target_lang, target_lang)
+        
+        # Combine transcript text (up to a limit to fit in context)
+        full_text = " ".join([s["text"] for s in segments])
+        # Limit to roughly 10000 chars to avoid overwhelming the context
+        if len(full_text) > 10000:
+            full_text = full_text[:10000] + "..."
+            
+        prompt = f"""You are a professional linguist and dubbing assistant.
+Analyze the following video transcription and extract up to {max_terms} key terms.
+A 'key term' is a proper noun, brand name, character name, location, or specialized terminology.
+
+For each term, provide its suggested translation or transliteration in {lang_name}.
+If a brand name or character name should NOT be translated, output it exactly as is for both original and translation.
+
+CRITICAL:
+- Do not extract common verbs or adjectives.
+- Only output a valid JSON object.
+- Format: {{"terms": [{{"original": "English term", "translation": "Target term", "reason": "Why"}}]}}
+
+Transcription snippet:
+{full_text}
+
+JSON:"""
+
+        try:
+            response = self._call_llm(prompt, is_json=True)
+            import json as _json
+            data = _json.loads(response)
+            
+            # Validation
+            if not isinstance(data, dict):
+                raise ValueError("Root JSON must be an object.")
+            terms = data.get("terms", [])
+            if not isinstance(terms, list):
+                raise ValueError("'terms' must be an array.")
+                
+            valid_terms = []
+            for t in terms:
+                if isinstance(t, dict) and "original" in t and "translation" in t:
+                    valid_terms.append(f"{t['original']} = {t['translation']}")
+                    
+            return "\n".join(valid_terms)
+        except Exception as e:
+            print(f"Glossary generation failed: {e}")
+            return ""
 
     def smart_translate_segments(
         self,
@@ -743,7 +822,16 @@ JSON:"""
             except Exception:
                 pass
 
-        # ── Step 1: Fast base translation ──
+        # PREPROCESSING: Check for segments matching the target language
+        for seg in segments:
+            seg_lang = seg.get("language", "")
+            if seg_lang and seg_lang[:2].lower() == target_lang[:2].lower():
+                seg["skip_dub"] = True
+                seg["translated_base"] = seg["text"].strip()
+            else:
+                seg["skip_dub"] = False
+
+        #  Step 1: Fast base translation 
         # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
         if is_deepl:
             if log_callback:
@@ -763,6 +851,8 @@ JSON:"""
             for seg in segments:
                 if check_cancelled:
                     check_cancelled()
+                if seg.get("skip_dub"):
+                    continue
                 orig_text = seg["text"].strip()
                 if not orig_text:
                     seg["translated_base"] = ""
@@ -788,7 +878,7 @@ JSON:"""
                     if log_callback:
                         log_callback(_l("deepl_segment_failed", e=str(e)[:80]))
                     try:
-                        seg["translated_base"] = _google_translate_with_retry(orig_text, target_lang)
+                        seg["translated_base"] = _google_translate_with_retry(orig_text, target_lang, seg.get("language", "auto"))
                     except Exception:
                         seg["translated_base"] = orig_text
         else:
@@ -798,12 +888,14 @@ JSON:"""
             for seg in segments:
                 if check_cancelled:
                     check_cancelled()
+                if seg.get("skip_dub"):
+                    continue
                 orig_text = seg["text"].strip()
                 if not orig_text:
                     seg["translated_base"] = ""
                     continue
                 try:
-                    res = _google_translate_with_retry(orig_text, target_lang)
+                    res = _google_translate_with_retry(orig_text, target_lang, seg.get("language", "auto"))
                     seg["translated_base"] = res
                     if log_callback:
                         log_callback(f"  [DEBUG] Google translated '{orig_text[:20]}' -> '{res[:20]}' (lang: {target_lang})")

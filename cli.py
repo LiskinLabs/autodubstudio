@@ -30,6 +30,13 @@ def main():
     parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator: gemma4:12b (High-end), gemma4:e4b (Medium), gemma4:e2b (Weak)")
     
     # API Keys
+    parser.add_argument(
+        "--lip_sync_engine",
+        type=str,
+        default="off",
+        choices=["off", "wav2lip", "latentsync"],
+        help="Lip-Sync engine to use (off, wav2lip, latentsync)",
+    )
     parser.add_argument("--gemini_key", type=str, default="", help="Google Gemini API Key")
     parser.add_argument("--deepseek_key", type=str, default="", help="DeepSeek API Key")
     parser.add_argument("--deepl_key", type=str, default="", help="DeepL API Key")
@@ -37,12 +44,23 @@ def main():
     
     # Advanced Options
     parser.add_argument("--lip_sync", action="store_true", help="Enable Lip-Sync processing")
+    parser.add_argument("--no_youtube_subs", action="store_true", help="Force Whisper instead of downloading YouTube subtitles")
     parser.add_argument("--manual_mode", action="store_true", help="Pause pipeline for manual subtitle editing")
     parser.add_argument("--tag", type=str, default="", help="Custom tag for output filenames")
     parser.add_argument("--max_duration", type=int, default=0, help="Maximum video duration in seconds (trims the beginning of the video)")
     parser.add_argument("--local_only", action="store_true", help="Force local AI models only (disables cloud APIs)")
-    
+    parser.add_argument("--whisper_engine", type=str, default="whisperX", choices=["whisper", "whisperX"], help="Whisper engine: whisper (fast) or whisperX (word-level alignment)")
     args = parser.parse_args()
+
+    # Load HF key from config.json if not provided via CLI
+    hf_key = args.hf_key
+    if not hf_key:
+        try:
+            with open(os.path.join(os.path.dirname(__file__), "config.json"), "r") as f:
+                cfg_file = json.load(f)
+                hf_key = cfg_file.get("hf_key", "")
+        except Exception:
+            pass
 
     config = {
         "video_path": args.video_path,
@@ -56,12 +74,16 @@ def main():
         "gemini_key": args.gemini_key,
         "deepseek_key": args.deepseek_key,
         "deepl_key": args.deepl_key,
-        "hf_key": args.hf_key,
+        "hf_key": hf_key,
         "lip_sync": args.lip_sync,
+        "lip_sync_engine": args.lip_sync_engine,
+        "use_youtube_subs": not args.no_youtube_subs,
         "manual_mode": args.manual_mode,
         "tag": args.tag,
         "max_duration": args.max_duration,
-        "local_only": args.local_only
+        "local_only": args.local_only,
+        "whisper_engine": args.whisper_engine,
+        "hf_key": hf_key,
     }
 
     print(f"==================================================")

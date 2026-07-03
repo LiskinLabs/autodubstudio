@@ -212,12 +212,14 @@ dependencies = [
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "imageio-ffmpeg" },
+    { name = "langdetect" },
     { name = "librosa" },
     { name = "llama-cpp-python" },
     { name = "nltk" },
     { name = "numpy" },
     { name = "openai" },
     { name = "openai-whisper" },
+    { name = "pedalboard" },
     { name = "psutil" },
     { name = "pyannote-audio" },
     { name = "pydub" },
@@ -228,6 +230,7 @@ dependencies = [
     { name = "soundcard" },
     { name = "sounddevice" },
     { name = "spacy" },
+    { name = "speechbrain" },
     { name = "torch" },
     { name = "torchaudio" },
     { name = "torchvision" },
@@ -254,12 +257,14 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = ">=1.19.0" },
     { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
+    { name = "langdetect", specifier = ">=1.0.9" },
     { name = "librosa", specifier = ">=0.11.0" },
     { name = "llama-cpp-python", specifier = ">=0.3.32" },
     { name = "nltk", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=1.26,<2.0" },
     { name = "openai", specifier = ">=2.41.0" },
     { name = "openai-whisper", specifier = ">=20250625" },
+    { name = "pedalboard", specifier = ">=0.9.8" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pyannote-audio", specifier = "==3.1.1" },
     { name = "pydub", specifier = ">=0.25.1" },
@@ -270,6 +275,7 @@ requires-dist = [
     { name = "soundcard", specifier = ">=0.4.6" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "spacy", specifier = ">=3.8.14" },
+    { name = "speechbrain", specifier = "==0.5.16" },
     { name = "torch", specifier = "==2.5.1+cu121", index = "https://download.pytorch.org/whl/cu121" },
     { name = "torchaudio", specifier = "==2.5.1+cu121", index = "https://download.pytorch.org/whl/cu121" },
     { name = "torchvision", specifier = "==0.20.1+cu121", index = "https://download.pytorch.org/whl/cu121" },
@@ -1593,6 +1599,15 @@ wheels = [
 ]
 
 [[package]]
+name = "langdetect"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474, upload-time = "2021-05-07T07:54:13.562Z" }
+
+[[package]]
 name = "lazy-loader"
 version = "0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -2228,6 +2243,24 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/45/830bb57f533a4604b355e07edcb8ea18cf88b5f94e5fca92f27052d7c597/pandas-3.0.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:f8894dc474d648fe7b6ff0ca9b0bd73950d19952bc1a6534540762c5d79d305c", size = 11950889, upload-time = "2026-05-11T18:52:50.905Z" },
     { url = "https://files.pythonhosted.org/packages/b9/c5/fc1b368f303087d20e8c9bf3d6ceb186263cfac0ade735cd938538bea839/pandas-3.0.3-cp312-cp312-win_amd64.whl", hash = "sha256:c7be265b62cef88e253a941e4698604973736dcfe242fdb5198f0f7bc473cdcc", size = 9755463, upload-time = "2026-05-11T18:52:53.386Z" },
     { url = "https://files.pythonhosted.org/packages/86/bd/fda8f9705b1b09c6ebe14bfc0fa0e4ec8584d54ea673628f157ff55131af/pandas-3.0.3-cp312-cp312-win_arm64.whl", hash = "sha256:557409bc4178e70ee8d9ddb494798e51ebf6ea59330f6be22c51bab2a7db6c49", size = 9066158, upload-time = "2026-05-11T18:52:56.038Z" },
+]
+
+[[package]]
+name = "pedalboard"
+version = "0.9.23"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/9a/39c4a5b06d395131dca154db2b972e48b3568d65e5f27a7db1c593bfad67/pedalboard-0.9.23-cp312-cp312-macosx_10_14_universal2.whl", hash = "sha256:48425f0c08b83941a672b2044cde821ffe0a0e8ba99730e246a57fc88b6b1770", size = 4720040, upload-time = "2026-05-15T23:43:10.682Z" },
+    { url = "https://files.pythonhosted.org/packages/05/8c/334cc4493805256dd30cc9cb72616556789f274d00bbb25faad07f13c52a/pedalboard-0.9.23-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:44638090e5a936d0abc66cef578c08dc22bc02381078bdd5f066966ee80b1ba0", size = 2624542, upload-time = "2026-05-15T23:43:12.172Z" },
+    { url = "https://files.pythonhosted.org/packages/87/38/1e1e81ac9e40d8f12508df71617395c7a47ed582bfe8f85c1134170c78b7/pedalboard-0.9.23-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7850985cc3978d3cc7904355fa573171f073378d61e1a01de2792dc743be7dd7", size = 2426206, upload-time = "2026-05-15T23:43:13.754Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/2c/0099acdbf190b0c510354d6db2dc6a267063fc120509ca9a5ae9f502c70e/pedalboard-0.9.23-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f30fe3e2c8686b2c8599a416e361dcf7db8ca1301fab053aff85a6c2dd28f193", size = 4854834, upload-time = "2026-05-15T23:43:15.37Z" },
+    { url = "https://files.pythonhosted.org/packages/26/1f/45b0e4a5829cd9ee7cd61a3f9ca0e426d308f74cdf2f968aeea6779f73d3/pedalboard-0.9.23-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:21952a97d61d0c66fe0d0b93b9e4668f2e3a3958e8165ca66f98fb0dcb015de6", size = 5056350, upload-time = "2026-05-15T23:43:16.787Z" },
+    { url = "https://files.pythonhosted.org/packages/79/45/d9c1201155de20beb3bdf178caa9b631c2df39d7c69653859393e057630b/pedalboard-0.9.23-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:9c113c95d64292cec4150ba41771b31c06c09c7c4baff070868b7a38998586af", size = 5164741, upload-time = "2026-05-15T23:43:18.62Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/37/4ced8b7ed3f660a0ea28c41e08f7f9a4156d8da51ad3803f4fee157e9e19/pedalboard-0.9.23-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:66bcde328554552dfee9ebe33cc3aa9fd24e157a8be2b8093ad8e2351196f785", size = 5231117, upload-time = "2026-05-15T23:43:20.361Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/76/618da9185591a516f65dbc5c7b4631446efaca2af0ff55b7904b47da6bb7/pedalboard-0.9.23-cp312-cp312-win_amd64.whl", hash = "sha256:2a2b9a37a9fe31a2751f121fe53771e56daf850532b9c4bcb6d960d6bbfffb0a", size = 3594700, upload-time = "2026-05-15T23:43:22.164Z" },
 ]
 
 [[package]]
@@ -3323,7 +3356,7 @@ wheels = [
 
 [[package]]
 name = "speechbrain"
-version = "1.1.0"
+version = "0.5.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -3331,17 +3364,15 @@ dependencies = [
     { name = "joblib" },
     { name = "numpy" },
     { name = "packaging" },
-    { name = "requests" },
     { name = "scipy" },
     { name = "sentencepiece" },
-    { name = "soundfile" },
     { name = "torch" },
     { name = "torchaudio" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/df/782cca3897a75bbeb5242026bc8f24d3c14d44ffc413c549d611e988e890/speechbrain-1.1.0.tar.gz", hash = "sha256:669ed0903c2aebc0d5daffc69fdbbfc822e1e2c094be45c8160ceecc9c763cd3", size = 1730288, upload-time = "2026-03-31T16:43:03.324Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/9a/93661090bcf21f67401c034cbd7e18c7e9ca0d19e7fa9be465351c84e05b/speechbrain-0.5.16.tar.gz", hash = "sha256:cfbf6176da8879b541e1a2d1342d43806e82d0ef55604c2f38e21a5027a2eecb", size = 558217, upload-time = "2023-11-22T02:29:13.313Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/bb/4e35594c80a20017bd0e8a64f77102f33453c713bde8326cebfc2bba16e1/speechbrain-1.1.0-py3-none-any.whl", hash = "sha256:0f1bc7d5c5ce07b9ed752a9d931a4858180f825f4d079b44035a0aed645f4dd2", size = 2278632, upload-time = "2026-03-31T16:43:01.33Z" },
+    { url = "https://files.pythonhosted.org/packages/30/ff/9629de25786cf6ce38b7754b352a9904ce8c90b22a127d9d0d9c45ef5693/speechbrain-0.5.16-py3-none-any.whl", hash = "sha256:3b400b077d5b9c260c54ceadd4a1ae8e06d6f0b768e8e552bc0448b816f9050d", size = 630560, upload-time = "2023-11-22T02:29:10.837Z" },
 ]
 
 [[package]]
