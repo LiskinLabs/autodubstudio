@@ -134,7 +134,7 @@ python cli.py "video.mp4" --langs ru --hf_key "hf_..."
 - NVIDIA GPU 4+ GB VRAM (strongly recommended)
 
 ```bash
-git clone https://github.com/LiskinLabs/autodubstudio.git
+git clone https://gitlab.com/LiskinLabs/autodubstudio.git
 cd AutoDubStudio/gui
 
 npm install
