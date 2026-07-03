@@ -185,6 +185,7 @@ def kill_process_tree(pid):
 
 
 # ── Safe subprocess environment (security: don't leak API keys to child processes) ──
+# Whitelist of safe env vars to pass to child processes
 _SUBPROCESS_SAFE_VARS = {
     "PATH",
     "SystemRoot",
@@ -213,10 +214,46 @@ _SUBPROCESS_SAFE_VARS = {
     "PROCESSOR_ARCHITECTURE",
 }
 
+# Blacklist of sensitive vars that MUST NOT leak to child processes
+_SUBPROCESS_BLOCK_VARS = {
+    "GITHUB_TOKEN",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "DEEPL_API_KEY",
+    "OPENAI_API_KEY",
+    "AZURE_OPENAI_KEY",
+    "HF_TOKEN",
+    "HUGGINGFACE_TOKEN",
+    "WS_AUTH_TOKEN",
+    "VERCEL_API_TOKEN",
+}
+
 
 def _safe_subprocess_env(**extra) -> dict:
+    """Return minimal env for subprocess calls — NO API keys, NO secrets.
+
+    Uses both whitelist (SAFE_VARS) and blacklist (BLOCK_VARS) approach:
+    1. Start with whitelisted variables from os.environ
+    2. Add any GPU-related vars (CUDA_, NVIDIA_, TORCH_, OLLAMA_)
+    3. Explicitly REMOVE any blacklisted vars
+    4. Add caller-provided extras
+    """
     import os
-    env = os.environ.copy()
+    # Start with whitelisted safe vars
+    env = {}
+    for key in _SUBPROCESS_SAFE_VARS:
+        val = os.environ.get(key)
+        if val:
+            env[key] = val
+    # Add GPU-related vars
+    for key, val in os.environ.items():
+        if key.startswith(("CUDA_", "NVIDIA_", "TORCH_", "OLLAMA_")):
+            if key not in env:
+                env[key] = val
+    # Explicitly remove sensitive vars (defense in depth)
+    for key in _SUBPROCESS_BLOCK_VARS:
+        env.pop(key, None)
+    # Add caller extras
     env.update(extra)
     return env
 
@@ -698,11 +735,22 @@ class AutoDubWorker(threading.Thread):
             if self._stop_event.is_set():
                 try:
                     kill_process_tree(process.pid)
+                    # Close stdout to unblock reader thread
+                    try:
+                        process.stdout.close()
+                    except Exception:
+                        pass
                 except:  # noqa: E722
                     pass
             if timeout is not None and (time.time() - start_time) > timeout:
                 try:
                     kill_process_tree(process.pid)
+                    # Kill orphan CUDA child processes that may hold VRAM
+                    import subprocess as _sp
+                    _sp.run(
+                        ["taskkill", "/f", "/fi", "IMAGENAME eq python.exe", "/fi", "MEMUSAGE gt 500000"],
+                        capture_output=True, timeout=5,
+                    )
                 except:  # noqa: E722
                     pass
                 raise subprocess.TimeoutExpired(cmd, timeout)
@@ -949,84 +997,31 @@ class AutoDubWorker(threading.Thread):
             # Use IDs for internal logic to match frontend config
             TTS_COMPAT = {
                 "edge-tts": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
+                    "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
+                    "it", "pt", "pl", "hi",
                 },
                 "azure": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
+                    "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
+                    "it", "pt", "pl", "hi",
                 },
                 "openai": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
+                    "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
+                    "it", "pt", "pl", "hi",
                 },
-                "gpt-sovits": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
+                "xttsv2": {
+                    "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
+                    "it", "pt", "pl", "hi",
                 },
+                "qwen3-tts": {
+                    "ru", "en", "zh", "ja", "ko", "es", "de", "fr", "pt", "it",
+                },
+                "f5-tts": {
+                    "tr", "en", "zh", "ru",
+                },
+                # "gpt-sovits": NOT IMPLEMENTED — removed until worker exists
                 "none": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
+                    "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
+                    "it", "pt", "pl", "hi",
                 },
 
                 "xttsv2": {
@@ -1065,9 +1060,11 @@ class AutoDubWorker(threading.Thread):
                     return
 
             base_name = os.path.splitext(os.path.basename(self.video_path))[0]
+            # Sanitize: ASCII-only alphanumeric + dash + underscore, NO path traversal
             base_name = re.sub(  # noqa: F821
-                r"[^\w\-]", "_", base_name
-            )  # sanitize: no path traversal
+                r"[^a-zA-Z0-9_\-]", "_", base_name
+            )
+            base_name = base_name.strip("_.") or "video"  # prevent empty name
 
             # ── Checkpoint helper ──
             def _save_checkpoint(name, data):
@@ -1290,7 +1287,7 @@ class AutoDubWorker(threading.Thread):
                         self.log_signal.emit(
                             f"  ❌ Ошибка склейки Demucs (exit {e.returncode}). Пропускаем Demucs для этого видео."
                         )
-                        use_demucs = False
+                        # Demucs chunks concatenation failed — continue without vocal isolation
                 else:
                     # ── Resource check: skip CUDA if VRAM is tight ──
                     monitor = get_monitor()
@@ -1789,6 +1786,10 @@ class AutoDubWorker(threading.Thread):
                             return
                         self.pause_event.wait(0.5)
                     self.pause_event.clear()
+                    # Re-check after unpausing — user may have cancelled during pause
+                    if self.isInterruptionRequested():
+                        self.finished_signal.emit(False, "Aborted")
+                        return
                     if self.edited_segments:
                         translated_segments = self.edited_segments
 
@@ -1852,6 +1853,9 @@ class AutoDubWorker(threading.Thread):
                 _set_engine_info("tts", engine_id)
 
                 use_xtts = "xttsv2" in engine_id
+                use_qwen = "qwen3-tts" in engine_id or "qwen" in engine_id
+                use_f5 = "f5-tts" in engine_id or "f5" in engine_id
+                use_local_tts = use_xtts or use_qwen or use_f5
                 audio_clips = []
 
                 # Pre-extract skip_dub segments
@@ -1945,145 +1949,74 @@ class AutoDubWorker(threading.Thread):
                             tseg["text"] = re.sub(r'["\'«»“”„]', '', tseg["text"])
                         tts_segments.append((idx, tseg, clip_path))
 
-                if use_xtts:
-                    # ── Выбор лучшего референс-аудио для каждого спикера ──
-                    # НЕ просто самый длинный сегмент (может быть с пыхтением/молчанием).
-                    # Критерии: высокая плотность слов (активная речь), чистая длина 3-8 сек.
-                    speaker_refs = {}
-                    for s in segments:
-                        spk = s.get("speaker", "SPEAKER_00")
-                        dur = s["end"] - s["start"]
-                        text = s.get("text", "").strip()
-                        word_count = len(text.split())
-                        # Оценка качества: плотность слов × штраф за слишком короткий/длинный
-                        if dur > 0.5 and word_count > 0:
-                            wps = word_count / dur  # слов в секунду
-                            # Идеальная длительность для референса: 3-8 секунд
-                            if 3.0 <= dur <= 8.0:
-                                dur_bonus = 1.0
-                            elif dur < 3.0:
-                                dur_bonus = dur / 3.0  # штраф за короткий
-                            else:
-                                dur_bonus = max(0.3, 8.0 / dur)  # штраф за длинный
-                            score = wps * dur_bonus
-                            if (
-                                spk not in speaker_refs
-                                or score > speaker_refs[spk]["score"]
-                            ):
-                                speaker_refs[spk] = {
-                                    "dur": dur,
-                                    "start": s["start"],
-                                    "end": s["end"],
-                                    "text": text,
-                                    "score": score,
-                                    "wps": wps,
-                                }
+                # ── TTS Dispatch: select engine and run worker ──
+                local_tts_failed = False
+                tasks = []
+                for idx, tseg, clip_path in tts_segments:  # noqa: B007
+                    spk = tseg.get("speaker", "SPEAKER_00")
+                    ref = speaker_refs.get(spk, next(iter(speaker_refs.values()))) if speaker_refs else {"path": transcribe_path, "text": tseg.get("text", "")}
+                    tasks.append({
+                        "ref_audio": ref.get("path", transcribe_path),
+                        "ref_text": ref.get("text", tseg.get("text", "")),
+                        "gen_text": tseg["text"],
+                        "out_path": clip_path,
+                        "language": lang,
+                    })
+                    audio_clips.append((tseg["start"], clip_path, False, tseg))
 
-                    for spk, ref in speaker_refs.items():
-                        ref_path = os.path.join(self.out_dir, f"ref_{spk}.wav")
-                        ref_audio_segment = vocals_full[int(ref["start"] * 1000) : int(ref["end"] * 1000)]
-                        ref_audio_segment.set_frame_rate(22050).set_channels(1).set_sample_width(2).export(ref_path, format="wav")
-                        ref["path"] = ref_path
-                        all_created_files.append(ref_path)
-                        self.log_signal.emit(
-                            f"  > Ref {spk}: {ref['wps']:.1f} wps, {ref['dur']:.1f}s, score={ref['score']:.2f}"
-                        )
+                if tasks and use_local_tts:
+                    tasks_file = os.path.join(self.out_dir, f"tasks_{lang}.json")
+                    import json  # noqa: PLC0415
+                    with open(tasks_file, "w", encoding="utf-8") as f:
+                        json.dump(tasks, f)
+                    all_created_files.append(tasks_file)
 
-                    # --- Local AI Gender Detection ---
-                    if self.use_gender_ai:
-                        self.log_signal.emit(
-                            _pipeline_t(
-                                "processing_lang", self.ui_language, lang="Gender AI"
-                            )
-                            + " [Local Audio Classification]"
-                        )
+                    if use_xtts:
+                        worker_py = _resolve_venv_python(".venv-xtts")
+                        worker_script = os.path.join(os.path.dirname(__file__), "xtts_worker.py")
+                        engine_label = "XTTSv2"
+                    elif use_qwen:
+                        worker_py = get_python_exe()
+                        worker_script = os.path.join(os.path.dirname(__file__), "qwen_worker.py")
+                        engine_label = "Qwen3-TTS"
+                    elif use_f5:
+                        worker_py = get_python_exe()
+                        worker_script = os.path.join(os.path.dirname(__file__), "f5_worker.py")
+                        engine_label = "F5-TTS"
+                    else:
+                        worker_py = get_python_exe()
+                        worker_script = None
+                        engine_label = "unknown"
+
+                    if worker_script and os.path.exists(worker_script):
                         try:
-                            gender_tasks = [
-                                {"speaker_id": spk, "audio_path": ref["path"]}
-                                for spk, ref in speaker_refs.items()
-                            ]
-                            if gender_tasks:
-                                gender_tasks_file = os.path.join(
-                                    self.out_dir, "gender_tasks.json"
-                                )
-                                gender_out_file = os.path.join(
-                                    self.out_dir, "gender_out.json"
-                                )
-                                import json  # noqa: PLC0415
-
-                                with open(
-                                    gender_tasks_file, "w", encoding="utf-8"
-                                ) as f:
-                                    json.dump(gender_tasks, f)
-
-                                gender_py = _resolve_venv_python(".venv")
-                                gender_script = os.path.join(
-                                    os.path.dirname(__file__), "gender_worker.py"
-                                )
-                                self._run_subprocess(
-                                    [
-                                        gender_py,
-                                        gender_script,
-                                        gender_tasks_file,
-                                        gender_out_file,
-                                    ],
-                                    check=True,
-                                    timeout=14400,
-                                )
-
-                                with open(gender_out_file, "r", encoding="utf-8") as f:
-                                    gender_results = json.load(f)
-
-                                for spk, gen in gender_results.items():
-                                    speaker_refs[spk]["gender"] = gen
-                                    self.log_signal.emit(f"    - {spk}: {gen.upper()}")
-                                    # Update segments with detected gender
-                                    for tseg_tuple in tts_segments:
-                                        tseg = tseg_tuple[1]
-                                        if tseg.get("speaker", "SPEAKER_00") == spk:
-                                            tseg["gender"] = gen
-                        except Exception as e:
-                            self.log_signal.emit(
-                                f"  ⚠ Gender AI Error (Fallback to unknown): {e}"
-                            )
-
-                if use_xtts:
-                    tasks = []
-                    for idx, tseg, clip_path in tts_segments:  # noqa: B007
-                        spk = tseg.get("speaker", "SPEAKER_00")
-                        ref = speaker_refs.get(spk, list(speaker_refs.values())[0])
-                        tasks.append(
-                            {
-                                "ref_audio": ref["path"],
-                                "ref_text": ref["text"],
-                                "gen_text": tseg["text"],
-                                "out_path": clip_path,
-                                "language": lang,
-                            }
-                        )
-                        audio_clips.append((tseg["start"], clip_path, False, tseg))
-
-                    if tasks:
-                        tasks_file = os.path.join(self.out_dir, f"tasks_{lang}.json")
-                        import json  # noqa: PLC0415
-
-                        with open(tasks_file, "w", encoding="utf-8") as f:
-                            json.dump(tasks, f)
-
-                        if use_xtts:
-                            xtts_py = _resolve_venv_python(".venv-xtts")
-                            xtts_worker_script = os.path.join(
-                                os.path.dirname(__file__), "xtts_worker.py"
-                            )
                             self._run_subprocess(
-                                [xtts_py, xtts_worker_script, tasks_file],
+                                [worker_py, worker_script, tasks_file],
                                 check=True,
                                 timeout=14400,
                             )
+                        except Exception as e:
+                            self.log_signal.emit(f"  [!] {engine_label} error ({e}). Fallback to Edge-TTS...")
+                            local_tts_failed = True
+                    else:
+                        self.log_signal.emit(f"  [!] {engine_label} worker not found. Fallback to Edge-TTS...")
+                        local_tts_failed = True
 
-                        all_created_files.append(tasks_file)
-
-                else:  # Edge-TTS
+                if not use_local_tts or local_tts_failed:  # Edge-TTS
+                    if local_tts_failed:
+                        # Clean up broken XTTS audio clips — they're corrupt
+                        audio_clips = [
+                            (start_t, cp, False, tseg)
+                            for (start_t, cp, _, tseg) in audio_clips
+                            if tseg.get("skip_dub", False)
+                        ]
+                        # Rebuild tts_segments for Edge-TTS
+                        tts_segments = []
+                        for idx, tseg in enumerate(translated_segments):
+                            if not tseg.get("skip_dub", False):
+                                ext = "mp3"
+                                clip_path = os.path.join(self.out_dir, f"temp_{lang}_{idx}.{ext}")
+                                tts_segments.append((idx, tseg, clip_path))
                     import asyncio  # noqa: PLC0415
 
                     import edge_tts  # noqa: PLC0415
@@ -2275,7 +2208,18 @@ class AutoDubWorker(threading.Thread):
                                         (tseg["start"], clip_path, False, tseg)
                                     )
 
-                        asyncio.run(gen_all_groups())
+                        # Safe async runner: creates fresh event loop each time
+                        # (asyncio.run() can't be called twice in same thread)
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(gen_all_groups())
+                        finally:
+                            loop.close()
+                        # VRAM cleanup after Edge-TTS
+                        gc.collect()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
 
                 # --- Assembly (3 tracks: dub, clean, TTS-only) ---
                 tts_only = AudioSegment.silent(duration=len(vocals_full))

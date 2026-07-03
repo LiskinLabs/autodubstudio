@@ -63,20 +63,13 @@ const translations: Record<Language, Record<string, string>> = {
     'size.large': 'Large',
 
     // Voice models
-    'dubbing.voice.qwen': 'Qwen3-TTS [local]',
-    'dubbing.voice.xtts': 'XTTSv2 [local]',
-    'dubbing.voice.f5': 'F5-TTS [local]',
-    'dubbing.voice.azure': 'Azure API [internet, $]',
-    'dubbing.voice.edge': 'Edge-TTS [internet]',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 [local]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS [local]',
+    'dubbing.voice.f5tts_full': 'F5-TTS [local]',
+    'dubbing.voice.azure_cloud': 'Azure Speech [API]',
+    'dubbing.voice.edge_cloud': 'Edge TTS [internet]',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS [API]',
     'dubbing.voice.none': 'Subtitles Only (No TTS)',
-    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Local)',
-    'dubbing.voice.xttsv2_full': 'XTTSv2 (Local)',
-    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Local)',
-    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Local, Fast)',
-    'dubbing.voice.azure_cloud': 'Azure Speech (Cloud)',
-    'dubbing.voice.edge_cloud': 'Edge TTS (Cloud)',
-    'dubbing.voice.openai_cloud': 'OpenAI TTS (Cloud)',
-    'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Local)',
     'success': 'Success',
 
     // Dubbing general
@@ -108,9 +101,9 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.settings': 'Settings',
 
     // Translation engines
-    'dubbing.engine.deepseek': 'DeepSeek API [internet, $]',
-    'dubbing.engine.gemini': 'Google Gemini API [internet, $]',
-    'dubbing.engine.deepl': 'DeepL API [internet, $]',
+    'dubbing.engine.deepseek': 'DeepSeek API [API]',
+    'dubbing.engine.gemini': 'Google Gemini API [API]',
+    'dubbing.engine.deepl': 'DeepL API [API]',
     'dubbing.engine.ollama': 'Ollama [local]',
     'dubbing.engine.google': 'Google Translate [internet]',
 
@@ -500,13 +493,9 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.all_done': 'All set — continue',
     'frun.install_all': 'Install All ({count})',
     'frun.installing_all': 'Installing...',
-    'frun.opened_url': 'Opened in browser for manual installation.',
-    'frun.optional_cloud': 'Optional (Cloud Fallback)',
     'frun.instructions': 'Instructions',
     'frun.skip': 'Skip — I\'ll install manually later',
     'frun.footer': 'All components are free and installed from official websites.',
-    'frun.opened_url': 'Opened in browser for manual installation.',
-    'frun.optional_cloud': 'Optional (Cloud Fallback)',
     'frun.deps_python': 'Python 3.12+',
     'frun.deps_python_desc': 'Language for AI backend (speech recognition, translation, synthesis)',
     'frun.deps_uv': 'uv (package manager)',
@@ -758,26 +747,21 @@ const translations: Record<Language, Record<string, string>> = {
     'size.large': 'Крупный',
 
     // Voice models
-    'dubbing.voice.qwen': 'Qwen3-TTS [локально]',
-    'dubbing.voice.xtts': 'XTTSv2 [локально]',
-    'dubbing.voice.f5': 'F5-TTS [локально]',
-    'dubbing.voice.azure': 'Azure API [интернет, $]',
-    'dubbing.voice.edge': 'Edge-TTS [интернет]',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 [локально]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS [локально]',
+    'dubbing.voice.f5tts_full': 'F5-TTS [локально]',
+    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX [локально]',
+    'dubbing.voice.azure_cloud': 'Azure Speech [API]',
+    'dubbing.voice.edge_cloud': 'Edge TTS [интернет]',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS [API]',
     'dubbing.voice.none': 'Только субтитры (без озвучки)',
-    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Локально)',
-    'dubbing.voice.xttsv2_full': 'XTTSv2 (Локально)',
-    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Локально)',
-    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Локально, Быстро)',
-    'dubbing.voice.azure_cloud': 'Azure Speech (Облако)',
-    'dubbing.voice.edge_cloud': 'Edge TTS (Облако)',
-    'dubbing.voice.openai_cloud': 'OpenAI TTS (Облако)',
     'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Локально)',
     'success': 'Успех',
 
     // Translation engines
-    'dubbing.engine.deepseek': 'DeepSeek API [интернет, $]',
-    'dubbing.engine.gemini': 'Google Gemini API [интернет, $]',
-    'dubbing.engine.deepl': 'DeepL API [интернет, $]',
+    'dubbing.engine.deepseek': 'DeepSeek API [API]',
+    'dubbing.engine.gemini': 'Google Gemini API [API]',
+    'dubbing.engine.deepl': 'DeepL API [API]',
     'dubbing.engine.ollama': 'Ollama [локально]',
     'dubbing.engine.google': 'Google Translate [интернет]',
 
@@ -1035,8 +1019,6 @@ const translations: Record<Language, Record<string, string>> = {
     'frun.instructions': 'Инструкция',
     'frun.skip': 'Пропустить — установлю позже вручную',
     'frun.footer': 'Все компоненты бесплатны и устанавливаются с официальных сайтов.',
-    'frun.opened_url': 'Открыто в браузере для ручной установки.',
-    'frun.optional_cloud': 'Опционально (Если есть API ключи)',
     'frun.deps_python': 'Python 3.12+',
     'frun.deps_python_desc': 'Язык для AI-бекенда (распознавание речи, перевод, синтез)',
     'frun.deps_uv': 'uv (менеджер пакетов)',
@@ -1288,26 +1270,20 @@ const translations: Record<Language, Record<string, string>> = {
     'size.large': 'Büyük',
 
     // Voice models
-    'dubbing.voice.qwen': 'Qwen3-TTS [yerel]',
-    'dubbing.voice.xtts': 'XTTSv2 [yerel]',
-    'dubbing.voice.f5': 'F5-TTS [yerel]',
-    'dubbing.voice.azure': 'Azure API [internet, $]',
-    'dubbing.voice.edge': 'Edge-TTS [internet]',
+    'dubbing.voice.xttsv2_full': 'XTTSv2 [yerel]',
+    'dubbing.voice.qwen3_full': 'Qwen3-TTS [yerel]',
+    'dubbing.voice.f5tts_full': 'F5-TTS [yerel]',
+    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX [yerel]',
+    'dubbing.voice.azure_cloud': 'Azure Speech [API]',
+    'dubbing.voice.edge_cloud': 'Edge TTS [internet]',
+    'dubbing.voice.openai_cloud': 'OpenAI TTS [API]',
     'dubbing.voice.none': 'Sadece Altyazı (Seslendirme Yok)',
-    'dubbing.voice.qwen3_full': 'Qwen3-TTS (Yerel)',
-    'dubbing.voice.xttsv2_full': 'XTTSv2 (Yerel)',
-    'dubbing.voice.f5tts_full': 'F5-TTS PyTorch (Yerel)',
-    'dubbing.voice.f5onnx_full': 'F5-TTS ONNX Turkish (Yerel, Hızlı)',
-    'dubbing.voice.azure_cloud': 'Azure Speech (Bulut)',
-    'dubbing.voice.edge_cloud': 'Edge TTS (Bulut)',
-    'dubbing.voice.openai_cloud': 'OpenAI TTS (Bulut)',
-    'dubbing.voice.gpt_sovits': 'GPT-SoVITS (Yerel)',
     'success': 'Başarılı',
 
     // Translation engines
-    'dubbing.engine.deepseek': 'DeepSeek API [internet, $]',
-    'dubbing.engine.gemini': 'Google Gemini API [internet, $]',
-    'dubbing.engine.deepl': 'DeepL API [internet, $]',
+    'dubbing.engine.deepseek': 'DeepSeek API [API]',
+    'dubbing.engine.gemini': 'Google Gemini API [API]',
+    'dubbing.engine.deepl': 'DeepL API [API]',
     'dubbing.engine.ollama': 'Ollama [yerel]',
     'dubbing.engine.google': 'Google Translate [internet]',
 
@@ -1739,8 +1715,6 @@ class SettingsStore {
 }
 
 export const settingsStore = new SettingsStore();
-
-import { useMemo } from 'react';
 
 export function useSettings() {
   const [, setTick] = useState(0);

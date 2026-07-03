@@ -304,7 +304,8 @@ class Translator:
             return text
 
     def _extract_json(self, text: str) -> str:
-        """Extract JSON object/array from LLM response, stripping markdown fences and noise."""
+        """Extract JSON object/array from LLM response, stripping markdown fences and noise.
+        Returns empty string if no valid JSON container found."""
         if not text:
             return ""
         text = text.strip()
@@ -340,8 +341,8 @@ class Translator:
                 depth -= 1
                 if depth == 0 and start >= 0:
                     return text[start : i + 1]
-        # No JSON found — return original
-        return text
+        # No JSON found — return empty string (falsy) to signal failure to caller
+        return ""
 
     def _call_llm(self, prompt, is_json=True):
         if "gemini" in self.engine_name.lower() and self.gemini_key:
@@ -426,7 +427,7 @@ class Translator:
                         "model": model_name,
                         "messages": messages,
                         "stream": False,
-                        "keep_alive": 1200,
+                        "keep_alive": 60,
                         "options": {
                             "temperature": 0.1,
                             "num_predict": num_predict,
@@ -436,7 +437,8 @@ class Translator:
                     }
                 ).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
-                print("PAYLOAD:", payload.decode("utf-8"))
+                if os.environ.get("AUTODUB_DEBUG_PAYLOAD"):
+                    print("PAYLOAD (first 200 chars):", payload.decode("utf-8")[:200])
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
                     with urllib.request.urlopen(req, timeout=180) as resp:
@@ -550,14 +552,20 @@ class Translator:
             for fallback in ["gemma4:e4b", "gemma4:e2b"]:
                 if fallback not in models_to_try:
                     models_to_try.append(fallback)
-                    
+
+            system_msg = "You are a professional subtitle translator. Always output valid JSON exactly as requested. Never add explanations outside the JSON. ANTI-HALLUCINATION: If a phrase is untranslatable, meaningless, or lacks context, return the original text or 'null'. Do NOT invent or hallucinate information."
+
             for model_name in models_to_try:
+                messages = [
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": prompt},
+                ]
                 payload = json.dumps(
                     {
                         "model": model_name,
-                        "messages": [{"role": "user", "content": prompt}],
+                        "messages": messages,
                         "stream": False,
-                        "keep_alive": 300,
+                        "keep_alive": 60,
                         "options": {"temperature": 0.1, "num_predict": 2048, "num_ctx": 2048},
                     }
                 ).encode("utf-8")
@@ -568,7 +576,12 @@ class Translator:
                         if response.status == 200:
                             self.translator_model = model_name # Save successful fallback
                             result = json.loads(response.read().decode())
-                            return result.get("message", {}).get("content", "")
+                            text = result.get("message", {}).get("content", "")
+                            json_text = self._extract_json(text)
+                            if json_text:
+                                return json_text
+                            if not is_json:
+                                return text.strip()
                 except Exception:
                     continue
             raise RuntimeError("All LLM fallbacks failed for smart JSON translation.")
@@ -629,6 +642,8 @@ class Translator:
 
         gemma4_failures = 0
         for batch_start in range(0, total, batch_size):
+            if check_cancelled:
+                check_cancelled()
             batch_end = min(batch_start + batch_size, total)
             batch = segments[batch_start:batch_end]
             if gemma4_failures >= 3:
@@ -707,28 +722,36 @@ JSON:"""
 
     def release_models(self):
         import gc  # noqa: PLC0415
+        import time as _time  # noqa: PLC0415
 
         if "ollama" in self.engine_name.lower():
             import json  # noqa: PLC0415
             import urllib.request  # noqa: PLC0415
 
             url = "http://localhost:11434/api/generate"
-            # Release the actual models used
-            for model_name in set([self.translator_model, "gemma4:12b", "gemma4:e4b", "gemma4:e2b", "gemma2:2b", "gemma2"]):
-                try:
-                    payload = json.dumps(
-                        {"model": model_name, "prompt": "", "keep_alive": 0}
-                    ).encode("utf-8")
-                    urllib.request.urlopen(
-                        urllib.request.Request(
-                            url,
-                            data=payload,
-                            headers={"Content-Type": "application/json"},
-                        ),
-                        timeout=2,
-                    )
-                except Exception:
-                    pass
+            # Release only actually-used models (defense: try a few known fallbacks)
+            seen = set()
+            for model_name in [self.translator_model, "gemma4:e4b", "gemma4:e2b"]:
+                if model_name in seen:
+                    continue
+                seen.add(model_name)
+                for attempt in range(3):
+                    try:
+                        payload = json.dumps(
+                            {"model": model_name, "prompt": "", "keep_alive": 0}
+                        ).encode("utf-8")
+                        urllib.request.urlopen(
+                            urllib.request.Request(
+                                url,
+                                data=payload,
+                                headers={"Content-Type": "application/json"},
+                            ),
+                            timeout=5,
+                        )
+                        break
+                    except Exception:
+                        if attempt < 2:
+                            _time.sleep(0.5)
         if self.qwen_model:
             del self.qwen_model
             del self.qwen_tokenizer
@@ -866,7 +889,7 @@ JSON:"""
                         "Content-Type": "application/json",
                     }
                     req = urllib.request.Request(url, data=payload, headers=headers)
-                    with urllib.request.urlopen(req, timeout=300) as resp:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
                         if resp.status == 200:
                             result = _json.loads(resp.read().decode())
                             seg["translated_base"] = result["translations"][0][
@@ -993,6 +1016,8 @@ JSON:"""
 
             gemma4_failures = 0  # Circuit breaker (only for post-warmup batches)
             for batch_start in range(0, total, batch_size):
+                if check_cancelled:
+                    check_cancelled()
                 batch_end = min(batch_start + batch_size, total)
                 batch = segments[batch_start:batch_end]
 

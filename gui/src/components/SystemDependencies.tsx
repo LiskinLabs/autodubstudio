@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button, Spinner, Badge } from "@fluentui/react-components";
 import {
   CheckmarkRegular as Check,
-  ArrowDownloadRegular as DownloadIcon,
+  ArrowDownloadRegular as Download,
   ArrowClockwiseRegular as RefreshIcon,
 } from "@fluentui/react-icons";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,12 +28,25 @@ export default function SystemDependencies() {
   const checkAllDeps = useCallback(async () => {
     setChecking(true);
     const results: DepStatus[] = [];
+    // Map dep IDs to backend test-item IDs
+    const DEP_TO_TEST: Record<string, string> = {
+      python: "torch", uv: "torch", ollama: "ollama", ffmpeg: "ffmpeg", packages: "torch",
+    };
     for (const id of Object.keys(DEPS_EMOJI)) {
       try {
+        // Try Tauri invoke first (works in desktop app)
         const res = await invoke("check_dependency", { name: id }) as any;
         results.push({ id, installed: res.installed, installing: false });
       } catch {
-        results.push({ id, installed: false, installing: false });
+        // Fallback: check via Python backend API (works in dev mode + browser)
+        try {
+          const testId = DEP_TO_TEST[id] || id;
+          const resp = await fetch(`http://127.0.0.1:8000/api/system/test-item?id=${testId}`);
+          const data = await resp.json();
+          results.push({ id, installed: data.status === "ok", installing: false });
+        } catch {
+          results.push({ id, installed: false, installing: false, error: "Backend offline" });
+        }
       }
     }
     setDeps(results);
@@ -101,22 +114,35 @@ export default function SystemDependencies() {
                     )}
                   </div>
                 </div>
-                <div className="shrink-0 ml-4">
+                <div className="shrink-0 ml-4" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {checking ? (
                     <Spinner size="tiny" />
                   ) : dep.installed ? (
-                    <Badge appearance="tint" color="success" icon={<Check />}>{t("frun.ready") || "Installed"}</Badge>
+                    <Badge appearance="tint" color="success" icon={<Check />} style={{ minWidth: 90, justifyContent: "center" }}>
+                      {t("frun.ready") || "Ready"}
+                    </Badge>
                   ) : dep.installing ? (
-                    <Badge appearance="filled" color="brand" icon={<Spinner size="tiny" />}>{t("frun.installing") || "Installing..."}</Badge>
+                    <Badge appearance="filled" color="brand" icon={<Spinner size="tiny" />} style={{ minWidth: 90, justifyContent: "center" }}>
+                      {t("frun.installing") || "Installing..."}
+                    </Badge>
+                  ) : dep.error ? (
+                    <Button
+                      size="small"
+                      appearance="primary"
+                      icon={<Download style={{ fontSize: 12 }} />}
+                      onClick={() => installOne(dep.id)}
+                      title={t("frun.install") || "Install"}
+                      aria-label={t("frun.install") || "Install"}
+                    />
                   ) : (
                     <Button
                       size="small"
                       appearance="primary"
-                      icon={<DownloadIcon />}
+                      icon={<Download style={{ fontSize: 12 }} />}
                       onClick={() => installOne(dep.id)}
-                    >
-                      {t("frun.install") || "Install"}
-                    </Button>
+                      title={t("frun.install") || "Install"}
+                      aria-label={t("frun.install") || "Install"}
+                    />
                   )}
                 </div>
               </div>

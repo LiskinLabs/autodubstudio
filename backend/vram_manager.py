@@ -28,7 +28,21 @@ VRAM_HOGS = [
 
 
 def get_free_vram_mb():
-    """Get free VRAM in MB. Returns 0 if CUDA unavailable."""
+    """Get free VRAM in MB. Uses nvidia-smi for accuracy on WDDM, falls back to torch."""
+    try:
+        # Prefer nvidia-smi for accurate WDDM driver-level readings
+        import shutil
+        smi = shutil.which("nvidia-smi") or r"C:\Windows\System32\nvidia-smi.exe"
+        out = subprocess.run(
+            [smi, "--query-gpu=memory.free", "--format=csv,nounits,noheader"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return int(out.stdout.strip().split("\n")[0])
+    except Exception:
+        pass
+    # Fallback to torch.cuda (may be WDDM-inflated)
     try:
         if torch.cuda.is_available():
             free, _total = torch.cuda.mem_get_info(0)
@@ -209,7 +223,8 @@ class ResourceMonitor(threading.Thread):
         elif vram < self.vram_warning_mb or ram < self.ram_warning_mb:
             self._do_cleanup("warning", vram, ram)
         else:
-            self.last_level = "normal"
+            with self._lock:
+                self.last_level = "normal"
 
     def _do_cleanup(self, level: str, vram: int = 0, ram: int = 0, reason: str = "") -> dict:
         """Execute cleanup actions appropriate for the level.
@@ -219,12 +234,13 @@ class ResourceMonitor(threading.Thread):
         """
         now = time.time()
         # Don't spam cleanup more than once every 30 s
-        if now - self.last_cleanup_time < 30 and reason != "manual":
-            return {"level": level, "actions": [], "skipped": "cooldown"}
+        with self._lock:
+            if now - self.last_cleanup_time < 30 and reason != "manual":
+                return {"level": level, "actions": [], "skipped": "cooldown"}
 
-        self.last_cleanup_time = now
-        self.cleanup_count += 1
-        self.last_level = level
+            self.last_cleanup_time = now
+            self.cleanup_count += 1
+            self.last_level = level
         actions = []
 
         # ── Windows system optimization (WinMemoryCleaner APIs) ──
@@ -255,20 +271,23 @@ class ResourceMonitor(threading.Thread):
         gc.collect()
         actions.append("gc")
 
+        # Re-read after cleanup THEN build result with accurate values
+        new_vram = get_free_vram_mb()
+        new_ram = get_free_ram_mb()
+        with self._lock:
+            self.vram_free_mb = new_vram
+            self.ram_free_mb = new_ram
+
         result = {
             "level": level,
-            "vram_free_mb": self.vram_free_mb,
-            "ram_free_mb": self.ram_free_mb,
+            "vram_free_mb": new_vram,
+            "ram_free_mb": new_ram,
             "actions": actions,
             "reason": reason,
         }
 
         if self.on_cleanup:
-            self.on_cleanup(level, self.vram_free_mb, self.ram_free_mb, actions)
-
-        # Re-read after cleanup
-        self.vram_free_mb = get_free_vram_mb()
-        self.ram_free_mb = get_free_ram_mb()
+            self.on_cleanup(level, new_vram, new_ram, actions)
 
         return result
 

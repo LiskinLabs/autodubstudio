@@ -26,7 +26,8 @@ def main():
     parser.add_argument("--model_size", type=str, default="large-v3", help="Whisper model size")
     parser.add_argument("--device", type=str, default="cuda", help="Device to use (cuda/cpu)")
     parser.add_argument("--translator_engine", type=str, default="google", help="Translator engine (google, deepl, ollama, deepseek)")
-    parser.add_argument("--dub_engine", type=str, default="xttsv2", help="TTS Dub Engine (xttsv2, gtts, edge)")
+    parser.add_argument("--dub_engine", type=str, default="xttsv2",
+                        help="TTS engine: xttsv2, qwen3-tts (ru/en), f5-tts (tr/en/zh/ru), edge-tts, azure, openai, none")
     parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator: gemma4:12b (High-end), gemma4:e4b (Medium), gemma4:e2b (Weak)")
     
     # API Keys

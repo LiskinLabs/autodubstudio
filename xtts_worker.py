@@ -84,12 +84,36 @@ def main():
                 torch.cuda.empty_cache()
 
     print(f"\nDone: {success} ok, {failed} failed, {len(tasks)} total")
+
+    # ── CRITICAL: Unload model from VRAM before exit (prevents OOM on multi-language) ──
+    try:
+        del tts
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
     sys.exit(0 if failed == 0 else 1)
 
 
 if __name__ == "__main__":
     try:
         main()
+    except RuntimeError as e:
+        # CUDA OOM — don't continue, signal fatal error
+        if "out of memory" in str(e).lower():
+            print(f"FATAL CUDA OOM: {e}")
+            try:
+                gc.collect()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            sys.exit(2)
+        print(traceback.format_exc())
+        sys.exit(3)
     except Exception:
         print(traceback.format_exc())
         sys.exit(3)

@@ -189,6 +189,20 @@ _SUBPROCESS_SAFE_VARS = {
     "PROCESSOR_ARCHITECTURE",
 }
 
+# Blacklist of sensitive vars that MUST NOT leak to child processes
+_SUBPROCESS_BLOCK_VARS = {
+    "GITHUB_TOKEN",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "DEEPL_API_KEY",
+    "OPENAI_API_KEY",
+    "AZURE_OPENAI_KEY",
+    "HF_TOKEN",
+    "HUGGINGFACE_TOKEN",
+    "WS_AUTH_TOKEN",
+    "VERCEL_API_TOKEN",
+}
+
 
 def _safe_subprocess_env(**extra) -> dict:
     """Return a minimal environment dict for subprocess calls — no API keys, no secrets."""
@@ -204,6 +218,9 @@ def _safe_subprocess_env(**extra) -> dict:
             and key not in env
         ):
             env[key] = val
+    # Explicitly remove sensitive vars (defense in depth)
+    for key in _SUBPROCESS_BLOCK_VARS:
+        env.pop(key, None)
     env.update(extra)
     return env
 
@@ -278,6 +295,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:1435",
+        "http://localhost:1436",
         "http://localhost:5173",
         "http://localhost:1420",
         "tauri://localhost",
@@ -472,8 +490,17 @@ async def test_single_item(id: str):
     import importlib
     try:
         if id == "faster_whisper": importlib.import_module("faster_whisper")
-        elif id == "whisperx": importlib.import_module("whisperx")
+        elif id == "whisperx":
+            # WhisperX is in separate .venv-whisperx for dependency isolation
+            import subprocess, os
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            venv_python = os.path.join(root, ".venv-whisperx", "Scripts", "python.exe")
+            if os.path.exists(venv_python):
+                subprocess.run([venv_python, "-c", "import whisperx; print('OK')"], check=True, capture_output=True, text=True, timeout=30)
+            else:
+                raise ImportError("WhisperX venv not found at .venv-whisperx")
         elif id == "f5_tts": importlib.import_module("f5_tts")
+        elif id == "qwen3_tts": importlib.import_module("transformers")  # Qwen3-TTS uses transformers
         elif id == "coqui_tts": importlib.import_module("TTS")
         elif id == "demucs": importlib.import_module("demucs")
         elif id == "pyannote": importlib.import_module("pyannote.audio")
@@ -777,7 +804,21 @@ async def websocket_pipeline(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected from WebSocket")
-        # Do NOT stop the worker automatically on disconnect. The user might refresh the page.
+        # Allow quick reconnect (page refresh), but auto-cleanup after 30s timeout
+        _reconnect_timeout = 30.0
+        _worker_snapshot = active_worker  # capture ref before it changes
+        def _auto_cleanup():
+            import time as _time
+            _time.sleep(_reconnect_timeout)
+            # If the SAME worker is still active after timeout, kill it
+            with active_worker_lock:
+                if active_worker is _worker_snapshot and active_worker and active_worker.is_alive():
+                    print("[WS] Auto-cleanup: no reconnect within 30s, stopping pipeline")
+                    active_worker.requestInterruption()
+                    import engine as _eng
+                    with _eng.PIPELINE_LOCK:
+                        _eng.PIPELINE_BUSY = False
+        threading.Thread(target=_auto_cleanup, daemon=True).start()
 
 
 # ── Live Subtitles WebSocket ──
@@ -1092,7 +1133,7 @@ def get_model_status():
                 models_status["htdemucs"] = True
                 break
 
-    # Check Gemma 4 via Ollama
+    # Check Gemma 4 via Ollama — parse model names individually
     try:
         result = subprocess.run(
             ["ollama", "list"],
@@ -1103,8 +1144,14 @@ def get_model_status():
             timeout=5,
             env=_safe_subprocess_env(),
         )
-        models_status["gemma4"] = "gemma4" in result.stdout
+        ollama_models = result.stdout
+        # Return individual model statuses so frontend can match specific versions
+        for model_tag in ["gemma4:12b", "gemma4:e4b", "gemma4:e2b", "gemma4", "gemma2", "gemma2:2b"]:
+            models_status[model_tag] = model_tag in ollama_models
     except Exception:
+        models_status["gemma4:12b"] = False
+        models_status["gemma4:e4b"] = False
+        models_status["gemma4:e2b"] = False
         models_status["gemma4"] = False
 
     # Merge with in-progress downloads
@@ -2290,7 +2337,10 @@ async def preview_tts(req: PreviewTTSRequest):
     out_path = os.path.join(out_dir, f"preview_{int(time.time())}.wav")
 
     use_xtts = "xttsv2" in req.tts_engine.lower()
-    if use_xtts:
+    use_qwen = "qwen" in req.tts_engine.lower()
+    use_f5 = "f5" in req.tts_engine.lower() and "f5-tts" in req.tts_engine.lower()
+    use_local = use_xtts or use_qwen or use_f5
+    if use_local:
         ref_audio = os.path.join(out_dir, f"ref_{req.speaker}.wav")
         if not os.path.exists(ref_audio):
             import glob
@@ -2320,34 +2370,46 @@ async def preview_tts(req: PreviewTTSRequest):
         import subprocess
         # Get path up to root folder
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        xtts_script = os.path.join(root, "xtts_worker.py")
         env = _safe_subprocess_env()
 
-        if os.name == "nt":
-            xtts_py = os.path.join(root, ".venv-xtts", "Scripts", "python.exe")
-        else:
-            xtts_py = os.path.join(root, ".venv-xtts", "bin", "python")
-        if not os.path.isfile(xtts_py):
-            xtts_py = sys.executable  # fallback to main venv
+        # Select worker script and python based on TTS engine
+        if use_qwen:
+            worker_script = os.path.join(root, "qwen_worker.py")
+            worker_py = sys.executable  # main venv
+        elif use_f5:
+            worker_script = os.path.join(root, "f5_worker.py")
+            worker_py = sys.executable  # main venv
+        else:  # xttsv2
+            worker_script = os.path.join(root, "xtts_worker.py")
+            if os.name == "nt":
+                worker_py = os.path.join(root, ".venv-xtts", "Scripts", "python.exe")
+            else:
+                worker_py = os.path.join(root, ".venv-xtts", "bin", "python")
+            if not os.path.isfile(worker_py):
+                worker_py = sys.executable  # fallback to main venv
 
         proc = await asyncio.create_subprocess_exec(
-            xtts_py, xtts_script, tasks_file,
+            worker_py, worker_script, tasks_file,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             env=env
         )
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"XTTS Error: {stderr.decode('utf-8', 'replace')}")
+            engine_name = "Qwen3-TTS" if use_qwen else ("F5-TTS" if use_f5 else "XTTS")
+            raise HTTPException(status_code=500, detail=f"{engine_name} Error: {stderr.decode('utf-8', 'replace')}")
 
     else:
-        # Edge-TTS fallback
+        # Edge-TTS fallback (synced with engine.py EDGE_VOICES_MALE — 14 languages)
         import edge_tts
         EDGE_VOICES = {
             "ru": "ru-RU-DmitryNeural", "en": "en-US-ChristopherNeural",
-            "tr": "tr-TR-AhmetNeural", "es": "es-ES-AlvaroNeural",
-            "fr": "fr-FR-HenriNeural", "de": "de-DE-ConradNeural",
-            "zh": "zh-CN-YunxiNeural", "ja": "ja-JP-KeitaNeural",
+            "tr": "tr-TR-AhmetNeural", "ar": "ar-SA-HamedNeural",
+            "es": "es-ES-AlvaroNeural", "fr": "fr-FR-HenriNeural",
+            "de": "de-DE-ConradNeural", "zh": "zh-CN-YunxiNeural",
+            "ja": "ja-JP-KeitaNeural", "ko": "ko-KR-InJoonNeural",
+            "it": "it-IT-DiegoNeural", "pt": "pt-PT-DuarteNeural",
+            "pl": "pl-PL-MarekNeural", "hi": "hi-IN-MadhurNeural",
         }
         voice = EDGE_VOICES.get(req.language, "en-US-ChristopherNeural")
 

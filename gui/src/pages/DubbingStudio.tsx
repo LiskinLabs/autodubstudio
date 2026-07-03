@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect, type DragEvent } from "react";
+import { useState, useCallback, useEffect, useRef, type DragEvent } from "react";
 import { Button, Select, Input, Switch, ProgressBar, Field, Badge, Card, CardHeader, Radio, RadioGroup, Spinner, Dialog, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, Textarea, Text, Checkbox, Popover, PopoverTrigger, PopoverSurface, Slider, Label, makeStyles, typographyStyles, tokens } from "@fluentui/react-components";
 import {
   MoviesAndTvRegular as Film,
   ClipboardRegular as Clipboard,
   PlayRegular as Play,
-  Speaker2Regular as Speaker,
   CheckmarkRegular as Check,
   InfoRegular as Info,
   SquareRegular as Square,
@@ -102,34 +101,45 @@ const getLanguageDisplayName = (code: string, t: any) => {
   return match ? match.name : code;
 };
 
+// Qwen3-TTS languages: ru, en, zh, ja, ko, es, de, fr, pt, it
+const QWEN_LANGS = ["ru", "en", "zh", "ja", "ko", "es", "de", "fr", "pt", "it"];
+// F5-TTS languages: tr, en, zh, ru
+const F5_LANGS = ["tr", "en", "zh", "ru"];
+
 const TTS_BY_LANG: Record<string, string[]> = {
-  // Common TTS voices (xttsv2, azure, edge-tts, openai, gpt-sovits)
-  "ru": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "en": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "tr": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "es": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "fr": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "de": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "ar": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "zh": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "ja": ["azure", "edge-tts", "openai", "gpt-sovits"], 
-  "ko": ["azure", "edge-tts", "openai", "gpt-sovits"],
-  "it": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"], 
-  "pt": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"],
-  "pl": ["xttsv2", "azure", "edge-tts", "openai", "gpt-sovits"], 
-  "hi": ["azure", "edge-tts", "openai", "gpt-sovits"]
+  // Core 14 languages with full TTS support
+  "ru": ["xttsv2", "qwen3-tts", "f5-tts", "azure", "edge-tts", "openai", "none"],
+  "en": ["xttsv2", "qwen3-tts", "f5-tts", "azure", "edge-tts", "openai", "none"],
+  "tr": ["xttsv2", "f5-tts", "azure", "edge-tts", "openai", "none"],
+  "zh": ["xttsv2", "qwen3-tts", "f5-tts", "azure", "edge-tts", "openai", "none"],
+  "es": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "fr": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "de": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "ja": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "ko": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "it": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "pt": ["xttsv2", "qwen3-tts", "azure", "edge-tts", "openai", "none"],
+  "ar": ["xttsv2", "azure", "edge-tts", "openai", "none"],
+  "pl": ["xttsv2", "azure", "edge-tts", "openai", "none"],
+  "hi": ["xttsv2", "azure", "edge-tts", "openai", "none"],
 };
-// Add fallback for all other languages to have basic TTS options if supported globally
+// Add fallback for all other languages — cloud-only engines
 ALL_LANGUAGES.forEach(l => {
-  if (!TTS_BY_LANG[l.code]) TTS_BY_LANG[l.code] = ["azure", "edge-tts", "openai"];
+  if (!TTS_BY_LANG[l.code]) {
+    const engines = ["azure", "edge-tts", "openai"];
+    if (QWEN_LANGS.includes(l.code)) engines.unshift("qwen3-tts");
+    if (F5_LANGS.includes(l.code)) engines.unshift("f5-tts");
+    TTS_BY_LANG[l.code] = [...engines, "none"];
+  }
 });
 
 const TTS_T_KEY: Record<string, string> = {
   "xttsv2": "dubbing.voice.xttsv2_full",
+  "qwen3-tts": "dubbing.voice.qwen3_full",
+  "f5-tts": "dubbing.voice.f5tts_full",
   "azure": "dubbing.voice.azure_cloud",
   "edge-tts": "dubbing.voice.edge_cloud",
   "openai": "dubbing.voice.openai_cloud",
-  "gpt-sovits": "dubbing.voice.gpt_sovits",
   "none": "dubbing.voice.none" // Subtitles only
 };
 
@@ -281,13 +291,22 @@ export default function DubbingStudio() {
     setPipelineState("review");
   }, []);
 
+  const autoOpenRef = useRef(true);
   const [outputPath, setOutputPath] = useState("");
   const onFinished = useCallback((success: boolean, msg: string) => {
     setPipelineState("done");
     onLog(`[FINISHED] Success: ${success}, Message: ${msg}`);
     // Extract output file path from message: "Успешно: C:\...\file.mkv"
     const match = msg.match(/([A-Z]:\\[^\s]+\.(mkv|mp4|avi|srt))/i);
-    if (match) setOutputPath(match[1]);
+    if (match) {
+      const path = match[1];
+      setOutputPath(path);
+      // Auto-open output folder if enabled
+      if (success && autoOpenRef.current) {
+        const folder = path.substring(0, path.lastIndexOf("\\"));
+        try { openPath(folder); } catch {}
+      }
+    }
   }, [onLog]);
 
   const { isConnected, startPipeline, resumePipeline, stopPipeline } = usePipelineWebSocket(onProgress, onLog, onReviewReady, onFinished);
@@ -310,7 +329,9 @@ export default function DubbingStudio() {
   useEffect(() => {
     const valid = TTS_BY_LANG[config.targetLanguage] || [];
     if (!valid.includes(config.voiceModel) && valid.length > 0) updateConfig("voiceModel", valid[0]);
-  }, [config.targetLanguage, config.voiceModel]);
+    // Only react to targetLanguage changes — voiceModel is already handled in the body
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.targetLanguage]);
 
   const [ytScanResult, setYtScanResult] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -416,6 +437,7 @@ export default function DubbingStudio() {
 
   const updateConfig = useCallback(<K extends keyof Config>(key: K, value: Config[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+    if (key === "autoOpenFolder") autoOpenRef.current = value as boolean;
   }, []);
 
   useEffect(() => {
@@ -506,6 +528,15 @@ export default function DubbingStudio() {
 
   const handleStart = useCallback(async () => {
     if (!fileName && !youtubeUrl) return;
+    // Frontend guard: verify TTS engine supports the target language
+    const validTTS = TTS_BY_LANG[config.targetLanguage] || [];
+    if (!validTTS.includes(config.voiceModel)) {
+      notifyToast.error("Incompatible Voice Model", {
+        description: `${config.voiceModel} does not support ${config.targetLanguage}. Switching to ${validTTS[0]}.`,
+      });
+      updateConfig("voiceModel", validTTS[0]);
+      return;
+    }
     if (!isConnected) {
       try {
         const state = await invoke<string>("get_backend_state");
@@ -681,7 +712,6 @@ export default function DubbingStudio() {
                         setShowConfigModal(e.target.value);
                       }
                     }} size="large" className={styles.flex1}>
-                      <option value="none">{t("dubbing.voice.none") || "Subtitles Only (No TTS)"}</option>
                       {(TTS_BY_LANG[config.targetLanguage] || []).map(k => (<option key={k} value={k}>{t(TTS_T_KEY[k] as any) || k}</option>))}
                     </Select>
                     {["openai", "azure", "deepseek", "gemini", "deepl"].some(v => config.voiceModel === v || config.translationEngine === v) && (

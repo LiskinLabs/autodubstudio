@@ -24,6 +24,7 @@ export const ALL_MODELS: ModelInfo[] = [
   { id: 'whisper-tiny', name: 'Whisper Tiny', size: '~75 MB', descKey: 'dl.models.whisper', descDetailKey: 'dl.models.whisper_detail' },
   { id: 'pyannote-segmentation', name: 'Pyannote Audio', size: '~220 MB', descKey: 'dl.models.pyannote', descDetailKey: 'dl.models.pyannote_detail' },
   { id: 'f5-tts', name: 'F5-TTS', size: '~1.3 GB', descKey: 'dl.models.f5', descDetailKey: 'dl.models.f5_detail' },
+  // qwen3-tts: download supported, but NO worker implemented yet — hidden from UI
   { id: 'xttsv2', name: 'XTTS v2', size: '~1.8 GB', descKey: 'dl.models.xtts', descDetailKey: 'dl.models.xtts_detail' },
   { id: 'gemma4:12b', name: 'Gemma 4 (12B) - Мощные ПК', size: '~8 GB', descKey: 'dl.models.gemma', descDetailKey: 'dl.models.gemma_detail' },
   { id: 'gemma4:e4b', name: 'Gemma 4 (E4B) - Средние ПК', size: '~2.5 GB', descKey: 'dl.models.gemma', descDetailKey: 'dl.models.gemma_detail' },

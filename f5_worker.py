@@ -1,59 +1,80 @@
 """
 F5-TTS Worker — Voice Cloning for AutoDubStudio
-Runs in Python 3.10 venv with CUDA 11.8.
-F5TTS_Base model + fp16 + checkpoint_activations = fits 4GB VRAM.
-Key: NO Whisper ASR — ref_text must be provided manually.
+Runs in Python 3.10+ venv. F5TTS_Base model + fp16 + checkpoint_activations = fits 4GB VRAM.
+Supports: Turkish (fine-tuned), English, Chinese (base model).
+Zero-shot voice cloning — ref_text must be provided manually (no Whisper ASR).
 """
 
+import gc
 import json
+import os
 import sys
 import traceback
-import gc
 
 
-def _d(msg):
-    with open("debug.txt", "a") as f:
-        f.write(msg + "\n")
+# ── Language → Model mapping ──
+F5_MODEL_MAP = {
+    "tr": {
+        "repo_id": "marduk-ra/F5-TTS-Turkish",
+        "ckpt_file": "f5_tts_turkish_1000000.safetensors",
+        "vocab_file": "vocab.txt",
+        "name": "Turkish Fine-Tune",
+    },
+    "en": {
+        "repo_id": "SWivid/F5-TTS",
+        "ckpt_file": "F5TTS_Base/model_1200000.pt",
+        "vocab_file": "F5TTS_Base/vocab.txt",
+        "name": "F5TTS_Base (English/Chinese)",
+    },
+    "zh": {
+        "repo_id": "SWivid/F5-TTS",
+        "ckpt_file": "F5TTS_Base/model_1200000.pt",
+        "vocab_file": "F5TTS_Base/vocab.txt",
+        "name": "F5TTS_Base (English/Chinese)",
+    },
+    "ru": {
+        "repo_id": "SWivid/F5-TTS",
+        "ckpt_file": "F5TTS_Base/model_1200000.pt",
+        "vocab_file": "F5TTS_Base/vocab.txt",
+        "name": "F5TTS_Base (English/Chinese — Russian via cross-lingual)",
+    },
+}
+
+# Fallback languages that use the base English model
+_BASE_MODEL_LANGS = {"en", "zh", "ru"}
 
 
 def main():
-    _d("main started")
-
     if len(sys.argv) < 2:
         print("Usage: python f5_worker.py <tasks.json>")
         sys.exit(1)
 
     tasks_file = sys.argv[1]
-    _d(f"tasks file: {tasks_file}")
     with open(tasks_file, "r", encoding="utf-8") as f:
         tasks = json.load(f)
 
-    _d("tasks loaded: {len(tasks)}")
     print(f"F5-TTS Worker: {len(tasks)} segments")
 
-    _d("importing f5-tts models")
-    # ── Load F5-TTS with proper checkpoint ──
-    from importlib.resources import files  # noqa: PLC0415
+    # ── Determine language from first task ──
+    first_lang = tasks[0].get("language", "tr") if tasks else "tr"
+    model_info = F5_MODEL_MAP.get(first_lang, F5_MODEL_MAP["en"])
+    print(f"Selected model: {model_info['name']} (lang={first_lang})")
 
+    # ── Load F5-TTS ──
+    from importlib.resources import files  # noqa: PLC0415
     from f5_tts.infer.utils_infer import load_model, load_vocoder  # noqa: PLC0415
     from hydra.utils import get_class  # noqa: PLC0415
     from omegaconf import OmegaConf  # noqa: PLC0415
 
-    _d("import torch")
     import torch  # noqa: PLC0415
-    _d("torch imported")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    _d(f"device: {device}")
 
     if device == "cuda":
-        _d("getting gpu props")
         gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         print(f"GPU: {torch.cuda.get_device_properties(0).name} ({gb:.1f} GB)")
         torch.cuda.empty_cache()
-        _d("gc import")
         gc.collect()
-        _d("gc collected")
 
     cfg = OmegaConf.load(str(files("f5_tts").joinpath("configs/F5TTS_Base.yaml")))
     arch = cfg.model.arch
@@ -65,23 +86,35 @@ def main():
     try:
         from huggingface_hub import hf_hub_download  # noqa: PLC0415
 
-        print("Downloading/verifying Turkish model (marduk-ra/F5-TTS-Turkish)...")
+        print(f"Downloading/verifying {model_info['name']} ({model_info['repo_id']})...")
         ckpt_path = hf_hub_download(
-            repo_id="marduk-ra/F5-TTS-Turkish",
-            filename="f5_tts_turkish_1000000.safetensors",
+            repo_id=model_info["repo_id"],
+            filename=model_info["ckpt_file"],
         )
         vocab_path = hf_hub_download(
-            repo_id="marduk-ra/F5-TTS-Turkish", filename="vocab.txt"
+            repo_id=model_info["repo_id"], filename=model_info["vocab_file"]
         )
         print(f"Checkpoint: {ckpt_path}")
         print(f"Vocab: {vocab_path}")
     except Exception as e:
-        print(f"! Could not auto-download Turkish checkpoint: {e}")
-        print("Trying default checkpoint path...")
+        print(f"! Could not download checkpoint: {e}")
+        print("Trying default SWivid/F5-TTS base model...")
+        try:
+            ckpt_path = hf_hub_download(
+                repo_id="SWivid/F5-TTS",
+                filename="F5TTS_Base/model_1200000.pt",
+            )
+            vocab_path = hf_hub_download(
+                repo_id="SWivid/F5-TTS", filename="F5TTS_Base/vocab.txt"
+            )
+            print(f"Fallback checkpoint: {ckpt_path}")
+        except Exception as e2:
+            print(f"X All checkpoint downloads failed: {e2}")
+            sys.exit(2)
 
     model_cls = get_class(f"f5_tts.model.{cfg.model.backbone}")
     print(
-        f"Loading F5TTS_Base Turkish Fine-Tune (dim={arch.dim}, depth={arch.depth}, fp16)..."
+        f"Loading {model_info['name']} (dim={arch.dim}, depth={arch.depth}, fp16)..."
     )
 
     try:
@@ -107,11 +140,14 @@ def main():
     print("Vocoder loaded!")
 
     # ── Process tasks ──
+    import numpy as np  # noqa: PLC0415
     import soundfile as sf  # noqa: PLC0415
     from f5_tts.infer.utils_infer import infer_process  # noqa: PLC0415
 
     success = 0
     failed = 0
+    # Project-standard sample rate for silence fallback (matches XTTSv2 22050Hz)
+    FALLBACK_SR = 22050
 
     for i, task in enumerate(tasks):
         ref_audio = task["ref_audio"]
@@ -143,15 +179,26 @@ def main():
             )
             sf.write(out_path, audio, sr)
             success += 1
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower():
+                print(f"FATAL CUDA OOM at segment {i + 1}: {e}")
+                torch.cuda.empty_cache()
+                gc.collect()
+                sys.exit(2)
+            print(f"! [{i + 1}]: {e}")
+            # Write silent audio as fallback
+            try:
+                silence = np.zeros(int(FALLBACK_SR * 0.3), dtype=np.float32)
+                sf.write(out_path, silence, FALLBACK_SR)
+                success += 1
+            except Exception:
+                failed += 1
         except Exception as e:
             print(f"! [{i + 1}]: {e}")
-            # Write silent audio as fallback — don't let 1 bad segment ruin the pipeline
+            # Write silent audio as fallback
             try:
-                import numpy as np  # noqa: PLC0415
-
-                silence_sr = 24000
-                silence = np.zeros(int(silence_sr * 0.3), dtype=np.float32)
-                sf.write(out_path, silence, silence_sr)
+                silence = np.zeros(int(FALLBACK_SR * 0.3), dtype=np.float32)
+                sf.write(out_path, silence, FALLBACK_SR)
                 success += 1
             except Exception:
                 failed += 1
@@ -165,15 +212,37 @@ def main():
     print(
         f"\nDone: {success} ok, {failed} failed, {len(tasks)} total [F5TTS_Base @ {device}]"
     )
-    # Tolerate up to 10% segment failures — don't block video assembly
+
+    # ── Unload model from VRAM before exit ──
+    try:
+        del ema
+        del v
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+    # Tolerate up to 10% segment failures
     sys.exit(0 if failed <= len(tasks) * 0.10 else 1)
 
 
 if __name__ == "__main__":
-    _d("script started")
     try:
         main()
-    except Exception as e:
-        _d(f"CRASH: {e}")
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            print(f"FATAL CUDA OOM: {e}")
+            try:
+                gc.collect()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            sys.exit(2)
+        print(traceback.format_exc())
+        sys.exit(3)
+    except Exception:
         print(traceback.format_exc())
         sys.exit(3)

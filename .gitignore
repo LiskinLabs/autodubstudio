@@ -27,3 +27,13 @@ github_token.txt
 .idea/
 *.zip
 Thumbs.db
+# AI / Agent files — not for repository
+AI_PROMPT.md
+MEMORY.md
+CLAUDE.md
+AUDIT_REPORT*.md
+.cursor/
+.rules/
+.claude/
+*.output
+*.pyc

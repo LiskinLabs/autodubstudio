@@ -113,7 +113,7 @@ export default function SpeakerManager({ segments, onRenameSpeaker }: SpeakerMan
                     <Input
                       size="small"
                       value={tempName}
-                      onChange={(e, d) => setTempName(d.value)}
+                      onChange={(_, d) => setTempName(d.value)}
                       onKeyDown={e => e.key === "Enter" && commitEdit()}
                       onBlur={commitEdit}
                       autoFocus
