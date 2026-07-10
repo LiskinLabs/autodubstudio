@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react';
-import { fetch } from '@tauri-apps/plugin-http';
 import { notifyToast } from '../lib/toast';
 
 export interface OllamaMessage {
@@ -15,7 +14,7 @@ interface SendMessageOptions {
   onError?: (error: string) => void;
 }
 
-const OLLAMA_BASE = 'http://127.0.0.1:11434';
+const OLLAMA_BASE = 'http://localhost:11434';
 
 const FALLBACK_MAP: Record<string, string> = {
   // Add fallbacks here if needed: 'big-model': 'smaller-model'

@@ -124,12 +124,15 @@ export async function reportErrorToGitHub(error: Error, componentStack?: string)
     });
     captureLog('[REPORT] Error sent to GitHub successfully');
   } else {
-    notifyToast.error('Could not send report', {
+    try {
+      await navigator.clipboard.writeText(`AutoDub Error: ${error.message}\n\n${error.stack || ''}`);
+    } catch {}
+    notifyToast.error('Backend offline', {
       id: 'error-report',
-      description: 'Backend may be offline. Error saved locally.',
-      duration: 5000,
+      description: 'Error copied to clipboard. Please report manually.',
+      duration: 7000,
     });
-    captureLog('[REPORT] Failed to send — backend unreachable');
+    captureLog('[REPORT] Failed to send — backend unreachable (copied to clipboard)');
   }
 
   return url;

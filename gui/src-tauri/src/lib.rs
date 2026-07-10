@@ -263,10 +263,13 @@ pub fn run() {
                     };
 
                     // Log file
-                    let log_file = backend_dir.join("autodub_backend.log");
+                    let local_appdata_log = std::env::var("LOCALAPPDATA").unwrap_or_default();
+                    let log_dir = std::path::PathBuf::from(&local_appdata_log).join("AutoDub Studio").join("logs");
+                    let _ = std::fs::create_dir_all(&log_dir);
+                    let log_file = log_dir.join("autodub_backend.log");
                     if let Ok(meta) = std::fs::metadata(&log_file) {
                         if meta.len() > 5_000_000 {
-                            let _ = std::fs::rename(&log_file, backend_dir.join("autodub_backend.old.log"));
+                            let _ = std::fs::rename(&log_file, log_dir.join("autodub_backend.old.log"));
                         }
                     }
                     let log_fd = std::fs::OpenOptions::new()
@@ -388,16 +391,31 @@ fn check_command(cmd: &str, args: &[&str], fallback_paths: &[&str]) -> bool {
 }
 
 fn get_backend_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
-    let desktop = std::path::PathBuf::from(
-        std::env::var("USERPROFILE").unwrap_or_default()
-    ).join("Desktop").join("AutoDubStudio");
-    if desktop.join("backend").join("main.py").exists() {
-        desktop
-    } else if std::path::PathBuf::from("C:\\Projects\\AutoDubStudio\\backend\\main.py").exists() {
-        std::path::PathBuf::from("C:\\Projects\\AutoDubStudio")
+    // Priority: resource dir (installed app) > dev projects
+    let resource_dir = app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+    // Tauri v2 extracts resources to resource_dir/_up_/_up_/
+    let inner = resource_dir.join("_up_").join("_up_");
+    let candidate = if inner.join("backend").join("main.py").exists() {
+        inner
+    } else if resource_dir.join("backend").join("main.py").exists() {
+        resource_dir
     } else {
-        app.path().resource_dir().unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
-    }
+        // Fallback: dev project paths
+        let dev_project = std::path::PathBuf::from("C:\\Projects\\AutoDubStudio");
+        if dev_project.join("backend").join("main.py").exists() {
+            dev_project
+        } else {
+            let desktop = std::path::PathBuf::from(
+                std::env::var("USERPROFILE").unwrap_or_default()
+            ).join("Desktop").join("AutoDubStudio");
+            if desktop.join("backend").join("main.py").exists() {
+                desktop
+            } else {
+                resource_dir
+            }
+        }
+    };
+    candidate
 }
 
 /// Check status of all required dependencies
@@ -416,10 +434,6 @@ fn check_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value {
         }
         "ollama" => {
             let ok = check_command("ollama", &["--version"], &["%LOCALAPPDATA%\\Programs\\Ollama\\ollama.exe"]);
-            (ok, String::new())
-        }
-        "ffmpeg" => {
-            let ok = check_command("ffmpeg", &["-version"], &["C:\\ffmpeg\\bin\\ffmpeg.exe"]);
             (ok, String::new())
         }
         "packages" => {
@@ -469,7 +483,6 @@ fn install_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value 
             "python" => "Python.Python.3.12",
             "uv" => "astral-sh.uv",
             "ollama" => "Ollama.Ollama",
-            "ffmpeg" => "Gyan.FFmpeg",
             _ => return serde_json::json!({"status": "error", "message": "Unknown package"}),
         };
 
@@ -510,7 +523,6 @@ fn install_dependency(app: tauri::AppHandle, name: String) -> serde_json::Value 
         "python" => "https://www.python.org/downloads/",
         "uv" => "https://docs.astral.sh/uv/getting-started/installation/",
         "ollama" => "https://ollama.com/download/windows",
-        "ffmpeg" => "https://www.gyan.dev/ffmpeg/builds/",
         _ => "",
     };
     serde_json::json!({
@@ -528,7 +540,6 @@ fn get_missing_deps() -> serde_json::Value {
         ("python", "Python 3.12+", "Required to run the AI backend", "https://www.python.org/downloads/"),
         ("uv", "uv (Python package manager)", "Fast Python dependency management", "https://docs.astral.sh/uv/getting-started/installation/"),
         ("ollama", "Ollama", "Local AI models for translation & chat", "https://ollama.com/download/windows"),
-        ("ffmpeg", "FFmpeg", "Video/audio processing & muxing", "https://www.gyan.dev/ffmpeg/builds/"),
     ];
 
     let mut missing = Vec::new();

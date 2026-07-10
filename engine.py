@@ -1,13 +1,18 @@
 import os
+import imageio_ffmpeg
+FFMPEG_CMD = imageio_ffmpeg.get_ffmpeg_exe()
 import re
 import shutil
 import subprocess
 import sys
+from backend.utils.downloader import _download_youtube
+from backend.utils.helpers import (detect_language, split_bilingual_text, get_python_exe, _resolve_venv_python, kill_process_tree, _safe_subprocess_env, _pipeline_t, _set_model_status, _finish_pipeline_status, _set_engine_info, _set_pipeline_step)
 
 # ── Language detection for bilingual subtitle processing ──
 # Uses langdetect library (55 languages) with fallback to character-based heuristics
 try:
     import langdetect as _langdetect
+
     # Seed the detector for deterministic results
     from langdetect import DetectorFactory
     DetectorFactory.seed = 0
@@ -29,87 +34,10 @@ _SCRIPT_CHARS = {
 }
 
 
-def detect_language(text: str) -> str:
-    """Detect language of a short text segment.
-    Uses langdetect (55 languages) when available, falls back to character heuristics.
-    Returns ISO 639-1 language code or 'unknown'."""
-    if not text or not text.strip():
-        return "unknown"
-
-    text_clean = text.strip()
-
-    # Try langdetect first (most accurate)
-    if _HAS_LANGDETECT:
-        try:
-            # langdetect needs at least a few characters to be reliable
-            if len(text_clean) > 5:
-                result = _langdetect.detect(text_clean)[:2].lower()
-                # langdetect can misidentify short phrases as rare languages.
-                # Verify with common English words; fall back to "unknown" otherwise
-                # (the engine will use Whisper's base language for unknown segments).
-                _RARE_CONFUSIONS = {"af", "fy", "cy", "sw", "fr", "ga", "gd", "la", "so"}
-                if result in _RARE_CONFUSIONS:
-                    _COMMON_EN = {"the", "is", "are", "was", "this", "that", "with",
-                                  "what", "when", "who", "how", "you", "your", "for",
-                                  "and", "but", "not", "have", "has", "good", "work",
-                                  "job", "time", "years", "interview", "company",
-                                  "team", "thank", "welcome", "please", "morning",
-                                  "practice", "questions", "experience", "engineer",
-                                  "salary", "video", "subscribe", "channel", "like"}
-                    text_words = set(re.findall(r"\w+", text_clean.lower()))
-                    if text_words & _COMMON_EN:
-                        return "en"
-                    return "unknown"  # Don't trust rare language codes
-                return result
-        except Exception:
-            pass  # Fall through to heuristics
-
-    # Fallback: character-based detection
-    for lang, chars in _SCRIPT_CHARS.items():
-        if any(c in text_clean for c in chars):
-            return lang
-
-    return "unknown"
 
 
-def split_bilingual_text(text: str) -> list[tuple[str, str]]:
-    """Split mixed-language text into (text, language) chunks.
-    E.g. 'Hola, ¿cómo estás? Good morning, welcome.' →
-    [('Hola, ¿cómo estás?', 'es'), ('Good morning, welcome.', 'en')]
-    """
-    if not text or not text.strip():
-        return [(text, "unknown")]
 
-    # Split into sentences
-    sentences = re.split(r"(?<=[.!?¡¿])\s+", text.strip())
-    if len(sentences) <= 1:
-        lang = detect_language(text)
-        return [(text, lang)]
 
-    # Detect language per sentence, then group consecutive same-language sentences
-    chunks = []
-    current_chunk = []
-    current_lang = None
-
-    for sent in sentences:
-        sent = sent.strip()
-        if not sent:
-            continue
-        lang = detect_language(sent)
-
-        if lang == current_lang or current_lang is None:
-            current_chunk.append(sent)
-            current_lang = lang
-        else:
-            if current_chunk:
-                chunks.append((" ".join(current_chunk), current_lang or "unknown"))
-            current_chunk = [sent]
-            current_lang = lang
-
-    if current_chunk:
-        chunks.append((" ".join(current_chunk), current_lang or "unknown"))
-
-    return chunks if chunks else [(text, "unknown")]
 import threading
 import warnings
 
@@ -139,27 +67,11 @@ if _dev_root:
     _POSSIBLE_ROOTS.insert(0, _dev_root)
 
 
-def get_python_exe():
-    """Returns the path to the current python executable (handles virtualenvs)"""
-    if "UV_PROJECT_ENVIRONMENT" in os.environ:
-        cand = os.path.join(os.environ["UV_PROJECT_ENVIRONMENT"], "Scripts", "python.exe")
-        if os.path.exists(cand):
-            return cand
-    for root in _POSSIBLE_ROOTS:
-        candidate = os.path.join(root, ".venv", "Scripts", "python.exe")
-        if os.path.exists(candidate):
-            return candidate
-    import sys
-    return sys.executable
 
-def _resolve_venv_python(venv_name: str) -> str:
-    for root in _POSSIBLE_ROOTS:
-        candidate = os.path.join(root, venv_name, "Scripts", "python.exe")
-        if os.path.exists(candidate):
-            return candidate
-    return get_python_exe()
+
 
 # WhisperX will be imported locally inside the worker
+
 
 import time
 
@@ -170,18 +82,6 @@ from backend.translator import Translator
 from backend.vram_manager import get_monitor
 
 
-def kill_process_tree(pid):
-    try:
-        parent = psutil.Process(pid)
-        children = parent.children(recursive=True)
-        for child in children:
-            try:
-                child.kill()
-            except psutil.NoSuchProcess:
-                pass
-        parent.kill()
-    except psutil.NoSuchProcess:
-        pass
 
 
 # ── Safe subprocess environment (security: don't leak API keys to child processes) ──
@@ -215,6 +115,8 @@ _SUBPROCESS_SAFE_VARS = {
 }
 
 # Blacklist of sensitive vars that MUST NOT leak to child processes
+# NOTE: HF_TOKEN is intentionally NOT in this list — it's needed by
+# diarization_worker and whisper_multi_worker for legitimate Pyannote/HF access.
 _SUBPROCESS_BLOCK_VARS = {
     "GITHUB_TOKEN",
     "GEMINI_API_KEY",
@@ -222,40 +124,12 @@ _SUBPROCESS_BLOCK_VARS = {
     "DEEPL_API_KEY",
     "OPENAI_API_KEY",
     "AZURE_OPENAI_KEY",
-    "HF_TOKEN",
     "HUGGINGFACE_TOKEN",
     "WS_AUTH_TOKEN",
     "VERCEL_API_TOKEN",
 }
 
 
-def _safe_subprocess_env(**extra) -> dict:
-    """Return minimal env for subprocess calls — NO API keys, NO secrets.
-
-    Uses both whitelist (SAFE_VARS) and blacklist (BLOCK_VARS) approach:
-    1. Start with whitelisted variables from os.environ
-    2. Add any GPU-related vars (CUDA_, NVIDIA_, TORCH_, OLLAMA_)
-    3. Explicitly REMOVE any blacklisted vars
-    4. Add caller-provided extras
-    """
-    import os
-    # Start with whitelisted safe vars
-    env = {}
-    for key in _SUBPROCESS_SAFE_VARS:
-        val = os.environ.get(key)
-        if val:
-            env[key] = val
-    # Add GPU-related vars
-    for key, val in os.environ.items():
-        if key.startswith(("CUDA_", "NVIDIA_", "TORCH_", "OLLAMA_")):
-            if key not in env:
-                env[key] = val
-    # Explicitly remove sensitive vars (defense in depth)
-    for key in _SUBPROCESS_BLOCK_VARS:
-        env.pop(key, None)
-    # Add caller extras
-    env.update(extra)
-    return env
 
 
 # ── Multi-language log messages ──
@@ -403,13 +277,6 @@ _PIPELINE_LOG = {
 }
 
 
-def _pipeline_t(key: str, ui_lang: str = "ru", **kwargs) -> str:
-    """Return a translated pipeline log message."""
-    entry = _PIPELINE_LOG.get(key, {})
-    msg = entry.get(ui_lang) or entry.get("en") or key
-    if kwargs:
-        msg = msg.format(**kwargs)
-    return msg
 
 
 class EventSignal:
@@ -431,73 +298,12 @@ PIPELINE_BUSY = False
 PIPELINE_LOCK = threading.Lock()
 
 
-def _set_model_status(model: str, state: str):
-    """Update global pipeline_status dict for the StatusBar."""
-    try:
-        from shared import pipeline_status  # noqa: PLC0415
-
-        pipeline_status["models"][model] = state
-        pipeline_status["active"] = True
-    except Exception:
-        pass
 
 
-def _finish_pipeline_status(error: bool = False):
-    """Finalize pipeline status. Reset models to idle (gray indicators).
-    On error: mark the running model as 'error' (red) for diagnostics."""
-    try:
-        from shared import pipeline_status  # noqa: PLC0415
-
-        pipeline_status["active"] = False
-        pipeline_status["step"] = ""
-        pipeline_status["step_index"] = 0
-        step_order = ["demucs", "whisper", "pyannote", "translate", "tts", "mux"]
-        if error:
-            # Mark the currently running model as 'error' (visible red in StatusBar)
-            found = False
-            for m in step_order:
-                if pipeline_status["models"].get(m) == "running":
-                    pipeline_status["models"][m] = "error"
-                    found = True
-                    break
-            if not found:
-                for m in step_order:
-                    if pipeline_status["models"].get(m) == "idle":
-                        pipeline_status["models"][m] = "error"
-                        break
-            # Остальные модели — idle (серые)
-            for m in step_order:
-                if pipeline_status["models"].get(m) not in ("error",):
-                    pipeline_status["models"][m] = "idle"
-        else:
-            # Успех/отмена — все модели idle (серые индикаторы)
-            for k in pipeline_status["models"]:
-                pipeline_status["models"][k] = "idle"
-    except Exception:
-        pass
 
 
-def _set_engine_info(model: str, engine_id: str):
-    """Set which engine is used for translate/TTS (for StatusBar display)."""
-    try:
-        from shared import pipeline_status  # noqa: PLC0415
-
-        if model == "translate":
-            pipeline_status["translate_engine"] = engine_id.lower()
-        elif model == "tts":
-            pipeline_status["tts_engine"] = engine_id.lower()
-    except Exception:
-        pass
 
 
-def _set_pipeline_step(step_name: str, step_index: int):
-    try:
-        from shared import pipeline_status  # noqa: PLC0415
-
-        pipeline_status["step"] = step_name
-        pipeline_status["step_index"] = step_index
-    except Exception:
-        pass
 
 
 class InterruptedError(Exception):
@@ -626,13 +432,13 @@ class AutoDubWorker(threading.Thread):
             self.max_duration = cfg.get("max_duration", 0)
             self.local_only = cfg.get("local_only", False)
             self.source_lang = cfg.get("source_lang", "en")
-            
+
             # Enforce local_only restrictions
             if self.local_only:
                 if "ollama" not in self.translator_engine.lower() and "llamacpp" not in self.translator_engine.lower() and "qwen" not in self.translator_engine.lower():
                     self.translator_engine = "Ollama / Gemma 4 (Local AI, Slow)"
-                if "xtts" not in self.dub_engine.lower() and "f5" not in self.dub_engine.lower():
-                    self.dub_engine = "XTTS v2 (Local, Voice Clone)"
+                if "xtts" not in self.dub_engine.lower() and "f5" not in self.dub_engine.lower() and "qwen" not in self.dub_engine.lower():
+                    self.dub_engine = "xttsv2"  # Use ID, not display name
                 # Disable YouTube subs download as it hits external API
                 self.use_youtube_subs = False
         else:
@@ -797,102 +603,6 @@ class AutoDubWorker(threading.Thread):
         msecs = int((seconds - int(seconds)) * 1000)
         return f"{hrs:02d}:{mins:02d}:{secs:02d},{msecs:03d}"
 
-    def _download_youtube(self, url, out_dir):
-        """Download video from YouTube/TikTok/Vimeo URL using yt-dlp."""
-        from urllib.parse import urlparse  # noqa: PLC0415
-
-        import yt_dlp  # noqa: PLC0415
-
-        # SSRF Protection: Validate URL scheme and domain
-        parsed = urlparse(url)
-        allowed_domains = [
-            "youtube.com",
-            "youtu.be",
-            "www.youtube.com",
-            "tiktok.com",
-            "www.tiktok.com",
-            "vimeo.com",
-            "www.vimeo.com",
-        ]
-        if (
-            parsed.scheme not in ["http", "https"]
-            or parsed.hostname not in allowed_domains
-        ):
-            raise ValueError(
-                f"URL domain '{parsed.hostname}' is not allowed or invalid scheme. Only YouTube, TikTok, and Vimeo are supported."
-            )
-
-        self.log_signal.emit(
-            _pipeline_t("downloading_video", self.ui_language, url=url[:60])
-        )
-        ydl_opts = {
-            "outtmpl": os.path.join(out_dir, "%(title)s.%(ext)s"),
-            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "merge_output_format": "mp4",
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitleslangs": [getattr(self, "source_lang", "en"), "en"],
-            "quiet": True,
-            "no_warnings": True,
-            "retries": 10,
-            "fragment_retries": 10,
-            "postprocessors": [
-                {
-                    "key": "FFmpegSubtitlesConvertor",
-                    "format": "srt",
-                }
-            ],
-        }
-
-        cookie_file = os.path.join(os.path.dirname(__file__), "backend", "youtube_cookies.txt")
-        if os.path.exists(cookie_file):
-            ydl_opts["cookiefile"] = cookie_file
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                filepath = ydl.prepare_filename(info)
-                if not filepath.endswith(".mp4"):
-                    filepath = filepath.rsplit(".", 1)[0] + ".mp4"
-                if os.path.exists(filepath):
-                    self.log_signal.emit(
-                        _pipeline_t(
-                            "downloaded",
-                            self.ui_language,
-                            name=os.path.basename(filepath),
-                        )
-                    )
-                    return filepath
-        except yt_dlp.utils.DownloadError as e:
-            if (
-                "Too Many Requests" in str(e)
-                or "HTTP Error 429" in str(e)
-                or "subtitles" in str(e).lower()
-            ):
-                self.log_signal.emit(
-                    "⚠️ YouTube rate limited subtitles (HTTP 429). Retrying without subtitles (will use Whisper instead)..."
-                )
-                # Fallback: Disable subtitle download and try again
-                ydl_opts["writesubtitles"] = False
-                ydl_opts["writeautomaticsub"] = False
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl_fallback:
-                    info = ydl_fallback.extract_info(url, download=True)
-                    filepath = ydl_fallback.prepare_filename(info)
-                    if not filepath.endswith(".mp4"):
-                        filepath = filepath.rsplit(".", 1)[0] + ".mp4"
-                    if os.path.exists(filepath):
-                        self.log_signal.emit(
-                            _pipeline_t(
-                                "downloaded",
-                                self.ui_language,
-                                name=os.path.basename(filepath),
-                            )
-                        )
-                        return filepath
-            else:
-                raise e
-
-        raise RuntimeError(f"Failed to download: {url}")
-
     def _check_cancelled(self):
         """Raise InterruptedError if stop was requested — allows clean finally-block cleanup."""
         if self._stop_event.is_set():
@@ -972,7 +682,7 @@ class AutoDubWorker(threading.Thread):
                 "https://"
             ):
                 _was_url_source = True
-                self.video_path = self._download_youtube(self.video_path, self.out_dir)
+                self.video_path = _download_youtube(self, self.video_path, self.out_dir)
 
             self._check_cancelled()
             # Security: validate and normalize video path
@@ -980,14 +690,14 @@ class AutoDubWorker(threading.Thread):
                 self.finished_signal.emit(False, "Invalid video file path")
                 return
             self.video_path = os.path.realpath(self.video_path)
-            
+
             # Trim video if max_duration is set
             max_duration = self.max_duration
             if max_duration > 0:
                 self.log_signal.emit(f"✂️ Trimming video to {max_duration} seconds...")
                 base, ext = os.path.splitext(self.video_path)
                 trimmed_path = f"{base}_trimmed{ext}"
-                cmd = f'ffmpeg -y -i "{self.video_path}" -t {max_duration} -c copy "{trimmed_path}"'
+                cmd = f'"{FFMPEG_CMD}" -y -i "{self.video_path}" -t {max_duration} -c copy "{trimmed_path}"'
                 self._run_subprocess(cmd)
                 if os.path.exists(trimmed_path):
                     self.video_path = trimmed_path
@@ -1148,8 +858,7 @@ class AutoDubWorker(threading.Thread):
                     os.makedirs(chunk_dir, exist_ok=True)
                     full_audio = os.path.join(chunk_dir, "full.wav")
                     self._run_subprocess(
-                        [
-                            "ffmpeg",
+                        [FFMPEG_CMD,
                             "-y",
                             "-i",
                             self.video_path,
@@ -1163,8 +872,7 @@ class AutoDubWorker(threading.Thread):
                         stderr=subprocess.DEVNULL,
                     )
                     self._run_subprocess(
-                        [
-                            "ffmpeg",
+                        [FFMPEG_CMD,
                             "-y",
                             "-i",
                             full_audio,
@@ -1248,8 +956,7 @@ class AutoDubWorker(threading.Thread):
                     os.makedirs(os.path.dirname(vocals_path), exist_ok=True)
                     try:
                         self._run_subprocess(
-                            [
-                                "ffmpeg",
+                            [FFMPEG_CMD,
                                 "-y",
                                 "-f",
                                 "concat",
@@ -1266,8 +973,7 @@ class AutoDubWorker(threading.Thread):
                             stderr=subprocess.DEVNULL,
                         )
                         self._run_subprocess(
-                            [
-                                "ffmpeg",
+                            [FFMPEG_CMD,
                                 "-y",
                                 "-f",
                                 "concat",
@@ -1364,7 +1070,7 @@ class AutoDubWorker(threading.Thread):
                         concat_inputs.extend(["-i", sp])
                     filter_parts = [f"[{i}:a]" for i in range(len(stem_parts))]
                     self._run_subprocess(
-                        ["ffmpeg", "-y"]
+                        [FFMPEG_CMD, "-y"]
                         + concat_inputs
                         + [
                             "-filter_complex",
@@ -1425,18 +1131,18 @@ class AutoDubWorker(threading.Thread):
                         parts = os.path.basename(chosen_srt).split(".")
                         if len(parts) >= 3 and len(parts[-2]) in (2, 3):
                             source_lang = parts[-2]
-                            
+
                         subs = pysrt.open(chosen_srt)
                         for sub in subs:
                             start_s = sub.start.ordinal / 1000.0
                             end_s = sub.end.ordinal / 1000.0
-                            
+
                             if getattr(self, "max_duration", 0) > 0:
                                 if start_s >= self.max_duration:
                                     continue
                                 if end_s > self.max_duration:
                                     end_s = float(self.max_duration)
-                                    
+
                             text = re.sub(  # noqa: F821
                                 r"<[^>]+>", "", sub.text.replace("\n", " ")
                             ).strip()
@@ -1524,7 +1230,7 @@ class AutoDubWorker(threading.Thread):
                 whisper_json_path = os.path.join(
                     self.out_dir, f".autodub_{base_name}_whisper_out.json"
                 )
-                
+
                 param_dict = {
                     "model_size": self.model_size,
                     "device": self.device,
@@ -1533,8 +1239,9 @@ class AutoDubWorker(threading.Thread):
                     "engine_type": self.whisper_engine,
                     "use_multi_lang": True,
                     "hf_token": getattr(self, "hf_key", "") or "",
+                    "source_lang": source_lang,
                 }
-                
+
                 fd, params_file = tempfile.mkstemp(suffix=".json")
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     _json.dump(param_dict, f, ensure_ascii=False)
@@ -1627,8 +1334,7 @@ class AutoDubWorker(threading.Thread):
                         )
                         if not os.path.exists(diar_audio):
                             self._run_subprocess(
-                                [
-                                    "ffmpeg",
+                                [FFMPEG_CMD,
                                     "-y",
                                     "-i",
                                     self.video_path,
@@ -1645,30 +1351,34 @@ class AutoDubWorker(threading.Thread):
                                 stderr=subprocess.DEVNULL,
                             )
                         all_created_files.append(diar_audio)
+                    env_kwargs = {}
+                    if getattr(self, "hf_key", ""):
+                        env_kwargs["env"] = {"HF_TOKEN": self.hf_key}
                     self._run_subprocess(
                         [get_python_exe(), diar_script, diar_audio, diar_json],
-                        check=True
+                        check=True,
+                        **env_kwargs
                     )
-                    
+
                     if os.path.exists(diar_json):
                         import json as _json  # noqa: PLC0415
                         with open(diar_json, "r", encoding="utf-8") as f:
                             diar_data = _json.load(f)
-                        
+
                         for seg in segments:
                             seg_start = seg["start"]
                             seg_end = seg["end"]
                             best_speaker = seg.get("speaker", "SPEAKER_00")
                             max_overlap = 0
-                            
+
                             for turn in diar_data:
                                 overlap = max(0, min(seg_end, turn["end"]) - max(seg_start, turn["start"]))
                                 if overlap > max_overlap:
                                     max_overlap = overlap
                                     best_speaker = turn["speaker"]
-                                    
+
                             seg["speaker"] = best_speaker
-                            
+
                         _save_checkpoint("trimmed_segments", segments)
                         unique_spks = len(set(s.get("speaker", "SPEAKER_00") for s in segments))
                         self.log_signal.emit(
@@ -1679,7 +1389,7 @@ class AutoDubWorker(threading.Thread):
                     self.log_signal.emit(
                         f"  [!] Ошибка диаризации: {e}. Будет использован один спикер."
                     )
-                    
+
             _set_model_status("pyannote", "done")
             self.progress_signal.emit(35)
 
@@ -1698,11 +1408,11 @@ class AutoDubWorker(threading.Thread):
             # 4. Обработка языков
             ffmpeg_inputs = ["-i", self.video_path, "-i", orig_srt_path]
             src_display = source_lang.upper() if source_lang else "ORIG"
-            
+
             # We will collect tracks and build maps at the end to ensure correct ordering
-            dubbed_audio_tracks = [] # list of dict with file_idx, lang, label, clean_label
+            dubbed_audio_tracks = []  # list of dict with file_idx, lang, label, clean_label
             dubbed_subtitle_tracks = []
-            
+
             # Start tracking input files for ffmpeg map
             file_idx = 2  # 0=video, 1=original audio+subs
 
@@ -1750,14 +1460,14 @@ class AutoDubWorker(threading.Thread):
                         self._check_cancelled,
                         ui_language=self.ui_language,
                     )
-                    
+
                     # Post-processing: restore original text and skip dubbing if segment language matches target language
                     for seg, orig_seg in zip(translated_segments, segments):
                         seg_lang = orig_seg.get("language", "")
                         if seg_lang and seg_lang[:2].lower() == lang[:2].lower():
                             seg["skip_dub"] = True
                             seg["text"] = orig_seg["text"]
-                            
+
                     _save_checkpoint(f"translated_{lang}", translated_segments)
 
                 # Progress: 35% + translation portion (15% of total range per lang)
@@ -1946,7 +1656,10 @@ class AutoDubWorker(threading.Thread):
                     else:
                         # Убираем кавычки, чтобы XTTSv2 и Edge-TTS не спотыкались на них
                         if "text" in tseg and tseg["text"]:
-                            tseg["text"] = re.sub(r'["\'«»“”„]', '', tseg["text"])
+                            cleaned = re.sub(r'["\'«»“”„]', '', tseg["text"])
+                            # Убираем теги вроде (RU), [music], чтобы они не произносились
+                            cleaned = re.sub(r'\[.*?\]|\(.*?\)', ' ', cleaned)
+                            tseg["text"] = re.sub(r'\s+', ' ', cleaned).strip()
                         tts_segments.append((idx, tseg, clip_path))
 
                 # ── TTS Dispatch: select engine and run worker ──
@@ -2227,6 +1940,16 @@ class AutoDubWorker(threading.Thread):
                 for start_t, cp, _, tseg in audio_clips:
                     if os.path.exists(cp):
                         clip = AudioSegment.from_file(cp)
+                        # Trim TTS leading/trailing silence for accurate lip-sync and timing
+                        try:
+                            from pydub.silence import detect_nonsilent
+                            nonsilent = detect_nonsilent(clip, min_silence_len=100, silence_thresh=-45)
+                            if nonsilent:
+                                start_trim = max(0, nonsilent[0][0] - 50)
+                                end_trim = min(len(clip), nonsilent[-1][1] + 50)
+                                clip = clip[start_trim:end_trim]
+                        except Exception:
+                            pass
                         allowed_dur = tseg["end"] - tseg["start"]
                         actual_dur = len(clip) / 1000.0
                         if not tseg.get("skip_dub", False):
@@ -2254,8 +1977,7 @@ class AutoDubWorker(threading.Thread):
                                         atempo_filters.append(f"atempo={remaining:.4f}")
                                 filter_chain = ",".join(atempo_filters)
                                 self._run_subprocess(
-                                    [
-                                        "ffmpeg",
+                                    [FFMPEG_CMD,
                                         "-y",
                                         "-i",
                                         cp,
@@ -2269,32 +1991,32 @@ class AutoDubWorker(threading.Thread):
                                 )
                                 clip = AudioSegment.from_file(stretched_cp)
                                 all_created_files.append(stretched_cp)
-                                
+
                         # Apply Acoustic Reverb to synthesized TTS audio
                         if not tseg.get("skip_dub", False):
                             try:
-                                from pedalboard import Pedalboard, Reverb
                                 import numpy as np
-                                
+                                from pedalboard import Pedalboard, Reverb
+
                                 board = Pedalboard([Reverb(room_size=0.4, damping=0.6, wet_level=0.15, dry_level=0.9, width=1.0)])
                                 samples = np.array(clip.get_array_of_samples(), dtype=np.float32) / 32768.0
-                                
+
                                 if clip.channels == 2:
                                     samples = samples.reshape((-1, 2)).T
                                 else:
                                     samples = samples.reshape((1, -1))
-                                    
+
                                 effected = board(samples, clip.frame_rate)
                                 effected = (effected * 32768.0).clip(-32768, 32767).astype(np.int16)
-                                
+
                                 if clip.channels == 2:
                                     effected = effected.T.flatten()
                                 else:
                                     effected = effected.flatten()
-                                    
+
                                 clip = clip._spawn(effected.tobytes())
                             except ImportError:
-                                pass # Pedalboard not installed
+                                pass  # Pedalboard not installed
                             except Exception as e:
                                 self.log_signal.emit(f"  ⚠ Reverb error: {e}")
 
@@ -2327,8 +2049,7 @@ class AutoDubWorker(threading.Thread):
                         self.out_dir, f"{base_name}_orig_audio.wav"
                     )
                     self._run_subprocess(
-                        [
-                            "ffmpeg",
+                        [FFMPEG_CMD,
                             "-y",
                             "-i",
                             self.video_path,
@@ -2346,8 +2067,7 @@ class AutoDubWorker(threading.Thread):
                     # Микшируем: no_vocals (100%) + оригинальный голос (25%)
                     # Громкость задана через volume, amix без weights (веса уже учтены)
                     self._run_subprocess(
-                        [
-                            "ffmpeg",
+                        [FFMPEG_CMD,
                             "-y",
                             "-i",
                             no_vocals_path,
@@ -2365,8 +2085,7 @@ class AutoDubWorker(threading.Thread):
                 else:
                     # Fallback: no Demucs separation — mix original audio 70% + dub
                     self._run_subprocess(
-                        [
-                            "ffmpeg",
+                        [FFMPEG_CMD,
                             "-y",
                             "-i",
                             self.video_path,
@@ -2394,8 +2113,7 @@ class AutoDubWorker(threading.Thread):
 
                 # Dub = ducked (фон + 15% оригинала) + TTS голос
                 self._run_subprocess(
-                    [
-                        "ffmpeg",
+                    [FFMPEG_CMD,
                         "-y",
                         "-i",
                         ducked_path,
@@ -2416,8 +2134,7 @@ class AutoDubWorker(threading.Thread):
                     no_vocals_path if os.path.exists(no_vocals_path) else ducked_path
                 )
                 self._run_subprocess(
-                    [
-                        "ffmpeg",
+                    [FFMPEG_CMD,
                         "-y",
                         "-i",
                         clean_bg,
@@ -2450,7 +2167,7 @@ class AutoDubWorker(threading.Thread):
                     "lang": lang,
                     "sub_file_idx": file_idx + 2,
                 })
-                
+
                 file_idx += 3
 
                 # Progress: TTS done for this language
@@ -2466,40 +2183,40 @@ class AutoDubWorker(threading.Thread):
             final_mkv = os.path.join(
                 self.out_dir, f"{base_name}{tag_str}_{lang_codes.upper()}.mkv"
             )
-            
+
             ffmpeg_maps = ["-map", "0:v:0"]
             metadata = []
             audio_idx = 0
             sub_idx = 0
-            
+
             lang_names = {
-                "ru": "Russian", "tr": "Turkish", "en": "English", 
+                "ru": "Russian", "tr": "Turkish", "en": "English",
                 "ar": "Arabic", "es": "Spanish", "fr": "French", "de": "German"
             }
-            
+
             # 1. Map Dubbed Audio First!
             for track in dubbed_audio_tracks:
                 lang = track["lang"]
                 lang_display = lang_names.get(lang, lang.upper())
-                
+
                 ffmpeg_maps.extend(["-map", f"{track['dub_file_idx']}:a:0", "-map", f"{track['clean_file_idx']}:a:0"])
-                
+
                 is_default = "1" if audio_idx == 0 else "0"
-                
+
                 dub_label = {"ru": "Дубляж (голос+фон+ориг)", "tr": "Dublaj (ses+fon+orj)", "en": "Dub (voice+bg+orig)"}.get(lang, f"{lang_display} Dub")
                 clean_label = {"ru": "Дубляж чистовой", "tr": "Dublaj temiz", "en": "Dub Clean"}.get(lang, f"{lang_display} Clean")
-                
+
                 metadata.extend([
                     f"-metadata:s:a:{audio_idx}", f"title={dub_label}",
                     f"-metadata:s:a:{audio_idx}", f"language={lang}",
                     f"-disposition:a:{audio_idx}", is_default,
-                    
-                    f"-metadata:s:a:{audio_idx+1}", f"title={clean_label}",
-                    f"-metadata:s:a:{audio_idx+1}", f"language={lang}",
-                    f"-disposition:a:{audio_idx+1}", "0"
+
+                    f"-metadata:s:a:{audio_idx + 1}", f"title={clean_label}",
+                    f"-metadata:s:a:{audio_idx + 1}", f"language={lang}",
+                    f"-disposition:a:{audio_idx + 1}", "0"
                 ])
                 audio_idx += 2
-                
+
             # 2. Map Original Audio Next
             ffmpeg_maps.extend(["-map", "0:a:0"])
             metadata.extend([
@@ -2508,15 +2225,15 @@ class AutoDubWorker(threading.Thread):
                 f"-disposition:a:{audio_idx}", "0"
             ])
             audio_idx += 1
-            
+
             # 3. Map Dubbed Subs First
             for track in dubbed_subtitle_tracks:
                 lang = track["lang"]
                 lang_display = lang_names.get(lang, lang.upper())
                 sub_label = {"ru": "Субтитры", "tr": "Altyazı", "en": "Subtitles"}.get(lang, f"{lang_display} Subtitles")
-                
+
                 ffmpeg_maps.extend(["-map", f"{track['sub_file_idx']}:s:0"])
-                
+
                 is_default = "1" if sub_idx == 0 else "0"
                 metadata.extend([
                     f"-metadata:s:s:{sub_idx}", f"title={sub_label}",
@@ -2524,7 +2241,7 @@ class AutoDubWorker(threading.Thread):
                     f"-disposition:s:{sub_idx}", is_default
                 ])
                 sub_idx += 1
-                
+
             # 4. Map Original Sub
             ffmpeg_maps.extend(["-map", "1:s:0"])
             metadata.extend([
@@ -2535,7 +2252,7 @@ class AutoDubWorker(threading.Thread):
             sub_idx += 1
 
             self._run_subprocess(
-                ["ffmpeg", "-y"]
+                [FFMPEG_CMD, "-y"]
                 + ffmpeg_inputs
                 + ["-c:v", "copy", "-c:a", "aac", "-c:s", "srt"]
                 + ffmpeg_maps

@@ -44,7 +44,7 @@ def main():
         sys.exit(1)
 
     print("Starting Pyannote Diarization 3.1...")
-    print(f"Audio: {audio_path}")
+    print("Audio: [path omitted to avoid encoding crash]")
 
     try:
         from pyannote.audio import Pipeline  # noqa: PLC0415
@@ -94,7 +94,7 @@ def main():
 
     unique_speakers = set(r["speaker"] for r in results)  # noqa: C401
     print(f"✅ Diarization complete. Found unique speakers: {len(unique_speakers)}")
-    print(f"Result saved to {output_json}")
+    print("Result saved successfully.")
     sys.exit(0)
 
 

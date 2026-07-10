@@ -37,3 +37,10 @@ AUDIT_REPORT*.md
 .claude/
 *.output
 *.pyc
+
+JOURNAL.md
+GEMINI.md
+SYSTEM_PROMPT.md
+.gemini/
+.agents/
+

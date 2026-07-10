@@ -314,7 +314,7 @@ export default function DubbingStudio() {
 
   const [config, setConfig] = useState<Config>({
     targetLanguage: "ru", voiceModel: "xttsv2", translationEngine: "deepseek",
-    translatorModel: "gemma2", pipelineMode: "automatic",
+    translatorModel: "gemma4:e4b", pipelineMode: "automatic",
     autoMux: true, voiceCloning: false, audioSeparation: false,
     exportSrt: true, keepIntermediate: false, autoOpenFolder: true,
     demucsModel: "htdemucs_ft", useGenderAI: true, useYoutubeSubs: true, useLipSync: true,
@@ -439,6 +439,18 @@ export default function DubbingStudio() {
     setConfig(prev => ({ ...prev, [key]: value }));
     if (key === "autoOpenFolder") autoOpenRef.current = value as boolean;
   }, []);
+
+  // When local_only is enabled, force local engines
+  useEffect(() => {
+    if (config.localOnly) {
+      if (!["ollama"].includes(config.translationEngine)) {
+        updateConfig("translationEngine", "ollama");
+      }
+      if (!["xttsv2", "qwen3-tts", "f5-tts", "none"].includes(config.voiceModel)) {
+        updateConfig("voiceModel", "xttsv2");
+      }
+    }
+  }, [config.localOnly]);
 
   useEffect(() => {
     if (config.translationEngine === "ollama") {

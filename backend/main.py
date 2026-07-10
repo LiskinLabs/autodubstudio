@@ -1,3 +1,5 @@
+import imageio_ffmpeg
+FFMPEG_CMD = imageio_ffmpeg.get_ffmpeg_exe()
 import asyncio
 import json
 import logging
@@ -231,7 +233,7 @@ def _safe_subprocess_env(**extra) -> dict:
 
 # Add parent directory to path to import engine.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engine import PIPELINE_BUSY, AutoDubWorker
+from engine import AutoDubWorker
 
 APP_VERSION = "0.0.1"
 
@@ -492,13 +494,14 @@ async def test_single_item(id: str):
         if id == "faster_whisper": importlib.import_module("faster_whisper")
         elif id == "whisperx":
             # WhisperX is in separate .venv-whisperx for dependency isolation
-            import subprocess, os
+            import os
+            import subprocess
             root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             venv_python = os.path.join(root, ".venv-whisperx", "Scripts", "python.exe")
             if os.path.exists(venv_python):
                 subprocess.run([venv_python, "-c", "import whisperx; print('OK')"], check=True, capture_output=True, text=True, timeout=30)
             else:
-                raise ImportError("WhisperX venv not found at .venv-whisperx")
+                return {"status": "error", "error": "Not installed. .venv-whisperx environment not found."}
         elif id == "f5_tts": importlib.import_module("f5_tts")
         elif id == "qwen3_tts": importlib.import_module("transformers")  # Qwen3-TTS uses transformers
         elif id == "coqui_tts": importlib.import_module("TTS")
@@ -520,7 +523,7 @@ async def test_single_item(id: str):
             import yt_dlp  # noqa: F401
         elif id == "ffmpeg":
             import subprocess
-            subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True, text=True)
+            subprocess.run([FFMPEG_CMD, "-version"], check=True, capture_output=True, text=True)
         elif id == "db_engine":
             import aiosqlite  # noqa: F401
         else:
@@ -807,6 +810,7 @@ async def websocket_pipeline(websocket: WebSocket):
         # Allow quick reconnect (page refresh), but auto-cleanup after 30s timeout
         _reconnect_timeout = 30.0
         _worker_snapshot = active_worker  # capture ref before it changes
+
         def _auto_cleanup():
             import time as _time
             _time.sleep(_reconnect_timeout)
@@ -2198,7 +2202,7 @@ async def download_youtube(req: YouTubeDownloadRequest):
 
                 if video_file and audio_inputs:
                     output_mkv = os.path.join(out_dir, f"{safe_title}.mkv")
-                    cmd = ["ffmpeg", "-y", "-i", video_file]
+                    cmd = [FFMPEG_CMD, "-y", "-i", video_file]
 
                     for a in audio_inputs:
                         cmd.extend(["-i", a["file"]])
@@ -2267,9 +2271,11 @@ class PreviewTTSRequest(BaseModel):
     speed: float = 1.0
     pitch: int = 0
 
+
 class PreviewOriginalRequest(BaseModel):
     start: float
     end: float
+
 
 @app.get("/api/media/current")
 async def get_current_media():
@@ -2286,6 +2292,7 @@ async def get_current_media():
             return FileResponse(files[0], media_type="video/mp4")
     raise HTTPException(status_code=404, detail="No active video found")
 
+
 @app.post("/api/preview_original")
 async def preview_original(req: PreviewOriginalRequest):
     global active_worker
@@ -2294,7 +2301,7 @@ async def preview_original(req: PreviewOriginalRequest):
     out_dir = getattr(active_worker, "out_dir", None) if active_worker else None
     if not out_dir or not os.path.isdir(out_dir):
         out_dir = tempfile.gettempdir()
-    
+
     if not video_path or not os.path.exists(video_path):
         # Fallback to finding video in out_dir
         if out_dir:
@@ -2302,16 +2309,16 @@ async def preview_original(req: PreviewOriginalRequest):
             files = glob.glob(os.path.join(out_dir, "*.mp4")) + glob.glob(os.path.join(out_dir, "*.webm")) + glob.glob(os.path.join(out_dir, "*.mkv"))
             if files:
                 video_path = files[0]
-                
+
     if not video_path or not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Original video not found")
-        
-    import subprocess, time
+
+    import subprocess
+    import time
     out_path = os.path.join(out_dir, f"preview_orig_{int(time.time())}.wav")
     duration = req.end - req.start
-    
-    cmd = [
-        "ffmpeg", "-y", "-ss", str(req.start), "-t", str(duration),
+
+    cmd = [FFMPEG_CMD, "-y", "-ss", str(req.start), "-t", str(duration),
         "-i", video_path, "-q:a", "0", "-map", "a", out_path
     ]
     try:
@@ -2319,6 +2326,7 @@ async def preview_original(req: PreviewOriginalRequest):
         return FileResponse(out_path, media_type="audio/wav")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/preview_tts")
 async def preview_tts(req: PreviewTTSRequest):

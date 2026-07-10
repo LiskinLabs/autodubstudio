@@ -5,7 +5,7 @@
 Desktop app (Windows 11) for professional AI video translation and dubbing. Fully local or cloud-assisted.
 
 > Source → Demucs → WhisperX → Pyannote → Translate → TTS → MKV
-> 14+ languages. Desktop (Tauri) + CLI. UI: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
+> 14+ languages. Desktop (Tauri v2) + CLI. UI: EN 🇬🇧 / RU 🇷🇺 / TR 🇹🇷
 
 <p align="center">
   <img src="teknorob.png" alt="AutoDub Studio" width="256"/>
@@ -67,12 +67,12 @@ AutoDubStudio/
 │   │   ├── components/           # StatusBar, TimelineEditor, SpeakerManager, etc.
 │   │   ├── hooks/                # WebSocket, Ollama, ModelStatus
 │   │   └── store.ts              # Global state + i18n (RU/EN/TR)
-│   └── src-tauri/                # Rust backend (Tauri v2)
+│   └── src-tauri/                # Rust backend (Tauri v2 + OTA Updater)
 ├── engine.py                     # Main dubbing pipeline
-├── xtts_worker.py                # XTTSv2 voice cloning (separate venv)
+├── xtts_worker.py                # XTTSv2 voice cloning
 ├── qwen_worker.py                # Qwen3-TTS voice cloning
-├── f5_worker.py                  # F5-TTS voice cloning (multi-language)
-├── lip_sync_worker.py            # Audio swap (Wav2Lip ready)
+├── f5_worker.py                  # F5-TTS voice cloning
+├── lip_sync_worker.py            # Audio swap
 ├── diarization_worker.py         # Pyannote speaker diarization
 ├── gender_worker.py              # Cross-lingual gender detection
 ├── cli.py                        # CLI for batch processing
@@ -159,7 +159,8 @@ Qwen3-TTS ────────── ✅
 
 ### Requirements
 - Windows 10/11
-- Python 3.12+ · Node.js 20+ · Rust · FFmpeg · Ollama
+- Node.js 20+ · Rust · FFmpeg · Ollama
+- Python dependencies are managed automatically via `uv`
 - NVIDIA GPU 4+ GB VRAM (recommended)
 
 ```bash

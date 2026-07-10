@@ -1,10 +1,10 @@
-import sys
 import json
-import warnings
 import os
-import tempfile
-import soundfile as sf
+import sys
+import warnings
+
 warnings.filterwarnings("ignore")
+
 
 def run_whisper_multi(params_file):
     with open(params_file, "r", encoding="utf-8") as f:
@@ -17,15 +17,16 @@ def run_whisper_multi(params_file):
     engine_type = p.get("engine_type", "whisperX")
     use_multi_lang = p.get("use_multi_lang", True)
     hf_token = p.get("hf_token", "") or os.environ.get("HF_TOKEN", "")
+    source_lang = p.get("source_lang", None)
 
     # Set HF_TOKEN for gated model downloads (SpeechBrain, etc.)
     if hf_token:
         os.environ["HF_TOKEN"] = hf_token
         print(f"[MultiLang] HF token configured (len={len(hf_token)})")
-    
+
     # 1. Run basic VAD to get chunks. We can use faster_whisper's VAD.
     from faster_whisper import WhisperModel
-    
+
     # Actually, we can just run faster_whisper or whisperx to get segments first
     print(f"[MultiLang] Loading {engine_type} model {model_size} on {device}...")
     if engine_type == "whisperX":
@@ -37,16 +38,19 @@ def run_whisper_multi(params_file):
             pass
         m = whisperx.load_model(model_size, device, compute_type="int8", vad_method="silero")
         audio = whisperx.load_audio(audio_path)
-        print("[MultiLang] Running base transcription...")
-        res = m.transcribe(audio, batch_size=4)
+        print(f"[MultiLang] Running base transcription (forced lang: {source_lang})...")
+        # For whisperX (pyannote), we can't easily set min_silence_duration in transcribe. We will just pass nothing and rely on faster_whisper for precise VAD later if needed.
+        res = m.transcribe(audio, batch_size=4, language=source_lang)
         base_segments = res["segments"]
-        base_lang = res["language"]
+        base_lang = res.get("language", source_lang or "en")
         print(f"[MultiLang] Base language detected: {base_lang}")
-        
+
     else:
         m = WhisperModel(model_size, device=device, compute_type="int8")
-        print("[MultiLang] Running base transcription...")
-        segs, info = m.transcribe(audio_path, beam_size=5, vad_filter=True)
+        print(f"[MultiLang] Running base transcription (forced lang: {source_lang})...")
+        # Force VAD to split on 300ms pauses (default is 2000ms)
+        vad_params = dict(min_silence_duration_ms=300, speech_pad_ms=100)
+        segs, info = m.transcribe(audio_path, beam_size=5, vad_filter=True, vad_parameters=vad_params, language=source_lang)
         base_lang = info.language
         base_segments = [{"start": s.start, "end": s.end, "text": s.text} for s in segs]
         print(f"[MultiLang] Base language detected: {base_lang}")
@@ -57,12 +61,13 @@ def run_whisper_multi(params_file):
     out_segments = []
     if use_multi_lang and len(base_segments) > 0:
         try:
-            from speechbrain.pretrained import EncoderClassifier
-            import torchaudio
             import huggingface_hub
+            import torchaudio
+            from speechbrain.pretrained import EncoderClassifier
 
             # Monkey-patch hf_hub_download to ignore use_auth_token
             _original_hf_hub_download = huggingface_hub.hf_hub_download
+
             def _patched_hf_hub_download(*args, **kwargs):
                 kwargs.pop("use_auth_token", None)
                 try:
@@ -76,7 +81,7 @@ def run_whisper_multi(params_file):
 
             classifier = EncoderClassifier.from_hparams(
                 source="speechbrain/lang-id-voxlingua107-ecapa",
-                savedir=os.path.join(os.getcwd(), "downloads", "speechbrain_models"),
+                savedir=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "AutoDub Studio", "models", "speechbrain_models"),
                 run_opts={"device": "cuda"} if device == "cuda" else None
             )
 
@@ -100,8 +105,28 @@ def run_whisper_multi(params_file):
                         VALID_LANGS = {"en", "es", "ru", "tr", "ar", "fr", "de", "zh", "ja", "ko", "it", "pt", "pl", "hi", "nl", "sv", "fi", "no", "da", "el", "he", "th", "vi", "id", "ms", "uk", "ro", "hu", "cs", "sk", "bg", "hr", "sr", "sl", "lt", "lv", "et"}
                         if lang_code in VALID_LANGS and lang_code != base_lang:
                             seg["language"] = lang_code
-                            # Do NOT re-transcribe — text-based detection in engine.py will correct if needed.
-                            # Individual re-transcription of 60+ segments is too slow (>3 min).
+                            # We MUST re-transcribe to get the correct words in the detected language!
+                            print(f"[MultiLang] Re-transcribing segment {i} ({start_s:.2f}-{end_s:.2f}) as {lang_code}...")
+                            try:
+                                if engine_type == "whisperX":
+                                    import numpy as np
+                                    chunk_audio = audio[int(start_s * 16000):int(end_s * 16000)]
+                                    # whisperx.transcribe needs a dict or array. 
+                                    res_chunk = m.transcribe(chunk_audio, language=lang_code)
+                                    if res_chunk["segments"]:
+                                        seg["text"] = " ".join([s["text"] for s in res_chunk["segments"]])
+                                else:
+                                    import numpy as np
+                                    # For faster_whisper, we need to extract the audio chunk.
+                                    # Since faster_whisper takes a path or numpy array:
+                                    # torchaudio loads as [channels, frames]. We need 1D numpy array for faster_whisper.
+                                    chunk_np = chunk.squeeze(0).numpy()
+                                    segs_chunk, _ = m.transcribe(chunk_np, beam_size=5, language=lang_code)
+                                    texts = [s.text for s in segs_chunk]
+                                    if texts:
+                                        seg["text"] = " ".join(texts)
+                            except Exception as e:
+                                print(f"[MultiLang] Error re-transcribing segment {i}: {e}")
                     except Exception:
                         pass  # Keep base language for this segment
 
@@ -135,21 +160,22 @@ def run_whisper_multi(params_file):
     final_out = {
         "segments": [
             {
-                "start": s["start"], 
-                "end": s["end"], 
-                "text": s["text"], 
+                "start": s["start"],
+                "end": s["end"],
+                "text": s["text"],
                 "speaker": "SPEAKER_00",
                 "language": s.get("language", base_lang)
-            } 
+            }
             for s in out_segments
         ],
         "language": base_lang
     }
-    
+
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(final_out, f, ensure_ascii=False)
-        
+
     print(f"DONE:{len(out_segments)}")
+
 
 if __name__ == "__main__":
     run_whisper_multi(sys.argv[1])

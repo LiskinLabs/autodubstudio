@@ -9,7 +9,6 @@ Model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice (Apache 2.0)
 
 import gc
 import json
-import os
 import sys
 import traceback
 
@@ -45,16 +44,18 @@ def main():
 
     print("Loading Qwen3-TTS 0.6B CustomVoice model...")
     try:
-        from transformers import AutoProcessor, Qwen3TTSForConditionalGeneration  # noqa: PLC0415
+        from qwen_tts import (  # noqa: PLC0415
+            Qwen3TTSTokenizer,
+            Qwen3TTSModel,
+        )
 
-        model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
-        processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-        model = Qwen3TTSForConditionalGeneration.from_pretrained(
+        model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+        model = Qwen3TTSModel.from_pretrained(
             model_id,
-            trust_remote_code=True,
-            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-        ).to(device)
-        model.eval()
+            device_map=device,
+            dtype=torch.bfloat16 if (device == "cuda" and torch.cuda.is_bf16_supported()) else (torch.float16 if device == "cuda" else torch.float32),
+        )
+        model.model.eval()
 
         used_vram = torch.cuda.memory_allocated(0) / (1024**3) if device == "cuda" else 0
         print(f"Model loaded! VRAM used: {used_vram:.1f} GB")
@@ -75,52 +76,51 @@ def main():
         ref_audio = task["ref_audio"]
         gen_text = task["gen_text"]
         out_path = task["out_path"]
-        language = task.get("language", "ru")
-
-        # Map to Qwen language code
-        qwen_lang = LANG_MAP.get(language, "en")
-        if qwen_lang not in QWEN_LANGS:
-            print(f"! [{i + 1}]: language '{language}' not supported by Qwen3-TTS, using 'en'")
-            qwen_lang = "en"
+        # Qwen3-TTS expects full language names, not short codes like "ru"
+        lang_map = {
+            "ru": "russian",
+            "en": "english",
+            "zh": "chinese",
+            "fr": "french",
+            "de": "german",
+            "it": "italian",
+            "ja": "japanese",
+            "ko": "korean",
+            "pt": "portuguese",
+            "es": "spanish"
+        }
+        language = task.get("language", "en")
+        qwen_lang = lang_map.get(language, "auto")
 
         if (i + 1) % 5 == 0 or i == 0:
             print(f"[{i + 1}/{len(tasks)}] [{qwen_lang}] {gen_text[:60]}...")
 
         try:
-            # Qwen3-TTS zero-shot voice cloning
-            inputs = processor(
-                text=gen_text,
-                return_tensors="pt",
-            ).to(device)
-
             # Load and process reference audio for voice cloning
             ref_audio_tensor, ref_sr = sf.read(ref_audio)
             if len(ref_audio_tensor.shape) > 1:
                 ref_audio_tensor = ref_audio_tensor.mean(axis=1)  # mono
-            ref_audio_tensor = torch.from_numpy(ref_audio_tensor).float().to(device)
 
             # Resample to 16kHz if needed
             if ref_sr != 16000:
                 import torchaudio.functional as F  # noqa: PLC0415
-                if ref_sr != 16000:
-                    ref_audio_tensor = F.resample(
-                        ref_audio_tensor.unsqueeze(0),
-                        orig_freq=ref_sr,
-                        new_freq=16000,
-                    ).squeeze(0)
+                ref_audio_tensor = torch.from_numpy(ref_audio_tensor).float()
+                ref_audio_tensor = F.resample(
+                    ref_audio_tensor.unsqueeze(0),
+                    orig_freq=ref_sr,
+                    new_freq=16000,
+                ).squeeze(0)
+                ref_audio_tensor = ref_audio_tensor.numpy()
 
             with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    speaker_audio=ref_audio_tensor,
+                audio_list, sample_rate = model.generate_voice_clone(
+                    text=gen_text,
                     language=qwen_lang,
-                    max_new_tokens=2048,
+                    ref_audio=(ref_audio_tensor, 16000),
+                    x_vector_only_mode=True,
                 )
 
-            audio = outputs.audio[0].cpu().numpy()
-            sample_rate = outputs.sample_rate
-
-            sf.write(out_path, audio, sample_rate)
+            sf.write(out_path, audio_list[0], sample_rate)
             success += 1
 
         except RuntimeError as e:
@@ -146,7 +146,6 @@ def main():
     # Unload model from VRAM before exit
     try:
         del model
-        del processor
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

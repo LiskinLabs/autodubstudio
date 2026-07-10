@@ -3,11 +3,11 @@ XTTS v2 Worker — Voice Cloning for AutoDubStudio
 Runs on Python 3.11 (separate venv), called as subprocess from main app.
 """
 
+import gc
 import json
 import os
 import sys
 import traceback
-import gc
 
 # Automatically accept Coqui TTS license to prevent hanging on input
 os.environ["COQUI_TOS_AGREED"] = "1"

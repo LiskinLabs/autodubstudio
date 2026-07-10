@@ -6,8 +6,8 @@ XLSR-53 was pre-trained on 53 languages, making it suitable for multilingual con
 import json
 import os
 import sys
-import warnings
 import traceback
+import warnings
 
 import torch
 

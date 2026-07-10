@@ -10,7 +10,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useSettings } from "../store";
 
 const DEPS_EMOJI: Record<string, string> = {
-  python: "🐍", uv: "⚡", ollama: "🦙", ffmpeg: "🎬", packages: "📦",
+  uv: "📦", ollama: "🦙", packages: "🧠",
 };
 
 interface DepStatus {
@@ -30,7 +30,7 @@ export default function SystemDependencies() {
     const results: DepStatus[] = [];
     // Map dep IDs to backend test-item IDs
     const DEP_TO_TEST: Record<string, string> = {
-      python: "torch", uv: "torch", ollama: "ollama", ffmpeg: "ffmpeg", packages: "torch",
+      uv: "torch", ollama: "ollama", packages: "torch",
     };
     for (const id of Object.keys(DEPS_EMOJI)) {
       try {

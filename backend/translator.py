@@ -400,12 +400,8 @@ class Translator:
                 )
             except Exception:
                 vram_free_mb = 0
-            num_predict = (
-                2048 if vram_free_mb > 6000 else (1024 if vram_free_mb > 4000 else 512)
-            )
-            num_ctx = (
-                4096 if vram_free_mb > 6000 else 2048
-            )
+            num_ctx = 4096 if vram_free_mb > 6000 else 2048
+            num_predict = num_ctx // 2
             # Limit GPU layers for low-VRAM cards (leaves room for KV cache + PyTorch residue)
             num_gpu = 99 if vram_free_mb > 6000 else (30 if vram_free_mb > 4000 else 24)
 
@@ -441,9 +437,9 @@ class Translator:
                     print("PAYLOAD (first 200 chars):", payload.decode("utf-8")[:200])
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=180) as resp:
+                    with urllib.request.urlopen(req, timeout=600) as resp:
                         if resp.status == 200:
-                            self.translator_model = model_name # Save successful fallback
+                            self.translator_model = model_name  # Save successful fallback
                             result = json.loads(resp.read().decode())
                             text = result.get("message", {}).get("content", "")
                             json_text = self._extract_json(text)
@@ -456,7 +452,7 @@ class Translator:
                     if hasattr(e, 'read'):
                         try:
                             err_body = e.read().decode()
-                        except:
+                        except Exception:
                             pass
                     print(f"Ollama _call_llm {model_name} error: {e}. Body: {err_body}. Trying next...")
                     continue
@@ -572,9 +568,9 @@ class Translator:
                 headers = {"Content-Type": "application/json"}
                 req = urllib.request.Request(url, data=payload, headers=headers)
                 try:
-                    with urllib.request.urlopen(req, timeout=60) as response:
+                    with urllib.request.urlopen(req, timeout=300) as response:
                         if response.status == 200:
-                            self.translator_model = model_name # Save successful fallback
+                            self.translator_model = model_name  # Save successful fallback
                             result = json.loads(response.read().decode())
                             text = result.get("message", {}).get("content", "")
                             json_text = self._extract_json(text)
@@ -660,18 +656,33 @@ class Translator:
                 duration = seg["end"] - seg["start"]
                 max_chars = max(15, int(duration * 17))
                 dialogue.append(f"[{j}] {spk} (Duration: {duration:.1f}s, Max length: {max_chars} chars)\n    Original: {orig}\n    Draft: {base}")
+            # Build context window (sliding window)
+            context_before_segs = segments[max(0, batch_start - 3):batch_start]
+            context_after_segs = segments[batch_end:min(total, batch_end + 2)]
+            context_before_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_before_segs]) if context_before_segs else "None"
+            context_after_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_after_segs]) if context_after_segs else "None"
+
             full_text = "\n\n".join(dialogue)
             glossary_text = f"\nUse this Glossary for terminology (do not change these names/terms):\n{self.user_glossary}\n" if self.user_glossary else ""
             prompt = f"""Improve these subtitle translations to sound natural in {lang_name}. Fix grammar, flow, and make them conversational.
 
 Rules:
 - Output a JSON object with "segments" array
-- Each segment: {{"text": "improved translation", "skip_dub": false}}
+- Each segment MUST have this structure: {{"direct_translation": "...", "reflection": "analyze errors and flow", "text": "final improved translation", "skip_dub": false}}
 - Keep names/brands/tech terms unchanged{glossary_text}\n- CRITICAL: "text" MUST NOT exceed the "Max length" character limit! Shorten the translation if needed.
-- If the Draft is already perfect, copy it as-is
+- If the Draft is already perfect, copy it as-is to "text"
 - ANTI-HALLUCINATION: If a phrase is meaningless, untranslatable, or lacks context, return the Draft as-is or "null". DO NOT invent text, do not add commentary, do not explain jokes.
 
-Video Context:\n{context_summary}\n\nDialogue:\n{full_text}
+Video Context:\n{context_summary}
+
+Previous lines (Context):
+{context_before_text}
+
+Upcoming lines (Context):
+{context_after_text}
+
+Dialogue to translate:
+{full_text}
 
 JSON:"""
             try:
@@ -679,7 +690,7 @@ JSON:"""
                 import json as _json  # noqa: PLC0415
 
                 data = _json.loads(response)
-                
+
                 # --- Anti-Hallucination: JSON Schema & Structural Validation ---
                 if not isinstance(data, dict):
                     raise ValueError("Root JSON must be an object.")
@@ -694,7 +705,7 @@ JSON:"""
                     if "skip_dub" not in item:
                         item["skip_dub"] = False
                 # --------------------------------------------------------------
-                
+
                 gemma4_failures = 0
                 if parsed and len(parsed) == len(batch):
                     for j, p_seg in enumerate(parsed):
@@ -721,7 +732,6 @@ JSON:"""
         return segments
 
     def release_models(self):
-        import gc  # noqa: PLC0415
         import time as _time  # noqa: PLC0415
 
         if "ollama" in self.engine_name.lower():
@@ -767,13 +777,13 @@ JSON:"""
         """Analyze transcription segments and generate an AI Glossary (dictionary of names/terms)."""
         lang_names = {"ru": "Russian", "en": "English", "tr": "Turkish", "ar": "Arabic"}
         lang_name = lang_names.get(target_lang, target_lang)
-        
+
         # Combine transcript text (up to a limit to fit in context)
         full_text = " ".join([s["text"] for s in segments])
         # Limit to roughly 10000 chars to avoid overwhelming the context
         if len(full_text) > 10000:
             full_text = full_text[:10000] + "..."
-            
+
         prompt = f"""You are a professional linguist and dubbing assistant.
 Analyze the following video transcription and extract up to {max_terms} key terms.
 A 'key term' is a proper noun, brand name, character name, location, or specialized terminology.
@@ -795,19 +805,19 @@ JSON:"""
             response = self._call_llm(prompt, is_json=True)
             import json as _json
             data = _json.loads(response)
-            
+
             # Validation
             if not isinstance(data, dict):
                 raise ValueError("Root JSON must be an object.")
             terms = data.get("terms", [])
             if not isinstance(terms, list):
                 raise ValueError("'terms' must be an array.")
-                
+
             valid_terms = []
             for t in terms:
                 if isinstance(t, dict) and "original" in t and "translation" in t:
                     valid_terms.append(f"{t['original']} = {t['translation']}")
-                    
+
             return "\n".join(valid_terms)
         except Exception as e:
             print(f"Glossary generation failed: {e}")
@@ -854,7 +864,7 @@ JSON:"""
             else:
                 seg["skip_dub"] = False
 
-        #  Step 1: Fast base translation 
+        #  Step 1: Fast base translation
         # DeepL: high-quality, paid API. Google Translate: free fallback for AI refinement engines.
         if is_deepl:
             if log_callback:
@@ -1034,6 +1044,12 @@ JSON:"""
                         f"[{i}] {spk} (Duration: {duration:.1f}s, Max length: {max_chars} chars)\n    Original: {orig}\n    Draft: {base}"
                     )
 
+                # Build context window (sliding window)
+                context_before_segs = segments[max(0, batch_start - 3):batch_start]
+                context_after_segs = segments[batch_end:min(total, batch_end + 2)]
+                context_before_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_before_segs]) if context_before_segs else "None"
+                context_after_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_after_segs]) if context_after_segs else "None"
+
                 full_text = "\n\n".join(dialogue)
 
                 glossary_text = f"\nUse this Glossary for terminology (do not change these names/terms):\n{self.user_glossary}\n" if self.user_glossary else ""
@@ -1041,12 +1057,21 @@ JSON:"""
 
 Rules:
 - Output a JSON object with "segments" array
-- Each segment: {{"text": "improved translation", "skip_dub": false, "gender": "male"}}
+- Each segment MUST have this structure: {{"direct_translation": "...", "reflection": "analyze errors and flow", "text": "final improved translation", "skip_dub": false, "gender": "male"}}
 - For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
 - Keep names/brands/tech terms unchanged{glossary_text}\n- CRITICAL: "text" MUST NOT exceed the "Max length" character limit! Shorten the translation if needed.
-- If the Draft is already perfect, copy it as-is
+- If the Draft is already perfect, copy it as-is to "text"
 
-Video Context:\n{context_summary}\n\nDialogue:\n{full_text}
+Video Context:\n{context_summary}
+
+Previous lines (Context):
+{context_before_text}
+
+Upcoming lines (Context):
+{context_after_text}
+
+Dialogue to translate:
+{full_text}
 
 JSON:"""
 
@@ -1062,8 +1087,24 @@ JSON:"""
 
                 try:
                     response = self._call_llm(prompt, is_json=True)
-                    data = json.loads(response)
-                    parsed = data.get("segments", [])
+                    import re
+                    clean_resp = re.sub(r"```(?:json)?", "", response.strip(), flags=re.IGNORECASE)
+                    clean_resp = clean_resp.replace("```", "").strip()
+                    match = re.search(r"(\{.*\}|\[.*\])", clean_resp, re.DOTALL)
+                    if match:
+                        clean_resp = match.group(1)
+                    data = json.loads(clean_resp)
+                    if isinstance(data, list):
+                        parsed = data
+                    else:
+                        parsed = data.get("segments", [])
+                        
+                    with open("debug_gemma_parsed.json", "a", encoding="utf-8") as f:
+                        json.dump({"raw": response, "parsed": parsed}, f, ensure_ascii=False, indent=2)
+                        f.write("\n\n")
+
+                    if not parsed and log_callback and os.environ.get("AUTODUB_DEBUG_PAYLOAD"):
+                        log_callback(f"  [DEBUG] Gemma4 returned empty parsed segments. Raw: {response}")
                     gemma4_failures = 0  # Reset on success
 
                     if parsed and len(parsed) == len(batch):
@@ -1176,21 +1217,37 @@ JSON:"""
                         f"[{i}] {spk} (Duration: {duration:.1f}s, Max length: {max_chars} chars)\n    Original: {orig}\n    Draft: {draft}"
                     )
 
+                # Build context window (sliding window)
+                context_before_segs = segments[max(0, batch_start - 3):batch_start]
+                context_after_segs = segments[batch_end:min(total_segments, batch_end + 2)]
+                context_before_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_before_segs]) if context_before_segs else "None"
+                context_after_text = " ".join([f"{s.get('speaker', 'SPEAKER')}: {s['text'].strip()}" for s in context_after_segs]) if context_after_segs else "None"
+
                 full_text = "\n\n".join(dialogue)
 
+                glossary_text = f"\nUse this Glossary for terminology:\n{self.user_glossary}\n" if self.user_glossary else ""
                 prompt = f"""You are an expert {lang_name} translator and localization editor.
 Improve these subtitle draft translations to sound completely natural in {lang_name}.
 Fix grammar, word choice, and conversational flow. Keep names/brands/tech terms unchanged.
 
 CRITICAL RULES:
 - Output a JSON object with a "segments" array
-- Each segment: {{"text": "improved translation", "skip_dub": false, "gender": "male"}}
+- Each segment MUST have this structure: {{"direct_translation": "...", "reflection": "analyze errors and flow", "text": "final improved translation", "skip_dub": false, "gender": "male"}}
 - For "gender", guess the speaker's gender ("male", "female", or "unknown") based on context.
-- ONLY set "skip_dub": true if the 'Original' text is CLEARLY spoken in {lang_name} and doesn't need translation.
-- If the 'Original' text is in any other language, YOU MUST SET "skip_dub": false.
-- If the Draft is already perfect, copy it as-is.
+- ONLY set "skip_dub": true if the 'Original' text is CLEARLY spoken in {lang_name} and doesn't need translation.{glossary_text}
+- CRITICAL: "text" MUST NOT exceed the "Max length" character limit! Shorten the translation if needed.
+- If the Draft is already perfect, copy it as-is to "text".
 
-Video Context:\n{context_summary}\n\nDialogue:\n{full_text}
+Video Context:\n{context_summary}
+
+Previous lines (Context):
+{context_before_text}
+
+Upcoming lines (Context):
+{context_after_text}
+
+Dialogue to translate:
+{full_text}
 
 JSON:"""
 

@@ -1,8 +1,8 @@
 import argparse
-import sys
+import json
 import os
 import shutil
-import json
+import sys
 
 # Fix for Windows PyTorch Audio / FFmpeg TorchCodec DLL issue
 if os.name == 'nt':
@@ -18,6 +18,7 @@ if os.name == 'nt':
 
 from engine import AutoDubWorker
 
+
 def main():
     parser = argparse.ArgumentParser(description="AutoDub Studio CLI - Command Line Interface")
     parser.add_argument("video_path", type=str, help="Path to input video or YouTube URL")
@@ -29,7 +30,7 @@ def main():
     parser.add_argument("--dub_engine", type=str, default="xttsv2",
                         help="TTS engine: xttsv2, qwen3-tts (ru/en), f5-tts (tr/en/zh/ru), edge-tts, azure, openai, none")
     parser.add_argument("--translator_model", type=str, default="gemma4:e4b", help="Model for Ollama translator: gemma4:12b (High-end), gemma4:e4b (Medium), gemma4:e2b (Weak)")
-    
+
     # API Keys
     parser.add_argument(
         "--lip_sync_engine",
@@ -42,7 +43,7 @@ def main():
     parser.add_argument("--deepseek_key", type=str, default="", help="DeepSeek API Key")
     parser.add_argument("--deepl_key", type=str, default="", help="DeepL API Key")
     parser.add_argument("--hf_key", type=str, default="", help="Hugging Face API Key")
-    
+
     # Advanced Options
     parser.add_argument("--lip_sync", action="store_true", help="Enable Lip-Sync processing")
     parser.add_argument("--no_youtube_subs", action="store_true", help="Force Whisper instead of downloading YouTube subtitles")
@@ -87,58 +88,58 @@ def main():
         "hf_key": hf_key,
     }
 
-    print(f"==================================================")
-    print(f"AutoDub Studio CLI v1.1 - Industrial Edition")
-    print(f"==================================================")
+    print("==================================================")
+    print("AutoDub Studio CLI v1.1 - Industrial Edition")
+    print("==================================================")
     for k, v in config.items():
         if 'key' in k and v:
             print(f"{k.ljust(20)}: {'*' * 8}")
         else:
             print(f"{k.ljust(20)}: {v}")
-    print(f"==================================================")
+    print("==================================================")
 
     worker = AutoDubWorker(config)
-    
+
     def on_log(msg):
         print(f"[LOG] {msg}")
 
     def on_progress(p):
-        pass # To avoid console spam
+        pass  # To avoid console spam
 
     def on_finished(success, msg):
         print(f"\n[FINISHED] Success: {success}")
         print(f"[RESULT] {msg}")
-        
+
     def on_manual_edit(manual_subs):
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print("MANUAL MODE PAUSED")
-        print("="*50)
+        print("=" * 50)
         edit_file = os.path.join(os.getcwd(), "manual_edit.json")
         with open(edit_file, "w", encoding="utf-8") as f:
             json.dump(manual_subs, f, ensure_ascii=False, indent=4)
-        
+
         print(f"Subtitles dumped to: {edit_file}")
         print("1. Open this file in your favorite text editor.")
         print("2. Modify the 'trans' (translation) fields or 'speaker' assignments as needed.")
         print("3. Save the file.")
-        
+
         input("\nPress ENTER when you have finished editing to resume the pipeline...")
-        
+
         try:
             with open(edit_file, "r", encoding="utf-8") as f:
                 edited_subs = json.load(f)
-            
+
             # Map back to the format engine expects (it expects 'text' instead of 'trans' sometimes,
             # but in engine.py:1605 it assigns self.edited_segments directly to translated_segments,
             # so we ensure 'text' is properly set)
             for s in edited_subs:
                 s['text'] = s.get('trans', s.get('text', ''))
-                
+
             worker.edited_segments = edited_subs
             print("Changes loaded successfully. Resuming pipeline...")
         except Exception as e:
             print(f"Error loading edits ({e}). Resuming with original translations...")
-            
+
         worker.pause_event.set()
 
     worker.log_signal.connect(on_log)
@@ -147,7 +148,7 @@ def main():
     worker.manual_edit_signal.connect(on_manual_edit)
 
     worker.start()
-    
+
     try:
         while worker.is_alive():
             worker.join(timeout=1.0)
@@ -156,6 +157,7 @@ def main():
         worker.stop()
         worker.join()
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

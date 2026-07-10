@@ -7,10 +7,8 @@ Zero-shot voice cloning — ref_text must be provided manually (no Whisper ASR).
 
 import gc
 import json
-import os
 import sys
 import traceback
-
 
 # ── Language → Model mapping ──
 F5_MODEL_MAP = {
@@ -62,11 +60,11 @@ def main():
 
     # ── Load F5-TTS ──
     from importlib.resources import files  # noqa: PLC0415
+
+    import torch  # noqa: PLC0415
     from f5_tts.infer.utils_infer import load_model, load_vocoder  # noqa: PLC0415
     from hydra.utils import get_class  # noqa: PLC0415
     from omegaconf import OmegaConf  # noqa: PLC0415
-
-    import torch  # noqa: PLC0415
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

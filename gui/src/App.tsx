@@ -20,7 +20,11 @@ import {
   BoardRegular as Cpu,
   NavigationRegular as Hamburger,
   BookRegular as Book,
+  DismissRegular,
+  SubtractRegular,
+  MaximizeRegular,
 } from "@fluentui/react-icons";
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import StatusBar from "./components/StatusBar";
 import CommandPalette from "./components/CommandPalette";
 import { useSettings } from "./store";
@@ -221,9 +225,9 @@ const App: React.FC = () => {
     <div className={s.root}>
       <a href="#main-content" className="skip-to-content">{t("app.skip_to_content")}</a>
 
-      {/* ── Win11 Mica Titlebar ── */}
-      <div className={mergeClasses("titlebar", "titlebar-surface", s.titlebar)}>
-        <div className={s.titlebarLeft}>
+      {/* ✨ Win11 Mica Titlebar ✨ */}
+      <div data-tauri-drag-region className={mergeClasses("titlebar", "titlebar-surface", s.titlebar)}>
+        <div className={mergeClasses(s.titlebarLeft, "no-drag")}>
           <Button
             appearance="transparent"
             className="win11-hamburger no-drag"
@@ -246,10 +250,14 @@ const App: React.FC = () => {
               icon={<ThemeIcon fontSize={16} />}
               onClick={() => setTheme(dark ? themeLight : themeDark)} />
           </Tooltip>
+          <div style={{ width: 1, height: 16, background: "var(--colorNeutralStroke1)", margin: "0 4px" }} />
+          <Button appearance="subtle" size="small" shape="circular" icon={<SubtractRegular fontSize={14} />} onClick={() => getCurrentWindow().minimize()} />
+          <Button appearance="subtle" size="small" shape="circular" icon={<MaximizeRegular fontSize={14} />} onClick={() => getCurrentWindow().toggleMaximize()} />
+          <Button appearance="subtle" size="small" shape="circular" icon={<DismissRegular fontSize={14} />} onClick={() => getCurrentWindow().close()} className="close-btn" />
         </div>
       </div>
 
-      {/* ── Body: Sidebar + Content ── */}
+      {/* ✨ Body: Sidebar + Content ✨ */}
       <div className={s.body}>
         {!sidebarCollapsed && (
           <div className={mergeClasses("win11-sidebar-backdrop", "visible")}

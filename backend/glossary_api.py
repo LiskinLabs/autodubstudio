@@ -97,14 +97,14 @@ def generate_glossary(body: GlossaryGenerate):
     # Try to use Gemma4 via Translator class
     try:
         from .translator import Translator
-        
+
         config_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "config.json"
         )
         gemini_key = ""
         engine = "ollama"
         model = "gemma4:e4b"
-        
+
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
@@ -114,24 +114,24 @@ def generate_glossary(body: GlossaryGenerate):
 
         # Create dummy segments from transcript for the Translator
         segments = [{"text": body.transcript[:10000]}]
-        
+
         translator = Translator(
             engine_name=engine,
             gemini_key=gemini_key,
             translator_model=model,
-            device="cuda" # assume cuda
+            device="cuda"  # assume cuda
         )
-        
+
         # Use our new generate_glossary method inside Translator
         raw_text = translator.generate_glossary(segments, target_lang=body.target_lang, max_terms=15)
-        
+
         items = []
         if raw_text:
             for line in raw_text.split("\n"):
                 if "=" in line:
                     parts = line.split("=", 1)
                     items.append({"source": parts[0].strip(), "target": parts[1].strip()})
-                    
+
         # Provide fallback if Gemma4 failed
         if not items and gemini_key:
             import google.genai as genai
@@ -152,7 +152,7 @@ def generate_glossary(body: GlossaryGenerate):
                 text = text.split("\n", 1)[1].rsplit("```", 1)[0]
             data = json.loads(text)
             items = data.get("items", [])
-            
+
         return {"items": items}
     except HTTPException:
         raise
