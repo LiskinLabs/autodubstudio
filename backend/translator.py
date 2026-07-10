@@ -310,7 +310,6 @@ class Translator:
             return ""
         text = text.strip()
         # Remove Gemma 4 reasoning blocks
-        import re  # noqa: PLC0415
         text = re.sub(r"<\|?think\|?>.*?</\|?think\|?>", "", text, flags=re.DOTALL)
         # Remove markdown code fences
         text = re.sub(r"```(?:json)?\s*\n?", "", text)
@@ -1098,7 +1097,7 @@ JSON:"""
                         parsed = data
                     else:
                         parsed = data.get("segments", [])
-                        
+
                     with open("debug_gemma_parsed.json", "a", encoding="utf-8") as f:
                         json.dump({"raw": response, "parsed": parsed}, f, ensure_ascii=False, indent=2)
                         f.write("\n\n")

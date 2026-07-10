@@ -34,10 +34,6 @@ _SCRIPT_CHARS = {
 }
 
 
-
-
-
-
 import threading
 import warnings
 
@@ -67,9 +63,6 @@ if _dev_root:
     _POSSIBLE_ROOTS.insert(0, _dev_root)
 
 
-
-
-
 # WhisperX will be imported locally inside the worker
 
 
@@ -80,8 +73,6 @@ from pydub import AudioSegment
 
 from backend.translator import Translator
 from backend.vram_manager import get_monitor
-
-
 
 
 # ── Safe subprocess environment (security: don't leak API keys to child processes) ──
@@ -128,8 +119,6 @@ _SUBPROCESS_BLOCK_VARS = {
     "WS_AUTH_TOKEN",
     "VERCEL_API_TOKEN",
 }
-
-
 
 
 # ── Multi-language log messages ──
@@ -277,8 +266,6 @@ _PIPELINE_LOG = {
 }
 
 
-
-
 class EventSignal:
     def __init__(self):
         self.callbacks = []
@@ -296,14 +283,6 @@ class EventSignal:
 
 PIPELINE_BUSY = False
 PIPELINE_LOCK = threading.Lock()
-
-
-
-
-
-
-
-
 
 
 class InterruptedError(Exception):
@@ -732,23 +711,6 @@ class AutoDubWorker(threading.Thread):
                 "none": {
                     "ru", "en", "tr", "ar", "es", "fr", "de", "zh", "ja", "ko",
                     "it", "pt", "pl", "hi",
-                },
-
-                "xttsv2": {
-                    "ru",
-                    "en",
-                    "tr",
-                    "ar",
-                    "es",
-                    "fr",
-                    "de",
-                    "zh",
-                    "ja",
-                    "ko",
-                    "it",
-                    "pt",
-                    "pl",
-                    "hi",
                 },
             }
             # Fallback for display names if sent instead of IDs
@@ -1380,9 +1342,9 @@ class AutoDubWorker(threading.Thread):
                             seg["speaker"] = best_speaker
 
                         _save_checkpoint("trimmed_segments", segments)
-                        unique_spks = len(set(s.get("speaker", "SPEAKER_00") for s in segments))
+                        unique_spks = len({s.get("speaker", "SPEAKER_00") for s in segments})
                         self.log_signal.emit(
-                            _pipeline_t("diarization_done", self.ui_language, pyannote=len(set(t["speaker"] for t in diar_data)), n=unique_spks)
+                            _pipeline_t("diarization_done", self.ui_language, pyannote=len({t["speaker"] for t in diar_data}), n=unique_spks)
                         )
 
                 except Exception as e:

@@ -85,7 +85,6 @@ def main():
         "max_duration": args.max_duration,
         "local_only": args.local_only,
         "whisper_engine": args.whisper_engine,
-        "hf_key": hf_key,
     }
 
     print("==================================================")

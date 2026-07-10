@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import sys
+import psutil
 import requests
 from urllib.parse import urlparse
 
@@ -18,9 +19,9 @@ _SCRIPT_CHARS = {
     "ru": set("абвгдеёжзийклмнопрстуфхцчшщъыьэюя"),
     "tr": set("ğüşöçIİ"),
     "ar": set("ابتثجحخدذرزسشصضطظعغفقكلمنهوي"),
-    "zh": set("的一是不了在人有我他这个们中来上大为和国地到以说时起作里"), 
-    "ja": set("あいうえおかきくけこさしすせそ"), 
-    "ko": set("가나다라마바사아자차카타파하"), 
+    "zh": set("的一是不了在人有我他这个们中来上大为和国地到以说时起作里"),
+    "ja": set("あいうえおかきくけこさしすせそ"),
+    "ko": set("가나다라마바사아자차카타파하"),
     "hi": set("अआइईउऊऋएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह"),
     "th": set("กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ"),
 }
@@ -75,6 +76,7 @@ def detect_language(text: str) -> str:
 
     return "unknown"
 
+
 def split_bilingual_text(text: str) -> list[tuple[str, str]]:
     """Split mixed-language text into (text, language) chunks.
     E.g. 'Hola, ¿cómo estás? Good morning, welcome.' →
@@ -114,6 +116,20 @@ def split_bilingual_text(text: str) -> list[tuple[str, str]]:
 
     return chunks if chunks else [(text, "unknown")]
 
+
+_ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PARENT_DIR = os.path.dirname(_ENGINE_DIR)
+_POSSIBLE_ROOTS = [
+    _ENGINE_DIR,
+    _PARENT_DIR,
+    os.path.join(_ENGINE_DIR, "_up_"),
+    os.path.join(_PARENT_DIR, "_up_"),
+]
+_dev_root = os.environ.get("AUTODUB_DEV_ROOT", "")
+if _dev_root:
+    _POSSIBLE_ROOTS.insert(0, _dev_root)
+
+
 def get_python_exe():
     """Returns the path to the current python executable (handles virtualenvs)"""
     if "UV_PROJECT_ENVIRONMENT" in os.environ:
@@ -126,12 +142,14 @@ def get_python_exe():
             return candidate
     return sys.executable
 
+
 def _resolve_venv_python(venv_name: str) -> str:
     for root in _POSSIBLE_ROOTS:
         candidate = os.path.join(root, venv_name, "Scripts", "python.exe")
         if os.path.exists(candidate):
             return candidate
     return get_python_exe()
+
 
 def kill_process_tree(pid):
     try:
@@ -145,6 +163,20 @@ def kill_process_tree(pid):
         parent.kill()
     except psutil.NoSuchProcess:
         pass
+
+
+_SUBPROCESS_BLOCK_VARS = {
+    "GITHUB_TOKEN",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "DEEPL_API_KEY",
+    "OPENAI_API_KEY",
+    "AZURE_OPENAI_KEY",
+    "HUGGINGFACE_TOKEN",
+    "WS_AUTH_TOKEN",
+    "VERCEL_API_TOKEN",
+}
+
 
 def _safe_subprocess_env(**extra) -> dict:
     """Return minimal env for subprocess calls — NO API keys, NO secrets.
@@ -174,13 +206,24 @@ def _safe_subprocess_env(**extra) -> dict:
     env.update(extra)
     return env
 
+
 def _pipeline_t(key: str, ui_lang: str = "ru", **kwargs) -> str:
     """Return a translated pipeline log message."""
+
+    try:
+        from engine import _PIPELINE_LOG
+    except ImportError:
+        import sys
+        if "engine" in sys.modules:
+            _PIPELINE_LOG = sys.modules["engine"]._PIPELINE_LOG
+        else:
+            _PIPELINE_LOG = {}
     entry = _PIPELINE_LOG.get(key, {})
     msg = entry.get(ui_lang) or entry.get("en") or key
     if kwargs:
         msg = msg.format(**kwargs)
     return msg
+
 
 def _set_model_status(model: str, state: str):
     """Update global pipeline_status dict for the StatusBar."""
@@ -191,6 +234,7 @@ def _set_model_status(model: str, state: str):
         pipeline_status["active"] = True
     except Exception:
         pass
+
 
 def _finish_pipeline_status(error: bool = False):
     """Finalize pipeline status. Reset models to idle (gray indicators).
@@ -226,6 +270,7 @@ def _finish_pipeline_status(error: bool = False):
     except Exception:
         pass
 
+
 def _set_engine_info(model: str, engine_id: str):
     """Set which engine is used for translate/TTS (for StatusBar display)."""
     try:
@@ -238,6 +283,7 @@ def _set_engine_info(model: str, engine_id: str):
     except Exception:
         pass
 
+
 def _set_pipeline_step(step_name: str, step_index: int):
     try:
         from shared import pipeline_status  # noqa: PLC0415
@@ -246,4 +292,3 @@ def _set_pipeline_step(step_name: str, step_index: int):
         pipeline_status["step_index"] = step_index
     except Exception:
         pass
-

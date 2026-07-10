@@ -49,7 +49,7 @@ def run_whisper_multi(params_file):
         m = WhisperModel(model_size, device=device, compute_type="int8")
         print(f"[MultiLang] Running base transcription (forced lang: {source_lang})...")
         # Force VAD to split on 300ms pauses (default is 2000ms)
-        vad_params = dict(min_silence_duration_ms=300, speech_pad_ms=100)
+        vad_params = {"min_silence_duration_ms": 300, "speech_pad_ms": 100}
         segs, info = m.transcribe(audio_path, beam_size=5, vad_filter=True, vad_parameters=vad_params, language=source_lang)
         base_lang = info.language
         base_segments = [{"start": s.start, "end": s.end, "text": s.text} for s in segs]
@@ -111,7 +111,7 @@ def run_whisper_multi(params_file):
                                 if engine_type == "whisperX":
                                     import numpy as np
                                     chunk_audio = audio[int(start_s * 16000):int(end_s * 16000)]
-                                    # whisperx.transcribe needs a dict or array. 
+                                    # whisperx.transcribe needs a dict or array.
                                     res_chunk = m.transcribe(chunk_audio, language=lang_code)
                                     if res_chunk["segments"]:
                                         seg["text"] = " ".join([s["text"] for s in res_chunk["segments"]])

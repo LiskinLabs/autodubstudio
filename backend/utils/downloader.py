@@ -2,6 +2,7 @@ import os
 import subprocess
 from backend.utils.helpers import _pipeline_t, kill_process_tree, _safe_subprocess_env, get_python_exe
 
+
 def _download_youtube(self, url, out_dir):
     """Download video from YouTube/TikTok/Vimeo URL using yt-dlp."""
     from urllib.parse import urlparse  # noqa: PLC0415
@@ -97,4 +98,3 @@ def _download_youtube(self, url, out_dir):
             raise e
 
     raise RuntimeError(f"Failed to download: {url}")
-
